@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Chess Training"
+description = "A focused chess training workspace with an interactive board, move selection, and room to grow into computer-assisted play."
+version = "1.0.0"
+id = "artifacts/chess-training"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 21175
+
+[services.development]
+run = "pnpm --filter @workspace/chess-training run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/chess-training", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/chess-training/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21175"
+BASE_PATH = "/"
