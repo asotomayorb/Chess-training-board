@@ -6,7 +6,8 @@ import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
 import { Route, Switch, useLocation, Router as WouterRouter } from 'wouter';
-import { italianGameVariants, type OpeningMove, type OpeningVariant } from '@/data/openings';
+import { trainingVariantCatalog, type OpeningMove, type OpeningVariant } from '@/data/openings';
+import { calculateAccuracy, chooseRandomVariant, getTrainingLength, getTrainingMovePair } from '@/engine/variant-engine';
 
 type Side = 'white' | 'black';
 type PieceType = 'rook' | 'knight' | 'bishop' | 'queen' | 'king' | 'pawn';
@@ -14,6 +15,11 @@ type Piece = { type: PieceType; color: Side };
 type Board = Array<Array<Piece | null>>;
 type Square = { row: number; col: number };
 type PracticeMode = 'free' | 'opening';
+type DifficultMove = {
+  notation: string;
+  errors: number;
+  hintsUsed: number;
+};
 
 const queryClient = new QueryClient();
 const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
@@ -129,7 +135,7 @@ function applyMove(board: Board, move: OpeningMove): Board {
 }
 
 function chooseVariant(): OpeningVariant {
-  return italianGameVariants[Math.floor(Math.random() * italianGameVariants.length)] ?? italianGameVariants[0];
+  return chooseRandomVariant(trainingVariantCatalog);
 }
 
 function Home() {
@@ -146,6 +152,10 @@ function Home() {
   const [trainingErrors, setTrainingErrors] = useState(0);
   const [moveErrors, setMoveErrors] = useState(0);
   const [hintLevel, setHintLevel] = useState(0);
+  const [trainingHintsUsed, setTrainingHintsUsed] = useState(0);
+  const [trainingAttempts, setTrainingAttempts] = useState(0);
+  const [trainingCorrectMoves, setTrainingCorrectMoves] = useState(0);
+  const [difficultMoves, setDifficultMoves] = useState<DifficultMove[]>([]);
   const [trainingStatus, setTrainingStatus] = useState<'idle' | 'incorrect' | 'correct' | 'complete'>('idle');
   const [trainingExplanation, setTrainingExplanation] = useState('');
 
@@ -159,10 +169,12 @@ function Home() {
     [legalMoves],
   );
 
-  const expectedMove = mode === 'opening' && openingVariant
-    ? openingVariant.moves[openingStep * 2]
-    : null;
-  const trainingComplete = mode === 'opening' && openingStep >= 3;
+  const trainingMovePair = mode === 'opening' && openingVariant
+    ? getTrainingMovePair(openingVariant, openingStep)
+    : { playerMove: null, opponentMove: null };
+  const expectedMove = trainingMovePair.playerMove;
+  const trainingComplete = mode === 'opening' && openingVariant !== null && openingStep >= getTrainingLength(openingVariant);
+  const trainingAccuracy = calculateAccuracy(trainingCorrectMoves, trainingAttempts);
 
   const resetFreePractice = () => {
     setBoard(makeInitialBoard());
@@ -177,6 +189,10 @@ function Home() {
     setTrainingErrors(0);
     setMoveErrors(0);
     setHintLevel(0);
+    setTrainingHintsUsed(0);
+    setTrainingAttempts(0);
+    setTrainingCorrectMoves(0);
+    setDifficultMoves([]);
     setTrainingStatus('idle');
     setTrainingExplanation('');
   };
@@ -193,6 +209,10 @@ function Home() {
     setTrainingErrors(0);
     setMoveErrors(0);
     setHintLevel(0);
+    setTrainingHintsUsed(0);
+    setTrainingAttempts(0);
+    setTrainingCorrectMoves(0);
+    setDifficultMoves([]);
     setTrainingStatus('idle');
     setTrainingExplanation('');
   };
@@ -222,19 +242,36 @@ function Home() {
 
     if (!isCorrect) {
       const nextMoveErrors = moveErrors + 1;
+      const previousHintLevel = Math.min(moveErrors, 3);
+      const nextHintLevel = Math.min(nextMoveErrors, 3);
       setTrainingErrors((errors) => errors + 1);
+      setTrainingAttempts((attempts) => attempts + 1);
       setMoveErrors(nextMoveErrors);
-      setHintLevel(Math.min(nextMoveErrors, 3));
+      setHintLevel(nextHintLevel);
+      if (nextHintLevel > previousHintLevel) {
+        setTrainingHintsUsed((hints) => hints + 1);
+      }
+      setDifficultMoves((moves) => {
+        const existingMove = moves.find((move) => move.notation === expectedMove.notation);
+        if (existingMove) {
+          return moves.map((move) => (
+            move.notation === expectedMove.notation
+              ? { ...move, errors: nextMoveErrors, hintsUsed: Math.max(move.hintsUsed, nextHintLevel) }
+              : move
+          ));
+        }
+        return [...moves, { notation: expectedMove.notation, errors: nextMoveErrors, hintsUsed: nextHintLevel }];
+      });
       setTrainingStatus('incorrect');
       setTrainingExplanation('');
       setSelected(null);
       return;
     }
 
-    const blackMove = openingVariant.moves[openingStep * 2 + 1];
+    const blackMove = trainingMovePair.opponentMove;
     const boardAfterWhite = applyMove(board, expectedMove);
     const nextBoard = blackMove ? applyMove(boardAfterWhite, blackMove) : boardAfterWhite;
-    const isLastWhiteMove = openingStep === 2;
+    const isLastWhiteMove = openingStep === getTrainingLength(openingVariant) - 1;
 
     setBoard(nextBoard);
     setLastMove(blackMove ? [blackMove.from, blackMove.to] : [expectedMove.from, expectedMove.to]);
@@ -246,6 +283,8 @@ function Home() {
     setSelected(null);
     setMoveErrors(0);
     setHintLevel(0);
+    setTrainingAttempts((attempts) => attempts + 1);
+    setTrainingCorrectMoves((moves) => moves + 1);
     setTrainingExplanation(expectedMove.explanation ?? '');
     setTrainingStatus(isLastWhiteMove ? 'complete' : 'correct');
     setOpeningStep((step) => step + 1);
@@ -408,8 +447,8 @@ function Home() {
                      <h2 className="max-w-[580px] text-[clamp(2rem,4vw,3.5rem)] font-extrabold leading-[0.98] tracking-[-0.075em] text-[#20362e]">
                        Entrenamiento de<br className="hidden sm:block" /> Aperturas
                      </h2>
-                     <p className="mt-4 text-[13px] font-semibold text-[#5f7067]">
-                       Variante iniciada: <span className="text-[#1f5b49]">{openingVariant?.name ?? 'seleccionando...'}</span>
+                     <p className="mt-4 text-[13px] font-semibold text-[#5f7067]" data-testid="text-new-variant">
+                       Nueva variante: <span className="text-[#1f5b49]">{openingVariant?.name ?? 'seleccionando...'}</span>
                      </p>
                    </>
                  ) : (
@@ -503,9 +542,22 @@ function Home() {
                          </p>
                        )}
                        {trainingStatus === 'complete' && (
-                         <div className="mt-4 rounded-lg bg-[#e3e8dc] px-3 py-2.5 text-[12px] leading-relaxed text-[#486257]" data-testid="text-training-completion">
+                         <div className="mt-4 space-y-2 rounded-lg bg-[#e3e8dc] px-3 py-2.5 text-[12px] leading-relaxed text-[#486257]" data-testid="text-training-completion">
                            <p>{trainingExplanation}</p>
-                           <p className="mt-2 font-semibold text-[#30473e]">Errores: {trainingErrors}</p>
+                           <div className="border-t border-[#cbd8c8] pt-2">
+                             <p className="font-semibold text-[#30473e]" data-testid="text-completion-variant">
+                               Variante entrenada: {openingVariant?.name}
+                             </p>
+                             <p data-testid="text-completion-errors">Errores: {trainingErrors}</p>
+                             <p data-testid="text-completion-hints">Pistas utilizadas: {trainingHintsUsed}</p>
+                             <p data-testid="text-completion-accuracy">Porcentaje de aciertos: {trainingAccuracy}%</p>
+                             <p data-testid="text-completion-difficult-moves">
+                               Movimientos donde tuvo dificultades:{' '}
+                               {difficultMoves.length
+                                 ? difficultMoves.map((move) => `${move.notation} (${move.errors} errores, ${move.hintsUsed} pistas)`).join(', ')
+                                 : 'ninguno'}
+                             </p>
+                           </div>
                          </div>
                        )}
                      </div>
