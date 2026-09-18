@@ -128,11 +128,8 @@ function applyMove(board: Board, move: OpeningMove): Board {
   return nextBoard;
 }
 
-function chooseVariant(excludeId?: string): OpeningVariant {
-  const available = excludeId
-    ? italianGameVariants.filter((variant) => variant.id !== excludeId)
-    : italianGameVariants;
-  return available[Math.floor(Math.random() * available.length)] ?? italianGameVariants[0];
+function chooseVariant(): OpeningVariant {
+  return italianGameVariants[Math.floor(Math.random() * italianGameVariants.length)] ?? italianGameVariants[0];
 }
 
 function Home() {
@@ -553,7 +550,7 @@ function Home() {
                      {trainingComplete && (
                        <button
                          type="button"
-                         onClick={() => startOpeningTraining(chooseVariant(openingVariant?.id))}
+                          onClick={() => startOpeningTraining()}
                          data-testid="button-another-variant"
                          className="group flex w-full items-center justify-center gap-2 rounded-xl bg-[#1f5b49] px-4 py-3.5 text-[11px] font-extrabold uppercase tracking-[0.13em] text-[#f5efdf] transition-all hover:-translate-y-0.5 hover:bg-[#174d3d] active:translate-y-0"
                        >
