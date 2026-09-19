@@ -13,7 +13,7 @@ import {
   getProgressiveHintLevel,
   getTrainingTurn,
   classifyTrainingError,
-  chooseUnexpectedEvent,
+  chooseUnexpectedSituation,
   isExpectedMove,
   type UnexpectedEvent,
   type VariantSelection,
@@ -63,6 +63,10 @@ function applyOpeningMove(board: Board, move: OpeningMove): Board {
 
 function chooseVariant(): VariantSelection {
   return chooseRandomVariant(trainingVariantCatalog);
+}
+
+function getOpponentSide(playerColor: OpeningColor): Side {
+  return playerColor === 'white' ? 'black' : 'white';
 }
 
 function Home() {
@@ -181,7 +185,7 @@ function Home() {
     setDifficultMoves([]);
     setTrainingStatus('idle');
     setTrainingExplanation('');
-    setUnexpectedEvent(unexpectedPlayEnabled ? chooseUnexpectedEvent({ enabled: true, difficulty: unexpectedDifficulty }) : null);
+    setUnexpectedEvent(unexpectedPlayEnabled ? chooseUnexpectedSituation(trainingBoard, getOpponentSide(playerColor), { enabled: true, difficulty: unexpectedDifficulty }) : null);
   };
 
   const resetTraining = () => {
@@ -231,7 +235,7 @@ function Home() {
         return [...moves, { nodeId: expectedNode.id, notation: expectedMove.notation, errors: nextMoveErrors, hintsUsed: nextHintLevel, category: errorCategory }];
       });
       setTrainingStatus('incorrect');
-      setUnexpectedEvent(unexpectedPlayEnabled ? chooseUnexpectedEvent({ enabled: true, difficulty: unexpectedDifficulty }) : null);
+      setUnexpectedEvent(unexpectedPlayEnabled ? chooseUnexpectedSituation(board, getOpponentSide(trainingPlayerColor), { enabled: true, difficulty: unexpectedDifficulty }) : null);
       setTrainingExplanation(`Por qué: ${expectedMove.whyWrong ?? expectedMove.typicalError}\nTipo de error: ${errorCategory}.`);
       setSelected(null);
       return;
@@ -262,7 +266,7 @@ function Home() {
     setHintLevel(0);
     setTrainingAttempts((attempts) => attempts + 1);
     setTrainingCorrectMoves((moves) => moves + 1);
-    setUnexpectedEvent(unexpectedPlayEnabled ? chooseUnexpectedEvent({ enabled: true, difficulty: unexpectedDifficulty }) : null);
+    setUnexpectedEvent(unexpectedPlayEnabled ? chooseUnexpectedSituation(nextBoard, getOpponentSide(trainingPlayerColor), { enabled: true, difficulty: unexpectedDifficulty }) : null);
     setTrainingExplanation([`Idea: ${expectedMove.concept}`, `Objetivo: ${expectedMove.objective}`, `Amenaza/clave: ${expectedMove.threat}`, `Error típico: ${expectedMove.typicalError}`, `Nivel: ${expectedMove.difficulty}`, expectedMove.explanation].join('\n'));
     setTrainingStatus(isLastPlayerMove ? 'complete' : 'correct');
   };
@@ -472,6 +476,7 @@ function Home() {
                        <div className="mt-3 rounded-xl border border-[#c9b98f] bg-[#eee4cc] px-3 py-2.5" data-testid="unexpected-event">
                          <p className="text-[11px] font-extrabold text-[#5f563f]">{unexpectedEvent.title}</p>
                          <p className="mt-1 text-[11px] leading-relaxed text-[#6c634d]">{unexpectedEvent.message}</p>
+                         {unexpectedEvent.concrete && unexpectedEvent.from && unexpectedEvent.to && <p className="mt-2 font-mono text-[10px] font-bold text-[#5f563f]">Situación concreta: {unexpectedEvent.from}–{unexpectedEvent.to}</p>}
                        </div>
                      )}
                    </>
