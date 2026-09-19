@@ -245,10 +245,24 @@ function cloneSquare(square: Square | null): Square | null { return square ? { .
 function sameSquare(a: Square, b: Square): boolean { return a.row === b.row && a.col === b.col; }
 function initialCastlingRights(): CastlingRights { return { whiteKingSide: true, whiteQueenSide: true, blackKingSide: true, blackQueenSide: true }; }
 function boardSquareNameForEngine(square: Square): string { return `${files[square.col]}${8 - square.row}`; }
+function hasLegalEnPassantCapture(state: Pick<ChessGameState, 'board' | 'turn' | 'enPassantTarget'>): boolean {
+  const target = state.enPassantTarget;
+  if (!target) return false;
+  const direction = state.turn === 'white' ? -1 : 1;
+  const fromRow = target.row - direction;
+  if (fromRow < 0 || fromRow > 7) return false;
+  return [-1, 1].some((delta) => {
+    const col = target.col + delta;
+    if (col < 0 || col > 7) return false;
+    const pawn = state.board[fromRow][col];
+    return pawn?.type === 'pawn' && pawn.color === state.turn;
+  });
+}
 function positionKey(state: Pick<ChessGameState, 'board' | 'turn' | 'castlingRights' | 'enPassantTarget'>): string {
-  const boardKey = state.board.map((row) => row.map((piece) => piece ? `${piece.color[0]}${piece.type[0]}` : '--').join('')).join('/');
+  const boardKey = state.board.map((row) => row.map((piece) => piece ? piece.color[0] + piece.type[0] : '--').join('')).join('/');
   const rights = [state.castlingRights.whiteKingSide ? 'K' : '', state.castlingRights.whiteQueenSide ? 'Q' : '', state.castlingRights.blackKingSide ? 'k' : '', state.castlingRights.blackQueenSide ? 'q' : ''].join('') || '-';
-  return `${boardKey} ${state.turn[0]} ${rights} ${state.enPassantTarget ? boardSquareNameForEngine(state.enPassantTarget) : '-'}`;
+  const enPassant = hasLegalEnPassantCapture(state) && state.enPassantTarget ? boardSquareNameForEngine(state.enPassantTarget) : '-';
+  return boardKey + ' ' + state.turn[0] + ' ' + rights + ' ' + enPassant;
 }
 export function createChessGameState(): ChessGameState {
   const state: ChessGameState = { board: makeInitialBoard(), turn: 'white', castlingRights: initialCastlingRights(), enPassantTarget: null, halfmoveClock: 0, positionHistory: [] };
