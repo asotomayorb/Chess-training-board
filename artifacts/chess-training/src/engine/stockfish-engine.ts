@@ -64,18 +64,18 @@ function boardToFen(state: ChessGameState): string {
 }
 
 function parseScore(line: string): StockfishScore | null {
-  const mate = line.match(/\bscore mate (-?\d+)/);
+  const mate = line.match(/\\bscore mate (-?\\d+)/);
   if (mate) return { type: 'mate', value: Number(mate[1]) };
-  const cp = line.match(/\bscore cp (-?\d+)/);
+  const cp = line.match(/\\bscore cp (-?\\d+)/);
   if (cp) return { type: 'cp', value: Number(cp[1]) };
   return null;
 }
 
 function parseInfo(line: string): { score: StockfishScore | null; depth: number | null; pv: string[] } | null {
   if (!line.startsWith('info ')) return null;
-  const depthMatch = line.match(/\bdepth (\d+)/);
+  const depthMatch = line.match(/\\bdepth (\\d+)/);
   const pvIndex = line.indexOf(' pv ');
-  const pv = pvIndex >= 0 ? line.slice(pvIndex + 4).trim().split(/\s+/).filter(Boolean) : [];
+  const pv = pvIndex >= 0 ? line.slice(pvIndex + 4).trim().split(/\\s+/).filter(Boolean) : [];
   return { score: parseScore(line), depth: depthMatch ? Number(depthMatch[1]) : null, pv };
 }
 
@@ -93,6 +93,11 @@ export function chessGameStateToFen(state: ChessGameState): string { return boar
 function centipawnLoss(bestScore: StockfishScore | null, playedScore: StockfishScore | null): number | null {
   if (!bestScore || !playedScore || bestScore.type !== 'cp' || playedScore.type !== 'cp') return null;
   return Math.max(0, bestScore.value - playedScore.value);
+}
+
+function invertScore(score: StockfishScore | null): StockfishScore | null {
+  if (!score) return null;
+  return { ...score, value: -score.value };
 }
 
 export class StockfishEngine {
@@ -137,7 +142,7 @@ export class StockfishEngine {
           return;
         }
         if (!line.startsWith('bestmove ')) return;
-        const bestMove = line.split(/\s+/)[1];
+        const bestMove = line.split(/\\s+/)[1];
         if (!bestMove || !this.pendingResolve) return;
         const resolveAnalysis = this.pendingResolve;
         this.pendingResolve = null;
@@ -178,9 +183,7 @@ export class StockfishEngine {
     const best = await this.analyze(previousState, options);
     const nextState = applyChessMove(previousState, move);
     const opponentPerspective = await this.analyze(nextState, options);
-    const playedScore = opponentPerspective.score?.type === 'cp'
-      ? { type: 'cp' as const, value: -opponentPerspective.score.value }
-      : opponentPerspective.score;
+    const playedScore = invertScore(opponentPerspective.score);
     const playedMove = chessMoveToUci(move);
     return {
       playedMove, bestMove: best.bestMove, bestScore: best.score, playedScore,
