@@ -20,6 +20,8 @@ import {
 } from '@/engine/variant-engine';
 import { chooseMiddlegameTrainingPrompt, type MiddlegameTrainingPrompt } from '@/engine/middlegame-training';
 import { evaluateMiddlegameMove } from '@/engine/middlegame-evaluation';
+import { chooseEndgameTrainingPrompt, type EndgameTrainingPrompt } from '@/engine/endgame-training';
+import { evaluateEndgameMove } from '@/engine/endgame-evaluation';
 import { evaluateCompleteMove } from '@/engine/complete-training';
 import {
   applyBoardMove,
@@ -110,6 +112,8 @@ function Home() {
   const [completeFeedback, setCompleteFeedback] = useState('');
   const [completeErrors, setCompleteErrors] = useState(0);
   const [middlegameErrors, setMiddlegameErrors] = useState(0);
+  const [endgameErrors, setEndgameErrors] = useState(0);
+  const [endgamePrompt, setEndgamePrompt] = useState<EndgameTrainingPrompt | null>(null);
   const [middlegamePrompt, setMiddlegamePrompt] = useState<MiddlegameTrainingPrompt | null>(null);
   const [showGuide, setShowGuide] = useState(false);
   const [trainingSelection, setTrainingSelection] = useState<VariantSelection | null>(null);
@@ -198,7 +202,9 @@ function Home() {
       const nextGame = applyChessMove(completeGame, move);
       setCompleteGame(nextGame);
       setBoard(nextGame.board);
-      setMiddlegamePrompt(chooseMiddlegameTrainingPrompt(nextGame, { difficulty: unexpectedDifficulty }));
+      const nextEndgamePrompt = chooseEndgameTrainingPrompt(nextGame);
+      setEndgamePrompt(nextEndgamePrompt);
+      setMiddlegamePrompt(nextEndgamePrompt ? null : chooseMiddlegameTrainingPrompt(nextGame, { difficulty: unexpectedDifficulty }));
       setLastMove([squareName(move.from), squareName(move.to)]);
       setMoveHistory((history) => [...history, `Rival: ${squareName(move.from)}–${squareName(move.to)}${move.promotion ? '=' + move.promotion[0].toUpperCase() : ''}`]);
       setTurn(nextGame.turn);
@@ -231,6 +237,8 @@ function Home() {
     setCompleteFeedback('');
     setCompleteErrors(0);
     setMiddlegameErrors(0);
+    setEndgameErrors(0);
+    setEndgamePrompt(null);
     setMiddlegamePrompt(null);
     setTrainingSelection(null);
     setTrainingPlayerColor('white');
@@ -316,6 +324,8 @@ function Home() {
     setCompleteFeedback('');
     setCompleteErrors(0);
     setMiddlegameErrors(0);
+    setEndgameErrors(0);
+    setEndgamePrompt(chooseEndgameTrainingPrompt(freshCompleteGame));
     setMiddlegamePrompt(chooseMiddlegameTrainingPrompt(freshCompleteGame, { difficulty: 'intermedio' }));
     setTrainingSelection(null);
     setOpeningNodeId(null);
@@ -458,20 +468,28 @@ function Home() {
   const applyCompleteMove = (move: ChessGameMove) => {
     const nextGame = applyChessMove(completeGame, move);
     const evaluation = evaluateCompleteMove(completeGame, nextGame, move);
-    const middlegameEvaluation = middlegamePrompt
+    const endgameEvaluation = endgamePrompt
+      ? evaluateEndgameMove(completeGame, nextGame, move, endgamePrompt)
+      : null;
+    const middlegameEvaluation = !endgameEvaluation && middlegamePrompt
       ? evaluateMiddlegameMove(completeGame, nextGame, move, middlegamePrompt)
       : null;
 
     if (evaluation.immediateCapture) setCompleteErrors((errors) => errors + 1);
+    if (endgameEvaluation && !endgameEvaluation.fulfilled) setEndgameErrors((errors) => errors + 1);
     if (middlegameEvaluation && !middlegameEvaluation.fulfilled) setMiddlegameErrors((errors) => errors + 1);
 
-    const combinedFeedback = middlegameEvaluation
-      ? `${middlegameEvaluation.feedback} ${evaluation.feedback}`
+    const objectiveEvaluation = endgameEvaluation ?? middlegameEvaluation;
+    const combinedFeedback = objectiveEvaluation
+      ? `${objectiveEvaluation.feedback} ${evaluation.feedback}`
       : evaluation.feedback;
 
     setCompleteFeedback(combinedFeedback);
     setCompleteGame(nextGame);
     setBoard(nextGame.board);
+    const reachedEndgame = chooseEndgameTrainingPrompt(nextGame);
+    setEndgamePrompt(reachedEndgame);
+    setMiddlegamePrompt(reachedEndgame ? null : chooseMiddlegameTrainingPrompt(nextGame, { difficulty: 'intermedio' }));
     setLastMove([squareName(move.from), squareName(move.to)]);
     setMoveHistory((history) => [...history, `${squareName(move.from)}–${squareName(move.to)}${move.promotion ? '=' + move.promotion[0].toUpperCase() : ''}`]);
     setSelected(null);
@@ -986,7 +1004,14 @@ function Home() {
                            ⚠️ {completeThreatMessage}
                          </p>
                        )}
-                       {mode === 'complete' && completeUnexpectedChallenge && !freeGameOver && (\n                         <p className="mt-3 rounded-lg bg-[#eee4cc] px-3 py-2.5 text-[11px] font-semibold leading-relaxed text-[#665b42]" data-testid="text-complete-unexpected">\n                           ⚠️ Juego inesperado: responde a la situación antes de continuar tu plan.\n                         </p>\n                       )}\n                       {mode === 'complete' && middlegamePrompt && !freeGameOver && !completeUnexpectedChallenge && (
+                       {mode === 'complete' && completeUnexpectedChallenge && !freeGameOver && (\n                         <p className="mt-3 rounded-lg bg-[#eee4cc] px-3 py-2.5 text-[11px] font-semibold leading-relaxed text-[#665b42]" data-testid="text-complete-unexpected">\n                           ⚠️ Juego inesperado: responde a la situación antes de continuar tu plan.\n                         </p>\n                       )}\n                       {mode === 'complete' && endgamePrompt && !freeGameOver && !completeUnexpectedChallenge && (
+                       <div className="mt-3 rounded-lg bg-[#e8dfcf] px-3 py-2.5" data-testid="text-endgame-objective">
+                         <p className="text-[11px] font-extrabold text-[#30473e]">♔ Final: {endgamePrompt.title}</p>
+                         <p className="mt-1 text-[11px] leading-relaxed text-[#486257]">{endgamePrompt.instruction}</p>
+                         <p className="mt-1 text-[10px] leading-relaxed text-[#718078]">{endgamePrompt.rationale}</p>
+                       </div>
+                     )}
+                     {mode === 'complete' && middlegamePrompt && !freeGameOver && !completeUnexpectedChallenge && !endgamePrompt && (
                        <div className="mt-3 rounded-lg bg-[#e3e8dc] px-3 py-2.5" data-testid="text-middlegame-objective">
                          <p className="text-[11px] font-extrabold text-[#30473e]">🎯 Objetivo: {middlegamePrompt.title}</p>
                          <p className="mt-1 text-[11px] leading-relaxed text-[#486257]">{middlegamePrompt.instruction}</p>
@@ -1001,7 +1026,7 @@ function Home() {
                        )}
                        {mode === 'complete' && (
                          <p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#89948a]" data-testid="text-complete-errors">
-                           Alertas tácticas detectadas: {completeErrors} · Objetivos de medio juego no cumplidos: {middlegameErrors}
+                           Alertas tácticas detectadas: {completeErrors} · Objetivos de medio juego no cumplidos: {middlegameErrors} · Alertas de finales: {endgameErrors}
                          </p>
                        )}
                      </div>
