@@ -112,6 +112,8 @@ function Home() {
   const [focusCue, setFocusCue] = useState('Antes de mover, identifica la tensión de la posición.');
   const [completeFeedback, setCompleteFeedback] = useState('');
   const stockfishRef = useRef<StockfishEngine | null>(null);
+  const stockfishAnalysisRequestRef = useRef(0);
+  const stockfishMoveBusyRef = useRef(false);
   const [stockfishAnalysis, setStockfishAnalysis] = useState<StockfishAnalysis | null>(null);
   const [stockfishLoading, setStockfishLoading] = useState(false);
   const [stockfishError, setStockfishError] = useState('');
@@ -142,6 +144,8 @@ function Home() {
   const [unexpectedChallenge, setUnexpectedChallenge] = useState<{ event: UnexpectedEvent; resumeNodeId: string; resumeBoard: Board; resumeHistory: string[]; resumeTurn: OpeningColor } | null>(null);
   const [completeUnexpectedChallenge, setCompleteUnexpectedChallenge] = useState<{ event: UnexpectedEvent; triggeringMove: ChessGameMove } | null>(null);
   useEffect(() => () => {
+    stockfishAnalysisRequestRef.current += 1;
+    stockfishMoveBusyRef.current = false;
     stockfishRef.current?.dispose();
     stockfishRef.current = null;
   }, []);
@@ -269,6 +273,8 @@ function Home() {
     setStockfishError('');
     setStockfishMoveQuality(null);
     setStockfishMoveLoading(false);
+    stockfishAnalysisRequestRef.current += 1;
+    stockfishMoveBusyRef.current = false;
     setCompleteErrors(0);
     setMiddlegameErrors(0);
     setEndgameErrors(0);
@@ -527,12 +533,29 @@ function Home() {
       : evaluation.feedback;
 
     setCompleteFeedback(combinedFeedback);
-    if (previousGame.turn === 'white' && !stockfishMoveLoading) {
+    const nextStatus = getChessGameStatus(nextGame);
+    const tacticalPosition = Boolean(
+      move.promotion ||
+      previousGame.board[move.to.row][move.to.col] ||
+      move.special === 'en-passant' ||
+      nextStatus === 'check' ||
+      nextStatus === 'checkmate' ||
+      evaluation.immediateCapture ||
+      evaluation.newChecks > 0 ||
+      evaluation.newCaptures > 0,
+    );
+    const periodicPosition = previousGame.positionHistory.length % 4 === 0;
+    const shouldAutoAnalyze = previousGame.turn === 'white' && (tacticalPosition || periodicPosition);
+
+    if (shouldAutoAnalyze && !stockfishMoveBusyRef.current) {
+      const requestId = ++stockfishAnalysisRequestRef.current;
+      stockfishMoveBusyRef.current = true;
       setStockfishMoveLoading(true);
       setStockfishError('');
       if (!stockfishRef.current) stockfishRef.current = new StockfishEngine();
       void stockfishRef.current.analyzePlayedMove(previousGame, move, { depth: 10 })
         .then((quality) => {
+          if (requestId !== stockfishAnalysisRequestRef.current) return;
           setStockfishMoveQuality(quality);
           const loss = quality.centipawnLoss;
           if (quality.isBestMove) {
@@ -546,9 +569,15 @@ function Home() {
           }
         })
         .catch((error) => {
+          if (requestId !== stockfishAnalysisRequestRef.current) return;
           setStockfishError(error instanceof Error ? error.message : 'No se pudo verificar la jugada con Stockfish.');
         })
-        .finally(() => setStockfishMoveLoading(false));
+        .finally(() => {
+          if (requestId === stockfishAnalysisRequestRef.current) {
+            stockfishMoveBusyRef.current = false;
+            setStockfishMoveLoading(false);
+          }
+        });
     }
 
     setCompleteGame(nextGame);
