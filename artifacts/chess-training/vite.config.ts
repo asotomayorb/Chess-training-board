@@ -10,17 +10,24 @@ import runtimeErrorOverlay from '@replit/vite-plugin-runtime-error-modal';
 
 const require = createRequire(import.meta.url);
 
+function copyStockfishAssets() {
+  const packageRoot = path.dirname(require.resolve('stockfish'));
+  const sourceDir = path.join(packageRoot, 'bin');
+  const publicDir = path.resolve(import.meta.dirname, 'public', 'stockfish');
+  fs.mkdirSync(publicDir, { recursive: true });
+  for (const file of ['stockfish-19-lite-single.js', 'stockfish-19-lite-single.wasm']) {
+    fs.copyFileSync(path.join(sourceDir, file), path.join(publicDir, file));
+  }
+}
+
 function stockfishAssets(): Plugin {
   return {
     name: 'stockfish-assets',
     buildStart() {
-      const packageRoot = path.dirname(require.resolve('stockfish'));
-      const sourceDir = path.join(packageRoot, 'bin');
-      const publicDir = path.resolve(import.meta.dirname, 'public', 'stockfish');
-      fs.mkdirSync(publicDir, { recursive: true });
-      for (const file of ['stockfish-19-lite-single.js', 'stockfish-19-lite-single.wasm']) {
-        fs.copyFileSync(path.join(sourceDir, file), path.join(publicDir, file));
-      }
+      copyStockfishAssets();
+    },
+    configureServer() {
+      copyStockfishAssets();
     },
   };
 }
