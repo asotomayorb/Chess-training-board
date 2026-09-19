@@ -77,20 +77,48 @@ function getOpponentSide(playerColor: OpeningColor): Side {
 }
 
 function getCompleteThreatMessage(state: ChessGameState): string | null {
-  const side = state.turn;
-  const candidates = getLegalChessMoves(state);
+  if (state.turn !== 'white') return null;
+  const opponent = 'black' as Side;
+  const candidates = getLegalChessMoves(state, undefined, opponent);
   for (const move of candidates) {
     const next = applyChessMove(state, move);
     const status = getChessGameStatus(next);
     if (status === 'check' || status === 'checkmate') {
-      return `Amenaza concreta: ${side === 'white' ? 'blancas' : 'negras'} puede dar jaque con ${squareName(move.from)}–${squareName(move.to)}. Comprueba primero las respuestas forzadas.`;
+      return `Amenaza concreta: negras puede dar jaque con ${squareName(move.from)}–${squareName(move.to)}. Comprueba primero las respuestas forzadas.`;
     }
     const target = state.board[move.to.row][move.to.col];
     if (target && target.type !== 'pawn' && target.type !== 'king') {
-      return `Amenaza concreta: ${side === 'white' ? 'blancas' : 'negras'} puede capturar ${target.type} en ${squareName(move.to)}. Antes de seguir tu plan, revisa si esa pieza queda protegida.`;
+      return `Amenaza concreta: negras puede capturar ${target.type} en ${squareName(move.to)}. Antes de seguir tu plan, revisa si esa pieza queda protegida.`;
     }
   }
   return null;
+}
+
+function getCompleteMoveFeedback(
+  previous: ChessGameState,
+  next: ChessGameState,
+  move: ChessGameMove,
+): string {
+  if (getChessGameStatus(next) === 'checkmate') return 'Excelente: la jugada produjo jaque mate.';
+  if (getChessGameStatus(next) === 'check') return 'Jaque. Ahora el rival debe responder a una amenaza forzada.';
+  const opponentMoves = getLegalChessMoves(next);
+  const movedPiece = next.board[move.to.row][move.to.col];
+  const immediateCapture = opponentMoves.find(
+    (reply) => reply.to.row === move.to.row && reply.to.col === move.to.col,
+  );
+  if (movedPiece && immediateCapture) {
+    return 'Atención: tu pieza movida queda capturable de inmediato. Antes de repetir la idea, calcula si existe una compensación concreta.';
+  }
+  const previousOpponentMoves = getLegalChessMoves(previous);
+  const gaveNewThreat = opponentMoves.some((reply) => {
+    const nextReply = applyChessMove(next, reply);
+    const status = getChessGameStatus(nextReply);
+    return status === 'check' || status === 'checkmate';
+  });
+  if (gaveNewThreat && previousOpponentMoves.length > 0) {
+    return 'La posición cambió. Antes de seguir tu plan, vuelve a comprobar jaques, capturas y amenazas del rival.';
+  }
+  return 'Jugada registrada. Mantén la rutina: comprueba jaques, capturas y amenazas antes de tu próxima decisión.';
 }
 
 function Home() {
@@ -103,6 +131,8 @@ function Home() {
   const [lastMove, setLastMove] = useState<[string, string] | null>(null);
   const [moveHistory, setMoveHistory] = useState<string[]>([]);
   const [focusCue, setFocusCue] = useState('Antes de mover, identifica la tensión de la posición.');
+  const [completeFeedback, setCompleteFeedback] = useState('');
+  const [completeErrors, setCompleteErrors] = useState(0);
   const [showGuide, setShowGuide] = useState(false);
   const [trainingSelection, setTrainingSelection] = useState<VariantSelection | null>(null);
   const [trainingPlayerColor, setTrainingPlayerColor] = useState<OpeningColor>('white');
@@ -207,6 +237,8 @@ function Home() {
     setLastMove(null);
     setMoveHistory([]);
     setFocusCue('Antes de mover, identifica la tensión de la posición.');
+    setCompleteFeedback('');
+    setCompleteErrors(0);
     setTrainingSelection(null);
     setTrainingPlayerColor('white');
     setOpeningNodeId(null);
@@ -288,6 +320,8 @@ function Home() {
     setLastMove(null);
     setMoveHistory([]);
     setFocusCue('Modo completo: juega la partida y aplica las ideas aprendidas durante la apertura.');
+    setCompleteFeedback('');
+    setCompleteErrors(0);
     setTrainingSelection(null);
     setOpeningNodeId(null);
     setUnexpectedEvent(null);
@@ -428,6 +462,11 @@ function Home() {
 
   const applyCompleteMove = (move: ChessGameMove) => {
     const nextGame = applyChessMove(completeGame, move);
+    const feedback = getCompleteMoveFeedback(completeGame, nextGame, move);
+    const isImmediateCapture = nextGame.board[move.to.row][move.to.col] !== null &&
+      getLegalChessMoves(nextGame).some((reply) => reply.to.row === move.to.row && reply.to.col === move.to.col);
+    if (isImmediateCapture) setCompleteErrors((errors) => errors + 1);
+    setCompleteFeedback(feedback);
     setCompleteGame(nextGame);
     setBoard(nextGame.board);
     setLastMove([squareName(move.from), squareName(move.to)]);
@@ -876,6 +915,16 @@ function Home() {
                            ⚠️ {completeThreatMessage}
                          </p>
                        )}
+                       {mode === 'complete' && completeFeedback && !freeGameOver && (
+                         <p className="mt-3 rounded-lg bg-[#e3e8dc] px-3 py-2.5 text-[11px] leading-relaxed text-[#486257]" data-testid="text-complete-feedback">
+                           {completeFeedback}
+                         </p>
+                       )}
+                       {mode === 'complete' && (
+                         <p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#89948a]" data-testid="text-complete-errors">
+                           Alertas tácticas detectadas: {completeErrors}
+                         </p>
+                       )}
                      </div>
                    )}
                   <div className="my-5 h-px bg-[#d8cfbe]" />
@@ -886,7 +935,7 @@ function Home() {
                     </div>
                     <div className="text-right">
                       <p className="font-mono text-[9px] uppercase tracking-[0.16em] text-[#89948a]">Turno</p>
-                      <p className="mt-1 text-[13px] font-bold text-[#334940]">{turn === 'white' ? 'blancas' : 'negras'}</p>
+                      <p className="mt-1 text-[13px] font-bold text-[#334940]">{(mode === 'complete' ? completeGame.turn : turn) === 'white' ? 'blancas' : 'negras'}</p>
                     </div>
                   </div>
                 </div>
