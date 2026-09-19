@@ -93,6 +93,7 @@ function Home() {
   const [unexpectedPlayEnabled, setUnexpectedPlayEnabled] = useState(true);
   const [unexpectedDifficulty, setUnexpectedDifficulty] = useState<'fundamentos' | 'intermedio' | 'avanzado'>('intermedio');
   const [unexpectedEvent, setUnexpectedEvent] = useState<UnexpectedEvent | null>(null);
+  const [unexpectedChallenge, setUnexpectedChallenge] = useState<{ event: UnexpectedEvent; resumeNodeId: string } | null>(null);
 
   const legalMoves = useMemo(
     () => (selected ? getLegalMoves(board, selected) : []),
@@ -146,6 +147,7 @@ function Home() {
     setTrainingStatus('idle');
     setTrainingExplanation('');
     setUnexpectedEvent(null);
+    setUnexpectedChallenge(null);
   };
 
   const startOpeningTraining = (
@@ -185,7 +187,20 @@ function Home() {
     setDifficultMoves([]);
     setTrainingStatus('idle');
     setTrainingExplanation('');
-    setUnexpectedEvent(unexpectedPlayEnabled ? chooseUnexpectedSituation(trainingBoard, getOpponentSide(playerColor), { enabled: true, difficulty: unexpectedDifficulty }) : null);
+    setUnexpectedEvent(null);
+    setUnexpectedChallenge(null);
+    if (unexpectedPlayEnabled) {
+      const event = chooseUnexpectedSituation(trainingBoard, getOpponentSide(playerColor), { enabled: true, difficulty: unexpectedDifficulty });
+      if (event?.move) {
+        const challengeBoard = applyBoardMove(trainingBoard, event.move);
+        setBoard(challengeBoard);
+        setLastMove([event.from ?? squareName(event.move.from), event.to ?? squareName(event.move.to)]);
+        setMoveHistory((history) => [...history, `Inesperado: ${event.from ?? squareName(event.move.from)}–${event.to ?? squareName(event.move.to)}`]);
+        setUnexpectedChallenge({ event, resumeNodeId: initialAutomaticMoves.length ? initialTurn.automaticNodes[initialTurn.automaticNodes.length - 1].id : selection.variant.startNodeId });
+        setUnexpectedEvent(event);
+        setTurn(playerColor);
+      }
+    }
   };
 
   const resetTraining = () => {
@@ -204,7 +219,38 @@ function Home() {
     resetFreePractice();
   };
 
+  const handleUnexpectedMove = (from: Square, to: Square) => {
+    if (!unexpectedChallenge) return false;
+    const move = { from, to };
+    const legalResponse = getLegalMoves(board, from).some((square) => square.row === to.row && square.col === to.col);
+    if (!legalResponse) return true;
+
+    const challenge = unexpectedChallenge;
+    const event = challenge.event;
+    const nextBoard = applyBoardMove(board, move);
+    const responseText = `${squareName(from)}–${squareName(to)}`;
+    const explanation = event.type === 'amenaza'
+      ? 'Respuesta válida: primero neutralizaste la amenaza y evitaste continuar de memoria.'
+      : event.type === 'sacrificio'
+        ? 'Respuesta válida: calculaste la posición después del sacrificio antes de continuar.'
+        : 'Respuesta válida: reaccionaste a la desviación y volviste a evaluar la posición.';
+
+    setBoard(nextBoard);
+    setLastMove([squareName(from), squareName(to)]);
+    setMoveHistory((history) => [...history, `Respuesta: ${responseText}`]);
+    setSelected(null);
+    setUnexpectedChallenge(null);
+    setUnexpectedEvent(null);
+    setTrainingStatus('correct');
+    setTrainingExplanation(`Juego inesperado superado. ${explanation}`);
+    return true;
+  };
+
   const handleOpeningMove = (from: Square, to: Square) => {
+    if (unexpectedChallenge) {
+      handleUnexpectedMove(from, to);
+      return;
+    }
     if (!expectedMove || !expectedNode || !openingVariant || !openingTree || !trainingTurno) return;
 
     const fromName = squareName(from);
@@ -266,12 +312,38 @@ function Home() {
     setHintLevel(0);
     setTrainingAttempts((attempts) => attempts + 1);
     setTrainingCorrectMoves((moves) => moves + 1);
-    setUnexpectedEvent(unexpectedPlayEnabled ? chooseUnexpectedSituation(nextBoard, getOpponentSide(trainingPlayerColor), { enabled: true, difficulty: unexpectedDifficulty }) : null);
+    const nextUnexpectedEvent = unexpectedPlayEnabled ? chooseUnexpectedSituation(nextBoard, getOpponentSide(trainingPlayerColor), { enabled: true, difficulty: unexpectedDifficulty }) : null;
+    if (nextUnexpectedEvent?.move) {
+      const challengeBoard = applyBoardMove(nextBoard, nextUnexpectedEvent.move);
+      setBoard(challengeBoard);
+      setLastMove([nextUnexpectedEvent.from ?? squareName(nextUnexpectedEvent.move.from), nextUnexpectedEvent.to ?? squareName(nextUnexpectedEvent.move.to)]);
+      setMoveHistory((history) => [...history, `Inesperado: ${nextUnexpectedEvent.from ?? squareName(nextUnexpectedEvent.move.from)}–${nextUnexpectedEvent.to ?? squareName(nextUnexpectedEvent.move.to)}`]);
+      setUnexpectedChallenge({ event: nextUnexpectedEvent, resumeNodeId: nextNodeId });
+      setUnexpectedEvent(nextUnexpectedEvent);
+    } else {
+      setUnexpectedEvent(null);
+      setUnexpectedChallenge(null);
+    }
     setTrainingExplanation([`Idea: ${expectedMove.concept}`, `Objetivo: ${expectedMove.objective}`, `Amenaza/clave: ${expectedMove.threat}`, `Error típico: ${expectedMove.typicalError}`, `Nivel: ${expectedMove.difficulty}`, expectedMove.explanation].join('\n'));
     setTrainingStatus(isLastPlayerMove ? 'complete' : 'correct');
   };
 
   const handleSquareClick = (row: number, col: number) => {
+    if (mode === 'opening' && unexpectedChallenge) {
+      const clickedPiece = board[row][col];
+      const clickedIsLegal = legalKeySet.has(`${row}-${col}`);
+      if (selected && clickedIsLegal) {
+        handleOpeningMove(selected, { row, col });
+        return;
+      }
+      if (clickedPiece?.color === trainingPlayerColor) {
+        setSelected({ row, col });
+        setFocusCue('Situación inesperada: calcula primero la respuesta antes de continuar la variante.');
+        return;
+      }
+      setSelected(null);
+      return;
+    }
     if (mode === 'opening' && trainingComplete) {
       setSelected(null);
       return;
@@ -477,6 +549,7 @@ function Home() {
                          <p className="text-[11px] font-extrabold text-[#5f563f]">{unexpectedEvent.title}</p>
                          <p className="mt-1 text-[11px] leading-relaxed text-[#6c634d]">{unexpectedEvent.message}</p>
                          {unexpectedEvent.concrete && unexpectedEvent.from && unexpectedEvent.to && <p className="mt-2 font-mono text-[10px] font-bold text-[#5f563f]">Situación concreta: {unexpectedEvent.from}–{unexpectedEvent.to}</p>}
+                         {unexpectedChallenge && <p className="mt-2 text-[11px] font-extrabold text-[#5f563f]">Responde a esta situación para continuar el entrenamiento.</p>}
                        </div>
                      )}
                    </>
@@ -565,7 +638,7 @@ function Home() {
                        <div className="flex items-start gap-2">
                          {trainingStatus === 'incorrect' ? <XCircle size={17} className="mt-0.5 shrink-0 text-[#aa493e]" /> : trainingStatus === 'correct' || trainingStatus === 'complete' ? <CheckCircle2 size={17} className="mt-0.5 shrink-0 text-[#1f5b49]" /> : <Target size={17} className="mt-0.5 shrink-0 text-[#1f5b49]" />}
                          <p className={`text-[16px] font-bold leading-snug tracking-[-0.03em] ${trainingStatus === 'incorrect' ? 'text-[#9e4138]' : 'text-[#30473e]'}`} data-testid="text-training-status">
-                           {trainingStatus === 'incorrect' ? 'Movimiento incorrecto' : trainingStatus === 'complete' ? '✅ Variante completada' : trainingStatus === 'correct' ? 'Movimiento correcto' : trainingComplete ? '✅ Variante completada' : 'Encuentra la siguiente jugada de blancas.'}
+                           {unexpectedChallenge ? '⚠️ Responde a la situación inesperada' : trainingStatus === 'incorrect' ? 'Movimiento incorrecto' : trainingStatus === 'complete' ? '✅ Variante completada' : trainingStatus === 'correct' ? 'Movimiento correcto' : trainingComplete ? '✅ Variante completada' : `Encuentra la siguiente jugada de ${trainingPlayerColor === 'white' ? 'blancas' : 'negras'}.`}
                          </p>
                        </div>
                        {trainingStatus === 'incorrect' && expectedMove && hintLevel > 0 && (
