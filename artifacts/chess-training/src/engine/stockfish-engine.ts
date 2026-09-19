@@ -113,7 +113,7 @@ export class StockfishEngine {
     if (this.worker && this.ready) return this.ready;
     if (typeof Worker === 'undefined') throw new Error('Este navegador no admite Web Workers para ejecutar Stockfish.');
     if (typeof WebAssembly === 'undefined') throw new Error('Este navegador no admite WebAssembly para ejecutar Stockfish.');
-    const workerUrl = options.workerUrl ?? import.meta.env.BASE_URL + 'stockfish/stockfish-19-lite-single.js';
+    const workerUrl = options.workerUrl ?? new URL('stockfish/stockfish-19-lite-single.js', window.location.origin + import.meta.env.BASE_URL).toString();
     try { this.worker = new Worker(workerUrl, { type: 'classic' }); }
     catch (error) { this.worker = null; throw new Error(error instanceof Error ? error.message : 'No se pudo crear el worker de Stockfish.'); }
 
@@ -143,7 +143,7 @@ export class StockfishEngine {
         }
         if (!line.startsWith('bestmove ')) return;
         const bestMove = line.split(/\\s+/)[1];
-        if (!bestMove || !this.pendingResolve) return;
+        if (!bestMove || bestMove === '(none)' || !this.pendingResolve) return;
         const resolveAnalysis = this.pendingResolve;
         this.pendingResolve = null;
         this.pendingReject = null;
@@ -174,6 +174,7 @@ export class StockfishEngine {
     return new Promise<StockfishAnalysis>((resolve, reject) => {
       this.pendingResolve = resolve; this.pendingReject = reject;
       this.worker?.postMessage('stop');
+      this.worker?.postMessage('ucinewgame');
       this.worker?.postMessage('position fen ' + fen);
       this.worker?.postMessage('go depth ' + depth);
     });
