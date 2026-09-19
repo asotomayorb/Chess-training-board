@@ -6,7 +6,7 @@ import { chessGameStateToFen, chessMoveToUci } from './stockfish-engine';
 test('convierte la posición inicial a FEN', () => {
   assert.equal(
     chessGameStateToFen(createChessGameState()),
-    'rnbqkbnr/pppppppp/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+    'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
   );
 });
 
