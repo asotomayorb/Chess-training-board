@@ -18,6 +18,7 @@ import {
   type UnexpectedEvent,
   type VariantSelection,
 } from '@/engine/variant-engine';
+import { chooseMiddlegameTrainingPrompt, type MiddlegameTrainingPrompt } from '@/engine/middlegame-training';
 import {
   applyBoardMove,
   applyChessMove,
@@ -106,6 +107,7 @@ function Home() {
   const [focusCue, setFocusCue] = useState('Antes de mover, identifica la tensión de la posición.');
   const [completeFeedback, setCompleteFeedback] = useState('');
   const [completeErrors, setCompleteErrors] = useState(0);
+  const [middlegamePrompt, setMiddlegamePrompt] = useState<MiddlegameTrainingPrompt | null>(null);
   const [showGuide, setShowGuide] = useState(false);
   const [trainingSelection, setTrainingSelection] = useState<VariantSelection | null>(null);
   const [trainingPlayerColor, setTrainingPlayerColor] = useState<OpeningColor>('white');
@@ -224,6 +226,7 @@ function Home() {
     setFocusCue('Antes de mover, identifica la tensión de la posición.');
     setCompleteFeedback('');
     setCompleteErrors(0);
+    setMiddlegamePrompt(null);
     setTrainingSelection(null);
     setTrainingPlayerColor('white');
     setOpeningNodeId(null);
@@ -307,6 +310,7 @@ function Home() {
     setFocusCue('Modo completo: juega la partida y aplica las ideas aprendidas durante la apertura.');
     setCompleteFeedback('');
     setCompleteErrors(0);
+    setMiddlegamePrompt(chooseMiddlegameTrainingPrompt(freshCompleteGame, { difficulty: 'intermedio' }));
     setTrainingSelection(null);
     setOpeningNodeId(null);
     setUnexpectedEvent(null);
@@ -962,7 +966,15 @@ function Home() {
                            ⚠️ {completeThreatMessage}
                          </p>
                        )}
-                       {mode === 'complete' && completeUnexpectedChallenge && !freeGameOver && (\n                         <p className="mt-3 rounded-lg bg-[#eee4cc] px-3 py-2.5 text-[11px] font-semibold leading-relaxed text-[#665b42]" data-testid="text-complete-unexpected">\n                           ⚠️ Juego inesperado: responde a la situación antes de continuar tu plan.\n                         </p>\n                       )}\n                       {mode === 'complete' && completeFeedback && !freeGameOver && (
+                       {mode === 'complete' && completeUnexpectedChallenge && !freeGameOver && (\n                         <p className="mt-3 rounded-lg bg-[#eee4cc] px-3 py-2.5 text-[11px] font-semibold leading-relaxed text-[#665b42]" data-testid="text-complete-unexpected">\n                           ⚠️ Juego inesperado: responde a la situación antes de continuar tu plan.\n                         </p>\n                       )}\n                       {mode === 'complete' && middlegamePrompt && !freeGameOver && !completeUnexpectedChallenge && (
+                       <div className="mt-3 rounded-lg bg-[#e3e8dc] px-3 py-2.5" data-testid="text-middlegame-objective">
+                         <p className="text-[11px] font-extrabold text-[#30473e]">🎯 Objetivo: {middlegamePrompt.title}</p>
+                         <p className="mt-1 text-[11px] leading-relaxed text-[#486257]">{middlegamePrompt.instruction}</p>
+                         <p className="mt-1 text-[10px] leading-relaxed text-[#718078]">{middlegamePrompt.rationale}</p>
+                         <button type="button" onClick={() => setMiddlegamePrompt(chooseMiddlegameTrainingPrompt(completeGame, { difficulty: 'intermedio' }))} className="mt-2 rounded-full border border-[#c8c0b0] bg-[#f1ebdf] px-2.5 py-1 text-[9px] font-bold text-[#5f7067] hover:border-[#1f5b49] hover:text-[#1f5b49]">Nuevo objetivo</button>
+                       </div>
+                     )}
+                     {mode === 'complete' && completeFeedback && !freeGameOver && (
                          <p className="mt-3 rounded-lg bg-[#e3e8dc] px-3 py-2.5 text-[11px] leading-relaxed text-[#486257]" data-testid="text-complete-feedback">
                            {completeFeedback}
                          </p>
