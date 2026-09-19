@@ -41,7 +41,7 @@ function materialSignature(state: ChessGameState, side: Side): Record<Piece['typ
 function isKingPawnVsKing(state: ChessGameState): boolean {
   const white = materialSignature(state, 'white');
   const black = materialSignature(state, 'black');
-  const matches = (a: typeof white, b: typeof black) =>
+  const matches = (a: typeof white, b: typeof white) =>
     a.king === 1 && a.pawn === 1 && a.knight === 0 && a.bishop === 0 && a.rook === 0 && a.queen === 0 &&
     b.king === 1 && b.pawn === 0 && b.knight === 0 && b.bishop === 0 && b.rook === 0 && b.queen === 0;
   return matches(white, black) || matches(black, white);
@@ -60,7 +60,7 @@ function isRookEndgame(state: ChessGameState): boolean {
 function isQueenMate(state: ChessGameState): boolean {
   const white = materialSignature(state, 'white');
   const black = materialSignature(state, 'black');
-  const oneSide = (a: typeof white, b: typeof black) =>
+  const oneSide = (a: typeof white, b: typeof white) =>
     a.king === 1 && a.queen === 1 && a.rook === 0 && a.bishop === 0 && a.knight === 0 && a.pawn === 0 &&
     b.king === 1 && b.queen === 0 && b.rook === 0 && b.bishop === 0 && b.knight === 0 && b.pawn === 0;
   return oneSide(white, black) || oneSide(black, white);
@@ -69,7 +69,7 @@ function isQueenMate(state: ChessGameState): boolean {
 function isRookMate(state: ChessGameState): boolean {
   const white = materialSignature(state, 'white');
   const black = materialSignature(state, 'black');
-  const oneSide = (a: typeof white, b: typeof black) =>
+  const oneSide = (a: typeof white, b: typeof white) =>
     a.king === 1 && a.rook === 1 && a.queen === 0 && a.bishop === 0 && a.knight === 0 && a.pawn === 0 &&
     b.king === 1 && b.queen === 0 && b.bishop === 0 && b.knight === 0 && b.rook === 0 && b.pawn === 0;
   return oneSide(white, black) || oneSide(black, white);
@@ -140,6 +140,24 @@ function pawnMoves(state: ChessGameState, side: Side, moves: ChessGameMove[]): C
     state.board[move.from.row][move.from.col]?.color === side);
 }
 
+function kingMovesTowardEnemy(state: ChessGameState, moves: ChessGameMove[]): ChessGameMove[] {
+  const enemy = kingSquare(state, state.turn === 'white' ? 'black' : 'white');
+  const own = kingSquare(state, state.turn);
+  if (!enemy || !own) return [];
+  return moves.filter((move) => state.board[move.from.row][move.from.col]?.type === 'king' &&
+    kingDistance(move.to, enemy) < kingDistance(own, enemy));
+}
+
+function activeRookMoves(state: ChessGameState, moves: ChessGameMove[]): ChessGameMove[] {
+  const enemyKing = kingSquare(state, state.turn === 'white' ? 'black' : 'white');
+  return moves.filter((move) => {
+    if (state.board[move.from.row][move.from.col]?.type !== 'rook') return false;
+    if (enemyKing && (move.to.row === enemyKing.row || move.to.col === enemyKing.col)) return true;
+    const target = state.board[move.to.row][move.to.col];
+    return Boolean(target && target.color !== state.turn);
+  });
+}
+
 export function detectEndgameType(state: ChessGameState): EndgameType | null {
   if (isKingPawnVsKing(state)) return 'rey-y-peon';
   if (isQueenMate(state)) return 'dama-contra-rey';
@@ -188,7 +206,7 @@ export function chooseEndgameTrainingPrompt(state: ChessGameState): EndgameTrain
 
   if (type === 'torres') {
     const checks = checkingMoves(state, moves);
-    const rookMoves = moves.filter((move) => state.board[move.from.row][move.from.col]?.type === 'rook');
+    const rookMoves = activeRookMoves(state, moves);
     return {
       type,
       scenario: 'torre-activa',
@@ -200,6 +218,7 @@ export function chooseEndgameTrainingPrompt(state: ChessGameState): EndgameTrain
   }
 
   const checks = checkingMoves(state, moves);
+  const kingMoves = kingMovesTowardEnemy(state, moves);
   const scenario = type === 'dama-contra-rey' ? 'mate-con-dama' : 'mate-con-torre';
   return {
     type,
@@ -207,6 +226,6 @@ export function chooseEndgameTrainingPrompt(state: ChessGameState): EndgameTrain
     title: type === 'dama-contra-rey' ? 'Mate con dama y rey' : 'Mate con torre y rey',
     instruction: 'Reduce el espacio del rey rival, acerca tu rey y ejecuta el patrón de mate. No des jaques sin propósito.',
     rationale: 'Los mates básicos se entrenan como un proceso: restringir, acercar el rey y ejecutar el mate.',
-    candidateMoves: checks.length ? checks.slice(0, 8) : moves.slice(0, 8),
+    candidateMoves: [...checks, ...kingMoves].slice(0, 8),
   };
 }
