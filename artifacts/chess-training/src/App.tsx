@@ -108,7 +108,8 @@ function makeTrainingBoard(kind: 'middlegame' | 'opposition' | 'rooks' | 'queen'
     put('c8', 'bishop', 'black'); put('f8', 'bishop', 'black'); put('b8', 'knight', 'black'); put('g8', 'knight', 'black');
     ['a7','b6','c5','d6','e5','f7','g7','h6'].forEach((s) => put(s, 'pawn', 'black'));
   } else if (kind === 'opposition') {
-    put('e5', 'king', 'white'); put('e6', 'pawn', 'white'); put('e7', 'king', 'black');
+    // Posición didáctica: oposición con un tiempo de reserva en el peón.
+    put('e5', 'king', 'white'); put('e3', 'pawn', 'white'); put('e7', 'king', 'black');
   } else if (kind === 'rooks') {
     put('e5', 'king', 'white'); put('a5', 'rook', 'white'); put('a6', 'pawn', 'white');
     put('g7', 'king', 'black'); put('h7', 'rook', 'black'); put('g6', 'pawn', 'black');
