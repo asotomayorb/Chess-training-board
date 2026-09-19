@@ -6,16 +6,31 @@ import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
 import { Route, Switch, useLocation, Router as WouterRouter } from 'wouter';
-import { trainingVariantCatalog, type OpeningMove, type OpeningVariant } from '@/data/openings';
-import { calculateAccuracy, chooseRandomVariant, getTrainingLength, getTrainingMovePair } from '@/engine/variant-engine';
+import { trainingVariantCatalog, type OpeningMove } from '@/data/openings';
+import {
+  calculateAccuracy,
+  chooseRandomVariant,
+  getProgressiveHintLevel,
+  getTrainingTurn,
+  isExpectedMove,
+  type VariantSelection,
+} from '@/engine/variant-engine';
+import {
+  applyBoardMove,
+  cloneBoard,
+  getGameStatus,
+  getLegalMoves,
+  makeInitialBoard,
+  squareFromName,
+  type Board,
+  type PieceType,
+  type Side,
+  type Square,
+} from '@/engine/chess-engine';
 
-type Side = 'white' | 'black';
-type PieceType = 'rook' | 'knight' | 'bishop' | 'queen' | 'king' | 'pawn';
-type Piece = { type: PieceType; color: Side };
-type Board = Array<Array<Piece | null>>;
-type Square = { row: number; col: number };
 type PracticeMode = 'free' | 'opening';
 type DifficultMove = {
+  nodeId: string;
   notation: string;
   errors: number;
   hintsUsed: number;
@@ -28,104 +43,11 @@ const symbols: Record<Side, Record<PieceType, string>> = {
   black: { king: '♚', queen: '♛', rook: '♜', bishop: '♝', knight: '♞', pawn: '♟' },
 };
 
-function makeInitialBoard(): Board {
-  const backRank: PieceType[] = ['rook', 'knight', 'bishop', 'queen', 'king', 'bishop', 'knight', 'rook'];
-  return [
-    backRank.map((type) => ({ type, color: 'black' as Side })),
-    Array.from({ length: 8 }, () => ({ type: 'pawn', color: 'black' as Side })),
-    Array(8).fill(null),
-    Array(8).fill(null),
-    Array(8).fill(null),
-    Array(8).fill(null),
-    Array.from({ length: 8 }, () => ({ type: 'pawn', color: 'white' as Side })),
-    backRank.map((type) => ({ type, color: 'white' as Side })),
-  ];
-}
-
-function cloneBoard(board: Board): Board {
-  return board.map((row) => row.map((piece) => (piece ? { ...piece } : null)));
-}
-
-function inBounds(row: number, col: number) {
-  return row >= 0 && row < 8 && col >= 0 && col < 8;
-}
-
-function getLegalMoves(board: Board, square: Square): Square[] {
-  const piece = board[square.row]?.[square.col];
-  if (!piece) return [];
-  const moves: Square[] = [];
-  const add = (row: number, col: number) => {
-    if (!inBounds(row, col)) return false;
-    const destination = board[row][col];
-    if (!destination) {
-      moves.push({ row, col });
-      return true;
-    }
-    if (destination.color !== piece.color) moves.push({ row, col });
-    return false;
-  };
-
-  if (piece.type === 'pawn') {
-    const direction = piece.color === 'white' ? -1 : 1;
-    const startRow = piece.color === 'white' ? 6 : 1;
-    if (inBounds(square.row + direction, square.col) && !board[square.row + direction][square.col]) {
-      moves.push({ row: square.row + direction, col: square.col });
-      if (square.row === startRow && !board[square.row + direction * 2][square.col]) {
-        moves.push({ row: square.row + direction * 2, col: square.col });
-      }
-    }
-    [-1, 1].forEach((offset) => {
-      const row = square.row + direction;
-      const col = square.col + offset;
-      if (inBounds(row, col) && board[row][col] && board[row][col]?.color !== piece.color) {
-        moves.push({ row, col });
-      }
-    });
-    return moves;
-  }
-
-  const jumps: Record<Exclude<PieceType, 'pawn' | 'rook' | 'bishop' | 'queen' | 'king'>, number[][]> = {
-    knight: [[-2, -1], [-2, 1], [-1, -2], [-1, 2], [1, -2], [1, 2], [2, -1], [2, 1]],
-  };
-  if (piece.type === 'knight') {
-    jumps.knight.forEach(([row, col]) => add(square.row + row, square.col + col));
-    return moves;
-  }
-  if (piece.type === 'king') {
-    for (let row = -1; row <= 1; row += 1) {
-      for (let col = -1; col <= 1; col += 1) {
-        if (row !== 0 || col !== 0) add(square.row + row, square.col + col);
-      }
-    }
-    return moves;
-  }
-
-  const directions: Record<'rook' | 'bishop' | 'queen', number[][]> = {
-    rook: [[-1, 0], [1, 0], [0, -1], [0, 1]],
-    bishop: [[-1, -1], [-1, 1], [1, -1], [1, 1]],
-    queen: [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [-1, 1], [1, -1], [1, 1]],
-  };
-  directions[piece.type as 'rook' | 'bishop' | 'queen'].forEach(([row, col]) => {
-    let nextRow = square.row + row;
-    let nextCol = square.col + col;
-    while (inBounds(nextRow, nextCol)) {
-      if (!add(nextRow, nextCol)) break;
-      nextRow += row;
-      nextCol += col;
-    }
-  });
-  return moves;
-}
-
 function squareName(square: Square) {
   return `${files[square.col]}${8 - square.row}`;
 }
 
-function squareFromName(name: string): Square {
-  return { row: 8 - Number(name[1]), col: files.indexOf(name[0]) };
-}
-
-function applyMove(board: Board, move: OpeningMove): Board {
+function applyOpeningMove(board: Board, move: OpeningMove): Board {
   const nextBoard = cloneBoard(board);
   const from = squareFromName(move.from);
   const to = squareFromName(move.to);
@@ -134,7 +56,7 @@ function applyMove(board: Board, move: OpeningMove): Board {
   return nextBoard;
 }
 
-function chooseVariant(): OpeningVariant {
+function chooseVariant(): VariantSelection {
   return chooseRandomVariant(trainingVariantCatalog);
 }
 
@@ -147,8 +69,8 @@ function Home() {
   const [moveHistory, setMoveHistory] = useState<string[]>([]);
   const [focusCue, setFocusCue] = useState('Before you move, name the tension in the position.');
   const [showGuide, setShowGuide] = useState(false);
-  const [openingVariant, setOpeningVariant] = useState<OpeningVariant | null>(null);
-  const [openingStep, setOpeningStep] = useState(0);
+  const [trainingSelection, setTrainingSelection] = useState<VariantSelection | null>(null);
+  const [openingNodeId, setOpeningNodeId] = useState<string | null>(null);
   const [trainingErrors, setTrainingErrors] = useState(0);
   const [moveErrors, setMoveErrors] = useState(0);
   const [hintLevel, setHintLevel] = useState(0);
@@ -169,12 +91,19 @@ function Home() {
     [legalMoves],
   );
 
-  const trainingMovePair = mode === 'opening' && openingVariant
-    ? getTrainingMovePair(openingVariant, openingStep)
-    : { playerMove: null, opponentMove: null };
-  const expectedMove = trainingMovePair.playerMove;
-  const trainingComplete = mode === 'opening' && openingVariant !== null && openingStep >= getTrainingLength(openingVariant);
+  const openingVariant = trainingSelection?.variant ?? null;
+  const openingTree = trainingSelection?.tree ?? null;
+  const trainingTurn = mode === 'opening' && openingTree && openingVariant && openingNodeId
+    ? getTrainingTurn(openingTree, openingVariant, openingNodeId)
+    : null;
+  const expectedNode = trainingTurn?.playerNode ?? null;
+  const expectedMove = expectedNode?.move ?? null;
+  const trainingComplete = mode === 'opening' && openingVariant !== null && trainingTurn !== null && trainingTurn.playerNode === null;
   const trainingAccuracy = calculateAccuracy(trainingCorrectMoves, trainingAttempts);
+  const freeGameStatus = mode === 'free' ? getGameStatus(board, turn) : null;
+  const freeGameOver = freeGameStatus === 'checkmate' || freeGameStatus === 'stalemate';
+  const freeTurnLabel = turn === 'white' ? 'blancas' : 'negras';
+  const freeWinnerLabel = turn === 'white' ? 'negras' : 'blancas';
 
   const resetFreePractice = () => {
     setBoard(makeInitialBoard());
@@ -184,8 +113,8 @@ function Home() {
     setLastMove(null);
     setMoveHistory([]);
     setFocusCue('Before you move, name the tension in the position.');
-    setOpeningVariant(null);
-    setOpeningStep(0);
+    setTrainingSelection(null);
+    setOpeningNodeId(null);
     setTrainingErrors(0);
     setMoveErrors(0);
     setHintLevel(0);
@@ -197,15 +126,15 @@ function Home() {
     setTrainingExplanation('');
   };
 
-  const startOpeningTraining = (variant = chooseVariant()) => {
+  const startOpeningTraining = (selection = chooseVariant()) => {
     setBoard(makeInitialBoard());
     setMode('opening');
     setTurn('white');
     setSelected(null);
     setLastMove(null);
     setMoveHistory([]);
-    setOpeningVariant(variant);
-    setOpeningStep(0);
+    setTrainingSelection(selection);
+    setOpeningNodeId(selection.variant.startNodeId);
     setTrainingErrors(0);
     setMoveErrors(0);
     setHintLevel(0);
@@ -218,7 +147,7 @@ function Home() {
   };
 
   const resetTraining = () => {
-    startOpeningTraining(openingVariant ?? chooseVariant());
+    startOpeningTraining(trainingSelection ?? chooseVariant());
   };
 
   const exitTraining = () => {
@@ -234,16 +163,16 @@ function Home() {
   };
 
   const handleOpeningMove = (from: Square, to: Square) => {
-    if (!expectedMove || !openingVariant) return;
+    if (!expectedMove || !expectedNode || !openingVariant || !openingTree || !trainingTurn) return;
 
     const fromName = squareName(from);
     const toName = squareName(to);
-    const isCorrect = fromName === expectedMove.from && toName === expectedMove.to;
+    const isCorrect = isExpectedMove(expectedMove, fromName, toName);
 
     if (!isCorrect) {
       const nextMoveErrors = moveErrors + 1;
-      const previousHintLevel = Math.min(moveErrors, 3);
-      const nextHintLevel = Math.min(nextMoveErrors, 3);
+      const previousHintLevel = getProgressiveHintLevel(moveErrors);
+      const nextHintLevel = getProgressiveHintLevel(nextMoveErrors);
       setTrainingErrors((errors) => errors + 1);
       setTrainingAttempts((attempts) => attempts + 1);
       setMoveErrors(nextMoveErrors);
@@ -252,15 +181,15 @@ function Home() {
         setTrainingHintsUsed((hints) => hints + 1);
       }
       setDifficultMoves((moves) => {
-        const existingMove = moves.find((move) => move.notation === expectedMove.notation);
+        const existingMove = moves.find((move) => move.nodeId === expectedNode.id);
         if (existingMove) {
           return moves.map((move) => (
-            move.notation === expectedMove.notation
+            move.nodeId === expectedNode.id
               ? { ...move, errors: nextMoveErrors, hintsUsed: Math.max(move.hintsUsed, nextHintLevel) }
               : move
           ));
         }
-        return [...moves, { notation: expectedMove.notation, errors: nextMoveErrors, hintsUsed: nextHintLevel }];
+        return [...moves, { nodeId: expectedNode.id, notation: expectedMove.notation, errors: nextMoveErrors, hintsUsed: nextHintLevel }];
       });
       setTrainingStatus('incorrect');
       setTrainingExplanation('');
@@ -268,30 +197,41 @@ function Home() {
       return;
     }
 
-    const blackMove = trainingMovePair.opponentMove;
-    const boardAfterWhite = applyMove(board, expectedMove);
-    const nextBoard = blackMove ? applyMove(boardAfterWhite, blackMove) : boardAfterWhite;
-    const isLastWhiteMove = openingStep === getTrainingLength(openingVariant) - 1;
+    const automaticMoves = trainingTurn.automaticNodes
+      .flatMap((node) => (node.move ? [node.move] : []));
+    const nextBoard = [expectedMove, ...automaticMoves].reduce(
+      (currentBoard, move) => applyOpeningMove(currentBoard, move),
+      board,
+    );
+    const lastAutomaticNode = trainingTurn.automaticNodes[trainingTurn.automaticNodes.length - 1];
+    const nextNodeId = lastAutomaticNode?.id ?? expectedNode.id;
+    const nextTrainingTurn = getTrainingTurn(openingTree, openingVariant, nextNodeId);
+    const isLastWhiteMove = nextTrainingTurn.playerNode === null;
+    const lastAppliedMove = automaticMoves[automaticMoves.length - 1] ?? expectedMove;
 
     setBoard(nextBoard);
-    setLastMove(blackMove ? [blackMove.from, blackMove.to] : [expectedMove.from, expectedMove.to]);
+    setLastMove([lastAppliedMove.from, lastAppliedMove.to]);
     setMoveHistory((history) => [
       ...history,
       expectedMove.notation,
-      ...(blackMove ? [blackMove.notation] : []),
+      ...automaticMoves.map((move) => move.notation),
     ]);
     setSelected(null);
+    setOpeningNodeId(nextNodeId);
     setMoveErrors(0);
     setHintLevel(0);
     setTrainingAttempts((attempts) => attempts + 1);
     setTrainingCorrectMoves((moves) => moves + 1);
     setTrainingExplanation(expectedMove.explanation ?? '');
     setTrainingStatus(isLastWhiteMove ? 'complete' : 'correct');
-    setOpeningStep((step) => step + 1);
   };
 
   const handleSquareClick = (row: number, col: number) => {
     if (mode === 'opening' && trainingComplete) {
+      setSelected(null);
+      return;
+    }
+    if (mode === 'free' && freeGameOver) {
       setSelected(null);
       return;
     }
@@ -307,9 +247,7 @@ function Home() {
 
       const from = squareName(selected);
       const to = squareName({ row, col });
-      const nextBoard = cloneBoard(board);
-      nextBoard[row][col] = nextBoard[selected.row][selected.col];
-      nextBoard[selected.row][selected.col] = null;
+      const nextBoard = applyBoardMove(board, { from: selected, to: { row, col } });
       setBoard(nextBoard);
       setLastMove([from, to]);
       setMoveHistory((history) => [...history, `${from}–${to}`]);
@@ -468,7 +406,15 @@ function Home() {
                   <div className="flex items-center gap-2">
                     <span className={`size-2 rounded-full ${mode === 'opening' || turn === 'white' ? 'bg-[#f7f0df] ring-1 ring-[#b7ad9b]' : 'bg-[#263a33]'}`} />
                     <span className="text-[12px] font-bold text-[#40564b]">
-                      {mode === 'opening' ? (trainingComplete ? 'Variante completada' : 'Tu turno · blancas') : `${turn === 'white' ? 'White' : 'Black'} to move`}
+                      {mode === 'opening'
+                        ? (trainingComplete ? 'Variante completada' : 'Tu turno · blancas')
+                        : freeGameStatus === 'checkmate'
+                          ? `Jaque mate · ganan ${freeWinnerLabel}`
+                          : freeGameStatus === 'stalemate'
+                            ? 'Tablas por ahogado'
+                            : freeGameStatus === 'check'
+                              ? `Jaque · turno ${freeTurnLabel}`
+                              : `Turno de ${freeTurnLabel}`}
                     </span>
                   </div>
                   <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-[#879389]">{mode === 'opening' ? 'opening training' : 'free practice'}</span>
@@ -520,7 +466,7 @@ function Home() {
               <aside className="fade-up fade-up-delay-2 xl:pt-7">
                 <div className="rounded-2xl border border-[#d1c8b7] bg-[#f2ece0] p-5 shadow-[0_12px_30px_rgba(65,70,58,.06)] sm:p-6">
                   <div className="flex items-center justify-between">
-                     <p className="font-mono text-[9px] font-medium uppercase tracking-[0.2em] text-[#7b897f]">{mode === 'opening' ? 'Opening coach' : 'Your prompt'}</p>
+                     <p className="font-mono text-[9px] font-medium uppercase tracking-[0.2em] text-[#7b897f]">{mode === 'opening' ? 'Opening coach' : 'Estado de la partida'}</p>
                      {mode === 'opening' ? <Lightbulb size={15} className="text-[#c38a3d]" /> : <BookOpen size={15} className="text-[#1f5b49]" />}
                   </div>
                    {mode === 'opening' ? (
@@ -562,7 +508,20 @@ function Home() {
                        )}
                      </div>
                    ) : (
-                     <p className="mt-5 text-[16px] font-bold leading-snug tracking-[-0.03em] text-[#30473e]" data-testid="text-focus-cue">{focusCue}</p>
+                     <div className="mt-5 space-y-3">
+                       <p className="text-[16px] font-bold leading-snug tracking-[-0.03em] text-[#30473e]" data-testid="text-free-status">
+                         {freeGameStatus === 'checkmate'
+                           ? `Jaque mate. Ganan las ${freeWinnerLabel}.`
+                           : freeGameStatus === 'stalemate'
+                             ? 'Tablas por ahogado.'
+                             : freeGameStatus === 'check'
+                               ? `Jaque. Turno de las ${freeTurnLabel}.`
+                               : `Turno de las ${freeTurnLabel}.`}
+                       </p>
+                       <p className="text-[12px] leading-relaxed text-[#6d7c73]" data-testid="text-focus-cue">
+                         {freeGameOver ? 'La partida terminó. Reinicia para volver a mover.' : focusCue}
+                       </p>
+                     </div>
                    )}
                   <div className="my-5 h-px bg-[#d8cfbe]" />
                   <div className="flex items-center justify-between">

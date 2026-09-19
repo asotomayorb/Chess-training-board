@@ -3,49 +3,155 @@ import type {
   OpeningMove,
   OpeningVariant,
   VariantCatalog,
+  VariantNode,
+  VariantTag,
   VariantTree,
 } from '@/data/openings';
 
-export type TrainingMovePair = {
-  playerMove: OpeningMove | null;
-  opponentMove: OpeningMove | null;
+export type VariantSelection = {
+  tree: VariantTree;
+  variant: OpeningVariant;
 };
 
-export function chooseRandomVariant(source: VariantTree | VariantCatalog): OpeningVariant {
-  const branches = 'branches' in source
-    ? source.branches
-    : source.trees.flatMap((tree) => tree.branches);
+export type VariantSelectionOptions = {
+  levels?: readonly string[];
+  tags?: readonly VariantTag[];
+  excludeVariantIds?: readonly string[];
+  weights?: Readonly<Record<string, number>>;
+  random?: () => number;
+};
 
-  if (branches.length === 0) {
-    throw new Error('Cannot choose a training variant from an empty catalog.');
+export type TrainingTurn = {
+  currentNode: VariantNode;
+  playerNode: VariantNode | null;
+  automaticNodes: VariantNode[];
+};
+
+function getVariantEntries(source: VariantTree | VariantCatalog): VariantSelection[] {
+  if ('branches' in source) {
+    return source.branches.map((variant) => ({ tree: source, variant }));
   }
 
-  return branches[Math.floor(Math.random() * branches.length)] ?? branches[0];
+  return source.trees.flatMap((tree) => (
+    tree.branches.map((variant) => ({ tree, variant }))
+  ));
 }
 
-export function getTrainingMovePair(
-  variant: OpeningVariant,
-  step: number,
-  playerColor: OpeningColor = 'white',
-): TrainingMovePair {
-  const playerMoves = variant.moves.filter((move) => move.color === playerColor);
-  const playerMove = playerMoves[step] ?? null;
+export function chooseRandomVariant(
+  source: VariantTree | VariantCatalog,
+  options: VariantSelectionOptions = {},
+): VariantSelection {
+  const levels = options.levels ? new Set(options.levels) : null;
+  const tags = options.tags ? new Set(options.tags) : null;
+  const excludedIds = new Set(options.excludeVariantIds ?? []);
+  const candidates = getVariantEntries(source).filter(({ variant }) => (
+    (!levels || levels.has(variant.level)) &&
+    (!tags || variant.tags.some((tag) => tags.has(tag))) &&
+    !excludedIds.has(variant.id)
+  ));
 
-  if (!playerMove) {
-    return { playerMove: null, opponentMove: null };
+  if (candidates.length === 0) {
+    throw new Error('Cannot choose a training variant: no branches match the selection criteria.');
   }
 
-  const playerMoveIndex = variant.moves.indexOf(playerMove);
-  const opponentMove = variant.moves[playerMoveIndex + 1];
+  const getWeight = (variant: OpeningVariant) => Math.max(options.weights?.[variant.id] ?? 1, 0);
+  const totalWeight = candidates.reduce((total, { variant }) => total + getWeight(variant), 0);
+  const randomValue = options.random ?? Math.random;
+
+  if (totalWeight <= 0) {
+    throw new Error('Cannot choose a training variant: all branch weights are zero.');
+  }
+
+  let threshold = randomValue() * totalWeight;
+  for (const candidate of candidates) {
+    threshold -= getWeight(candidate.variant);
+    if (threshold < 0) return candidate;
+  }
+
+  return candidates[candidates.length - 1];
+}
+
+function findNode(node: VariantNode, nodeId: string): VariantNode | null {
+  if (node.id === nodeId) return node;
+  for (const child of node.children) {
+    const found = findNode(child, nodeId);
+    if (found) return found;
+  }
+  return null;
+}
+
+function findPath(node: VariantNode, targetNodeId: string, path: VariantNode[] = []): VariantNode[] | null {
+  const nextPath = [...path, node];
+  if (node.id === targetNodeId) return nextPath;
+
+  for (const child of node.children) {
+    const found = findPath(child, targetNodeId, nextPath);
+    if (found) return found;
+  }
+  return null;
+}
+
+export function getVariantNodePath(tree: VariantTree, variant: OpeningVariant): VariantNode[] {
+  const startNode = findNode(tree.root, variant.startNodeId);
+  if (!startNode) {
+    throw new Error(`Variant "${variant.id}" references missing start node "${variant.startNodeId}".`);
+  }
+
+  const path = findPath(startNode, variant.leafNodeId);
+  if (!path) {
+    throw new Error(`Variant "${variant.id}" has no path to leaf node "${variant.leafNodeId}".`);
+  }
+
+  return path;
+}
+
+export function getVariantSequence(tree: VariantTree, variant: OpeningVariant): OpeningMove[] {
+  return getVariantNodePath(tree, variant)
+    .map((node) => node.move)
+    .filter((move): move is OpeningMove => move !== null);
+}
+
+export function getTrainingTurn(
+  tree: VariantTree,
+  variant: OpeningVariant,
+  currentNodeId: string,
+  playerColor: OpeningColor = 'white',
+): TrainingTurn {
+  const path = getVariantNodePath(tree, variant);
+  const currentIndex = path.findIndex((node) => node.id === currentNodeId);
+
+  if (currentIndex === -1) {
+    throw new Error(`Current node "${currentNodeId}" is not part of variant "${variant.id}".`);
+  }
+
+  const remainingNodes = path.slice(currentIndex + 1);
+  const playerIndex = remainingNodes.findIndex((node) => node.move?.color === playerColor);
+  const playerNode = playerIndex === -1 ? null : remainingNodes[playerIndex];
+  const automaticNodes: VariantNode[] = [];
+  if (playerNode) {
+    for (const node of remainingNodes.slice(playerIndex + 1)) {
+      if (node.move?.color === playerColor) break;
+      automaticNodes.push(node);
+    }
+  }
 
   return {
-    playerMove,
-    opponentMove: opponentMove && opponentMove.color !== playerColor ? opponentMove : null,
+    currentNode: path[currentIndex],
+    playerNode,
+    automaticNodes,
   };
 }
 
-export function getTrainingLength(variant: OpeningVariant, playerColor: OpeningColor = 'white'): number {
-  return variant.moves.filter((move) => move.color === playerColor).length;
+export function getTrainingLength(tree: VariantTree, variant: OpeningVariant, playerColor: OpeningColor = 'white'): number {
+  return getVariantSequence(tree, variant).filter((move) => move.color === playerColor).length;
+}
+
+export function isExpectedMove(expectedMove: OpeningMove | null, from: string, to: string): boolean {
+  return expectedMove !== null && expectedMove.from === from && expectedMove.to === to;
+}
+
+export function getProgressiveHintLevel(errorCount: number, maxHints = 3): number {
+  return Math.min(Math.max(errorCount, 0), maxHints);
 }
 
 export function calculateAccuracy(correctMoves: number, attempts: number): number {
