@@ -232,10 +232,10 @@ export function getTrainingTurn(
   const playerNode = playerIndex === -1 ? null : remainingNodes[playerIndex];
   const automaticNodes: VariantNode[] = [];
   if (playerNode) {
-    for (const node of remainingNodes.slice(playerIndex + 1)) {
-      if (node.move?.color === playerColor) break;
-      automaticNodes.push(node);
-    }
+    // Automatic moves are the opponent's moves BEFORE the next player decision.
+    // The previous implementation took nodes after playerNode, which could skip
+    // the first move for Black and make the rival appear one or two moves ahead.
+    automaticNodes.push(...remainingNodes.slice(0, playerIndex));
   }
 
   return {
