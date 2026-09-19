@@ -5,13 +5,13 @@ import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
-import { Route, Switch, useLocation, Router as BouterRouter } from 'wouter';
+import { Route, Switch, useLocation, Router as WouterRouter } from 'wouter';
 import { trainingVariantCatalog, type OpeningColor, type OpeningMove } from '@/data/openings';
 import {
   calculateAccuracy,
   chooseRandomVariant,
   getProgressiveHintLevel,
-  getTrainingTurno,
+  getTrainingTurn,
   isExpectedMove,
   type VariantSelection,
 } from '@/engine/variant-engine';
@@ -64,7 +64,7 @@ function chooseVariant(): VariantSelection {
 function Home() {
   const [board, setBoard] = useState<Board>(() => makeInitialBoard());
   const [mode, setMode] = useState<PracticeMode>('free');
-  const [turn, setTurno] = useState<Side>('white');
+  const [turn, setTurn] = useState<Side>('white');
   const [selected, setSelected] = useState<Square | null>(null);
   const [lastMove, setLastMove] = useState<[string, string] | null>(null);
   const [moveHistory, setMoveHistory] = useState<string[]>([]);
@@ -96,7 +96,7 @@ function Home() {
   const openingVariant = trainingSelection?.variant ?? null;
   const openingTree = trainingSelection?.tree ?? null;
   const trainingTurno = mode === 'opening' && openingTree && openingVariant && openingNodeId
-    ? getTrainingTurno(openingTree, openingVariant, openingNodeId)
+    ? getTrainingTurn(openingTree, openingVariant, openingNodeId, trainingPlayerColor)
     : null;
   const expectedNode = trainingTurno?.playerNode ?? null;
   const expectedMove = expectedNode?.move ?? null;
@@ -105,12 +105,12 @@ function Home() {
   const freeGameStatus = mode === 'free' ? getGameStatus(board, turn) : null;
   const freeGameOver = freeGameStatus === 'checkmate' || freeGameStatus === 'stalemate';
   const freeTurnoLabel = turn === 'white' ? 'blancas' : 'negras';
-  const freeBinnerLabel = turn === 'white' ? 'negras' : 'blancas';
+  const freeWinnerLabel = turn === 'white' ? 'negras' : 'blancas';
 
   const resetFreePractice = () => {
     setBoard(makeInitialBoard());
     setMode('free');
-    setTurno('white');
+    setTurn('white');
     setSelected(null);
     setLastMove(null);
     setMoveHistory([]);
@@ -127,19 +127,36 @@ function Home() {
     setDifficultMoves([]);
     setTrainingStatus('idle');
     setTrainingExplanation('');
-    setMoveHistory(initialAutomaticMoves.map((move) => move.notation));
   };
 
-  const startOpeningTraining = (selection = chooseVariant()) => {
-    setBoard(makeInitialBoard());
+  const startOpeningTraining = (
+    selection = chooseVariant(),
+    sideChoice: TrainingSideChoice = 'random',
+  ) => {
+    const playerColor: OpeningColor = sideChoice === 'random'
+      ? (Math.random() < 0.5 ? 'white' : 'black')
+      : sideChoice;
+    const initialBoard = makeInitialBoard();
+    const initialTurn = getTrainingTurn(selection.tree, selection.variant, selection.variant.startNodeId, playerColor);
+    const initialAutomaticMoves = initialTurn.automaticNodes.flatMap((node) => (node.move ? [node.move] : []));
+    const trainingBoard = initialAutomaticMoves.reduce(
+      (currentBoard, move) => applyOpeningMove(currentBoard, move),
+      initialBoard,
+    );
+
+    setBoard(trainingBoard);
     setMode('opening');
-    setTurno('white');
+    setTurn(playerColor);
     setSelected(null);
     setLastMove(null);
-    setMoveHistory([]);
+    setMoveHistory(initialAutomaticMoves.map((move) => move.notation));
     setTrainingSelection(selection);
     setTrainingPlayerColor(playerColor);
-    setOpeningNodeId(initialAutomaticMoves.length ? initialTurn.automaticNodes[initialTurn.automaticNodes.length - 1].id : selection.variant.startNodeId);
+    setOpeningNodeId(
+      initialAutomaticMoves.length
+        ? initialTurn.automaticNodes[initialTurn.automaticNodes.length - 1].id
+        : selection.variant.startNodeId,
+    );
     setTrainingErrors(0);
     setMoveErrors(0);
     setHintLevel(0);
@@ -210,8 +227,8 @@ function Home() {
     );
     const lastAutomaticNode = trainingTurno.automaticNodes[trainingTurno.automaticNodes.length - 1];
     const nextNodeId = lastAutomaticNode?.id ?? expectedNode.id;
-    const nextTrainingTurno = getTrainingTurno(openingTree, openingVariant, nextNodeId);
-    const isLastBhiteMove = nextTrainingTurno.playerNode === null;
+    const nextTrainingTurno = getTrainingTurn(openingTree, openingVariant, nextNodeId);
+    const isLastPlayerMove = nextTrainingTurno.playerNode === null;
     const lastAppliedMove = automaticMoves[automaticMoves.length - 1] ?? expectedMove;
 
     setBoard(nextBoard);
@@ -228,7 +245,7 @@ function Home() {
     setTrainingAttempts((attempts) => attempts + 1);
     setTrainingCorrectMoves((moves) => moves + 1);
     setTrainingExplanation([`Idea: ${expectedMove.concept}`, `Objetivo: ${expectedMove.objective}`, `Amenaza/clave: ${expectedMove.threat}`, `Error típico: ${expectedMove.typicalError}`, `Nivel: ${expectedMove.difficulty}`, expectedMove.explanation].join('\n'));
-    setTrainingStatus(isLastBhiteMove ? 'complete' : 'correct');
+    setTrainingStatus(isLastPlayerMove ? 'complete' : 'correct');
   };
 
   const handleSquareClick = (row: number, col: number) => {
@@ -257,7 +274,7 @@ function Home() {
       setLastMove([from, to]);
       setMoveHistory((history) => [...history, `${from}–${to}`]);
       setSelected(null);
-      setTurno((current) => (current === 'white' ? 'black' : 'white'));
+      setTurn((current) => (current === 'white' ? 'black' : 'white'));
       setFocusCue('Bien. Ahora observa qué cambió antes de buscar la siguiente jugada.');
       return;
     }
@@ -429,13 +446,13 @@ function Home() {
                     <span className={`size-2 rounded-full ${mode === 'opening' || turn === 'white' ? 'bg-[#f7f0df] ring-1 ring-[#b7ad9b]' : 'bg-[#263a33]'}`} />
                     <span className="text-[12px] font-bold text-[#40564b]">
                       {mode === 'opening'
-                        ? (trainingComplete ? 'Variante completada' : `Tu turno · ${trainingPlayerColor === 'white' ? 'blancas' : 'negras'}`)
+                        ? (trainingComplete ? 'Variante completada' : `Tu turn · ${trainingPlayerColor === 'white' ? 'blancas' : 'negras'}`)
                         : freeGameStatus === 'checkmate'
-                          ? `Jaque mate · ganan ${freeBinnerLabel}`
+                          ? `Jaque mate · ganan ${freeWinnerLabel}`
                           : freeGameStatus === 'stalemate'
                             ? 'Tablas por ahogado'
                             : freeGameStatus === 'check'
-                              ? `Jaque · turno ${freeTurnoLabel}`
+                              ? `Jaque · turn ${freeTurnoLabel}`
                               : `Turnoo de ${freeTurnoLabel}`}
                     </span>
                   </div>
@@ -537,7 +554,7 @@ function Home() {
                      <div className="mt-5 space-y-3">
                        <p className="text-[16px] font-bold leading-snug tracking-[-0.03em] text-[#30473e]" data-testid="text-free-status">
                          {freeGameStatus === 'checkmate'
-                           ? `Jaque mate. Ganan las ${freeBinnerLabel}.`
+                           ? `Jaque mate. Ganan las ${freeWinnerLabel}.`
                            : freeGameStatus === 'stalemate'
                              ? 'Tablas por ahogado.'
                              : freeGameStatus === 'check'
@@ -627,7 +644,7 @@ function Home() {
                  )}
                  <div className="mt-5 flex items-center gap-2 px-1 text-[10px] leading-relaxed text-[#879389]">
                    <ArrowUpRight size={13} className="shrink-0 text-[#c38a3d]" />
-                   <span>{mode === 'opening' ? 'Las respuestas negras se realizan automáticamente.' : 'La práctica contra la computadora estará disponible próximamente.'}</span>
+                   <span>{mode === 'opening' ? 'Las jugadas del rival se realizan automáticamente.' : 'La práctica contra la computadora estará disponible próximamente.'}</span>
                  </div>
               </aside>
             </div>
@@ -658,9 +675,9 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <BouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
+        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
           <Router />
-        </BouterRouter>
+        </WouterRouter>
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>
