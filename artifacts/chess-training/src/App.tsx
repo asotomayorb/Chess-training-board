@@ -23,7 +23,7 @@ import { evaluateMiddlegameMove } from '@/engine/middlegame-evaluation';
 import { chooseEndgameTrainingPrompt, type EndgameTrainingPrompt } from '@/engine/endgame-training';
 import { evaluateEndgameMove } from '@/engine/endgame-evaluation';
 import { evaluateCompleteMove } from '@/engine/complete-training';
-import { StockfishEngine, type StockfishAnalysis } from '@/engine/stockfish-engine';
+import { StockfishEngine, type StockfishAnalysis, type StockfishMoveQuality } from '@/engine/stockfish-engine';
 import {
   applyBoardMove,
   applyChessMove,
@@ -115,6 +115,8 @@ function Home() {
   const [stockfishAnalysis, setStockfishAnalysis] = useState<StockfishAnalysis | null>(null);
   const [stockfishLoading, setStockfishLoading] = useState(false);
   const [stockfishError, setStockfishError] = useState('');
+  const [stockfishMoveQuality, setStockfishMoveQuality] = useState<StockfishMoveQuality | null>(null);
+  const [stockfishMoveLoading, setStockfishMoveLoading] = useState(false);
   const [completeErrors, setCompleteErrors] = useState(0);
   const [middlegameErrors, setMiddlegameErrors] = useState(0);
   const [endgameErrors, setEndgameErrors] = useState(0);
@@ -263,6 +265,10 @@ function Home() {
     setMoveHistory([]);
     setFocusCue('Antes de mover, identifica la tensión de la posición.');
     setCompleteFeedback('');
+    setStockfishAnalysis(null);
+    setStockfishError('');
+    setStockfishMoveQuality(null);
+    setStockfishMoveLoading(false);
     setCompleteErrors(0);
     setMiddlegameErrors(0);
     setEndgameErrors(0);
@@ -352,6 +358,10 @@ function Home() {
     setMoveHistory([]);
     setFocusCue('Modo completo: juega la partida y aplica las ideas aprendidas durante la apertura.');
     setCompleteFeedback('');
+    setStockfishAnalysis(null);
+    setStockfishError('');
+    setStockfishMoveQuality(null);
+    setStockfishMoveLoading(false);
     setCompleteErrors(0);
     setMiddlegameErrors(0);
     setEndgameErrors(0);
@@ -496,13 +506,14 @@ function Home() {
   };
 
   const applyCompleteMove = (move: ChessGameMove) => {
-    const nextGame = applyChessMove(completeGame, move);
-    const evaluation = evaluateCompleteMove(completeGame, nextGame, move);
+    const previousGame = completeGame;
+    const nextGame = applyChessMove(previousGame, move);
+    const evaluation = evaluateCompleteMove(previousGame, nextGame, move);
     const endgameEvaluation = endgamePrompt
-      ? evaluateEndgameMove(completeGame, nextGame, move, endgamePrompt)
+      ? evaluateEndgameMove(previousGame, nextGame, move, endgamePrompt)
       : null;
     const middlegameEvaluation = !endgameEvaluation && middlegamePrompt
-      ? evaluateMiddlegameMove(completeGame, nextGame, move, middlegamePrompt)
+      ? evaluateMiddlegameMove(previousGame, nextGame, move, middlegamePrompt)
       : null;
 
     if (evaluation.immediateCapture) setCompleteErrors((errors) => errors + 1);
@@ -515,6 +526,30 @@ function Home() {
       : evaluation.feedback;
 
     setCompleteFeedback(combinedFeedback);
+    if (previousGame.turn === 'white' && !stockfishMoveLoading) {
+      setStockfishMoveLoading(true);
+      setStockfishError('');
+      if (!stockfishRef.current) stockfishRef.current = new StockfishEngine();
+      void stockfishRef.current.analyzePlayedMove(previousGame, move, { depth: 10 })
+        .then((quality) => {
+          setStockfishMoveQuality(quality);
+          const loss = quality.centipawnLoss;
+          if (quality.isBestMove) {
+            setCompleteFeedback((current) => current + ' Stockfish confirma esta como la principal candidata.');
+          } else if (loss !== null && loss >= 100) {
+            setCompleteFeedback((current) => current + ' El motor detecta una pérdida importante de evaluación; revisa amenazas y jugadas forzadas.');
+          } else if (loss !== null && loss >= 40) {
+            setCompleteFeedback((current) => current + ' El motor ve una alternativa más precisa; úsala como pista para comparar planes.');
+          } else {
+            setCompleteFeedback((current) => current + ' El motor considera la jugada razonable, aunque puede existir una alternativa más precisa.');
+          }
+        })
+        .catch((error) => {
+          setStockfishError(error instanceof Error ? error.message : 'No se pudo verificar la jugada con Stockfish.');
+        })
+        .finally(() => setStockfishMoveLoading(false));
+    }
+
     setCompleteGame(nextGame);
     setBoard(nextGame.board);
     const reachedEndgame = chooseEndgameTrainingPrompt(nextGame);
@@ -862,6 +897,20 @@ function Home() {
                          )}
                          {stockfishError && (
                            <p className="mt-2 w-full text-[10px] font-semibold text-[#8a4b3f]">{stockfishError}</p>
+                         )}
+                         {stockfishMoveLoading && (
+                           <p className="mt-2 w-full text-[10px] font-semibold text-[#6c634d]">Stockfish está comprobando la precisión de tu última jugada...</p>
+                         )}
+                         {stockfishMoveQuality && (
+                           <div className="mt-2 w-full rounded-xl border border-[#c9b98f] bg-[#f1ead9] px-3 py-2.5">
+                             <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#5f563f]">Verificación de tu jugada</p>
+                             <p className="mt-1 text-[11px] text-[#6c634d]">
+                               Jugada: <span className="font-mono font-bold">{stockfishMoveQuality.playedMove}</span> · Motor: <span className="font-mono font-bold">{stockfishMoveQuality.bestMove}</span>
+                             </p>
+                             {stockfishMoveQuality.centipawnLoss !== null && (
+                               <p className="mt-1 text-[10px] text-[#6c634d]">Pérdida estimada: <span className="font-mono font-bold">{stockfishMoveQuality.centipawnLoss} cp</span>.</p>
+                             )}
+                           </div>
                          )}
                          <button
                            type="button"
