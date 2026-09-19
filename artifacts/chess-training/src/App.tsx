@@ -939,8 +939,8 @@ function Home() {
             </div>
           </header>
 
-          <div className="mx-auto max-w-[1260px] px-5 pb-12 pt-7 sm:px-8 sm:pt-10 lg:px-12 lg:pt-12">
-            <div className="mb-8 flex items-end justify-between gap-5 fade-up">
+          <div className="training-shell mx-auto max-w-[1260px] px-5 pb-4 pt-4 sm:px-8 sm:pt-6 lg:px-12 lg:pt-6">
+            <div className="training-intro mb-5 flex items-end justify-between gap-5 fade-up">
               <div>
                 <div className="mb-3 flex items-center gap-2">
                    <span className="rounded-full bg-[#c38a3d] px-2.5 py-1 font-mono text-[9px] font-medium uppercase tracking-[0.17em] text-[#2d3a31]">{mode === 'opening' ? 'entrenamiento 01' : 'estudio 01'}</span>
@@ -1084,7 +1084,7 @@ function Home() {
             </div>
 
             <div className="grid items-start gap-8 xl:grid-cols-[minmax(560px,700px)_300px] xl:gap-14">
-              <section className="fade-up fade-up-delay-1">
+              <section className="training-board-column fade-up fade-up-delay-1">
                 <div className="mb-3 flex items-center justify-between px-1">
                   <div className="flex items-center gap-2">
                     <span className={`size-2 rounded-full ${mode === 'opening' || turn === 'white' ? 'bg-[#f7f0df] ring-1 ring-[#b7ad9b]' : 'bg-[#263a33]'}`} />
@@ -1131,7 +1131,8 @@ function Home() {
                   </div>
                 )}
 
-                <div className="board-frame overflow-hidden rounded-[5px] border-[10px] border-[#263f35] bg-[#263f35] sm:border-[14px]">
+                <div className="training-board-wrap">
+                  <div className="board-frame overflow-hidden rounded-[5px] border-[10px] border-[#263f35] bg-[#263f35] sm:border-[14px]">
                   <div className="grid grid-cols-8 overflow-hidden rounded-[1px]" data-testid="chess-board">
                     {displayedBoard.map((row, displayRowIndex) =>
                       row.map((piece, displayColIndex) => {
