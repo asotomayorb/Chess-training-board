@@ -20,6 +20,42 @@ export function classifyTrainingError(expectedMove: OpeningMove, from: string, t
   return 'plan incorrecto';
 }
 
+export type UnexpectedEventType = 'amenaza' | 'gambito' | 'desviación' | 'sacrificio' | 'cambio de plan';
+
+export type UnexpectedEvent = {
+  type: UnexpectedEventType;
+  title: string;
+  message: string;
+  difficulty: 'fundamentos' | 'intermedio' | 'avanzado';
+};
+
+const unexpectedEventCatalog: UnexpectedEvent[] = [
+  { type: 'amenaza', title: '⚠️ Atención: posible amenaza', message: 'Antes de ejecutar tu plan, comprueba qué amenaza acaba de aparecer.', difficulty: 'fundamentos' },
+  { type: 'gambito', title: '♟️ Juego inesperado: gambito', message: 'El rival puede ofrecer material para ganar tiempos o iniciativa.', difficulty: 'intermedio' },
+  { type: 'desviación', title: '↪️ Juego inesperado: desviación', message: 'La posición puede apartarse de la línea conocida. Busca la idea, no solo la memoria.', difficulty: 'intermedio' },
+  { type: 'sacrificio', title: '⚔️ Juego inesperado: sacrificio', message: 'El rival puede entregar material a cambio de actividad o amenazas.', difficulty: 'avanzado' },
+  { type: 'cambio de plan', title: '🔄 Juego inesperado: cambio de plan', message: 'El rival puede cambiar su plan. Reevalúa centro, seguridad del rey y piezas activas.', difficulty: 'avanzado' },
+];
+
+export type UnexpectedEventOptions = {
+  enabled?: boolean;
+  difficulty?: 'fundamentos' | 'intermedio' | 'avanzado';
+  random?: () => number;
+};
+
+export function chooseUnexpectedEvent(options: UnexpectedEventOptions = {}): UnexpectedEvent | null {
+  if (options.enabled === false) return null;
+  const levels = options.difficulty === 'fundamentos'
+    ? ['fundamentos']
+    : options.difficulty === 'intermedio'
+      ? ['fundamentos', 'intermedio']
+      : ['fundamentos', 'intermedio', 'avanzado'];
+  const candidates = unexpectedEventCatalog.filter((event) => levels.includes(event.difficulty));
+  if (!candidates.length) return null;
+  const randomValue = Math.min(Math.max((options.random ?? Math.random)(), 0), 0.999999);
+  return candidates[Math.floor(randomValue * candidates.length)];
+}
+
 export type VariantSelection = {
   tree: VariantTree;
   variant: OpeningVariant;
