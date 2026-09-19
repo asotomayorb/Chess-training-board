@@ -1,5 +1,14 @@
 export type OpeningColor = 'white' | 'black';
 
+export type TrainingErrorCategory =
+  | 'desarrollo'
+  | 'amenaza ignorada'
+  | 'pérdida de tiempo'
+  | 'táctica'
+  | 'captura prematura'
+  | 'debilitamiento'
+  | 'plan incorrecto';
+
 export type VariantTag = 'amenaza' | 'gambito' | 'desviación' | 'sacrificio' | 'cambio de plan' | (string & {});
 
 export type OpeningMove = {
@@ -13,6 +22,10 @@ export type OpeningMove = {
   objective: string;
   threat: string;
   typicalError: string;
+  /** Pedagogical category used when the player misses this decision. */
+  errorCategory?: TrainingErrorCategory;
+  /** Short explanation shown after an error. */
+  whyWrong?: string;
   difficulty: 'fundamentos' | 'intermedio' | 'avanzado';
   hints: [string, string, string];
 };
