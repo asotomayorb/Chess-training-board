@@ -710,6 +710,7 @@ function Home() {
           const coach = classifyStockfishMove(quality, {
             objective: trainingFocus === 'middlegame' ? middlegamePrompt?.objective : undefined,
             scenario: trainingFocus === 'endgame' ? endgamePrompt?.scenario : undefined,
+            state: previousGame,
           });
           setStockfishCoachResult(coach);
           if (trainingFocus === 'middlegame' && ['serious-error', 'losing', 'missed-mate'].includes(coach.quality)) {
@@ -1124,7 +1125,7 @@ function Home() {
                                <span className="font-bold">{stockfishCoachResult.label}</span> · Tu jugada <span className="font-mono font-bold">{stockfishMoveQuality.playedMove}</span> · principal <span className="font-mono font-bold">{stockfishMoveQuality.bestMove}</span>
                              </p>
                              <p className="mt-1 text-[10px] leading-relaxed text-[#6c634d]">{stockfishCoachResult.message}
-                             <p className="mt-1 text-[10px] leading-relaxed text-[#6c634d]">Idea estratégica: {stockfishCoachResult.strategicReason}</p></p>
+                             <p className="mt-1 text-[10px] leading-relaxed text-[#6c634d]">Idea estratégica: {stockfishCoachResult.strategicReason}\n                    </p>\n                    <p className="text-sm text-muted-foreground" data-testid="text-stockfish-position-insight">\n                      En esta posición: {stockfishCoachResult.positionInsight}</p></p>
                              {stockfishCoachResult.centipawnLoss !== null && (
                                <p className="mt-1 text-[10px] text-[#6c634d]">Pérdida estimada: <span className="font-mono font-bold">{stockfishCoachResult.centipawnLoss} cp</span>.</p>
                              )}
