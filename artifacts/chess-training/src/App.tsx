@@ -76,6 +76,24 @@ function getOpponentSide(playerColor: OpeningColor): Side {
   return playerColor === 'white' ? 'black' : 'white';
 }
 
+function getCompleteThreatMessage(state: ChessGameState): string | null {
+  const side = state.turn;
+  const opponent = side === 'white' ? 'black' : 'white';
+  const candidates = getLegalChessMoves(state);
+  for (const move of candidates) {
+    const next = applyChessMove(state, move);
+    const status = getChessGameStatus(next);
+    if (status === 'check' || status === 'checkmate') {
+      return `Amenaza concreta: ${side === 'white' ? 'blancas' : 'negras'} puede dar jaque con ${squareName(move.from)}–${squareName(move.to)}. Comprueba primero las respuestas forzadas.`;
+    }
+    const target = state.board[move.to.row][move.to.col];
+    if (target && target.type !== 'pawn' && target.type !== 'king') {
+      return `Amenaza concreta: ${side === 'white' ? 'blancas' : 'negras'} puede capturar ${target.type} en ${squareName(move.to)}. Antes de seguir tu plan, revisa si esa pieza queda protegida.`;
+    }
+  }
+  return null;
+}
+
 function Home() {
   const [board, setBoard] = useState<Board>(() => makeInitialBoard());
   const [mode, setMode] = useState<PracticeMode>('free');
@@ -143,6 +161,9 @@ function Home() {
       : null;
   const freeGameOver = freeGameStatus === 'checkmate' || freeGameStatus === 'stalemate' || freeGameStatus?.startsWith('draw-') === true;
   const completeGameOver = mode === 'complete' && freeGameOver;
+  const completeThreatMessage = mode === 'complete' && completeGame.turn === 'white' && !completeGameOver
+    ? getCompleteThreatMessage(completeGame)
+    : null;
   const freeTurnoLabel = turn === 'white' ? 'blancas' : 'negras';
   const isBoardGameMode = mode === 'free' || mode === 'complete';
   const freeWinnerLabel = turn === 'white' ? 'negras' : 'blancas';
@@ -851,6 +872,11 @@ function Home() {
                        <p className="text-[12px] leading-relaxed text-[#6d7c73]" data-testid="text-focus-cue">
                          {freeGameOver ? 'La partida terminó. Reinicia para volver a mover.' : focusCue}
                        </p>
+                       {mode === 'complete' && completeThreatMessage && !freeGameOver && (
+                         <p className="mt-3 rounded-lg bg-[#eee4cc] px-3 py-2.5 text-[11px] font-semibold leading-relaxed text-[#665b42]" data-testid="text-complete-threat">
+                           ⚠️ {completeThreatMessage}
+                         </p>
+                       )}
                      </div>
                    )}
                   <div className="my-5 h-px bg-[#d8cfbe]" />
