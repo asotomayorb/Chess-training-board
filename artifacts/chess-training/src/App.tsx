@@ -147,7 +147,7 @@ function Home() {
   }, []);
 
   const analyzeWithStockfish = async () => {
-    if (mode !== 'complete' || completeGameOver || stockfishLoading) return;
+    if (mode !== 'complete' || stockfishLoading) return;
     setStockfishLoading(true);
     setStockfishError('');
     try {
@@ -508,6 +508,7 @@ function Home() {
   const applyCompleteMove = (move: ChessGameMove) => {
     const previousGame = completeGame;
     const nextGame = applyChessMove(previousGame, move);
+    setStockfishAnalysis(null);
     const evaluation = evaluateCompleteMove(previousGame, nextGame, move);
     const endgameEvaluation = endgamePrompt
       ? evaluateEndgameMove(previousGame, nextGame, move, endgamePrompt)
@@ -877,7 +878,7 @@ function Home() {
                            className="rounded-full border border-[#c8c0b0] bg-[#eee8dc] px-3 py-1.5 text-[10px] font-bold text-[#5f7067] transition-colors hover:border-[#1f5b49] hover:text-[#1f5b49] disabled:cursor-not-allowed disabled:opacity-50"
                            data-testid="button-stockfish-analysis"
                          >
-                           {stockfishLoading ? 'Analizando...' : 'Analizar con Stockfish'}
+                           {stockfishLoading ? 'Analizando...' : completeGameOver ? 'Analizar posición final' : 'Analizar con Stockfish'}
                          </button>
                          {stockfishAnalysis && (
                            <div className="mt-2 w-full rounded-xl border border-[#c9b98f] bg-[#eee4cc] px-3 py-2.5">
