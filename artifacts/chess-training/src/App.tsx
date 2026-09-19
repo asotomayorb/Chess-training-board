@@ -1057,7 +1057,7 @@ function Home() {
                         <div key={`${move}-${index}`} className="flex items-center justify-between border-b border-[#cec5b4] py-2 last:border-0">
                           <span className="font-mono text-[10px] text-[#8a958c]">{String(index + 1).padStart(2, '0')}</span>
                           <span className="font-mono text-[12px] font-medium text-[#3e564a]" data-testid={`move-record-${index}`}>{move}</span>
-                          <span className="text-[10px] text-[#8a958c]">{index % 2 === 0 ? 'B' : 'B'}</span>
+                          <span className="text-[10px] text-[#8a958c]">{index % 2 === 0 ? 'B' : 'N'}</span>
                         </div>
                       ))}
                     </div>
