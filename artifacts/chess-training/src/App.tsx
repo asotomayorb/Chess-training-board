@@ -1009,7 +1009,12 @@ function Home() {
                            ⚠️ {completeThreatMessage}
                          </p>
                        )}
-                       {mode === 'complete' && completeUnexpectedChallenge && !freeGameOver && (\n                         <p className="mt-3 rounded-lg bg-[#eee4cc] px-3 py-2.5 text-[11px] font-semibold leading-relaxed text-[#665b42]" data-testid="text-complete-unexpected">\n                           ⚠️ Juego inesperado: responde a la situación antes de continuar tu plan.\n                         </p>\n                       )}\n                       {mode === 'complete' && endgamePrompt && !freeGameOver && !completeUnexpectedChallenge && (
+                       {mode === 'complete' && completeUnexpectedChallenge && !freeGameOver && (
+                         <p className="mt-3 rounded-lg bg-[#eee4cc] px-3 py-2.5 text-[11px] font-semibold leading-relaxed text-[#665b42]" data-testid="text-complete-unexpected">
+                           ⚠️ Juego inesperado: responde a la situación antes de continuar tu plan.
+                         </p>
+                       )}
+                       {mode === 'complete' && endgamePrompt && !freeGameOver && !completeUnexpectedChallenge && (
                        <div className="mt-3 rounded-lg bg-[#e8dfcf] px-3 py-2.5" data-testid="text-endgame-objective">
                          <p className="text-[11px] font-extrabold text-[#30473e]">♔ Final: {endgamePrompt.title}</p>
                          <p className="mt-1 text-[11px] leading-relaxed text-[#486257]">{endgamePrompt.instruction}</p>
