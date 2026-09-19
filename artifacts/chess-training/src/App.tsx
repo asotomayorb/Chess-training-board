@@ -5,13 +5,13 @@ import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
-import { Route, Switch, useLocation, Router as WouterRouter } from 'wouter';
+import { Route, Switch, useLocation, Router as BouterRouter } from 'wouter';
 import { trainingVariantCatalog, type OpeningMove } from '@/data/openings';
 import {
   calculateAccuracy,
   chooseRandomVariant,
   getProgressiveHintLevel,
-  getTrainingTurn,
+  getTrainingTurno,
   isExpectedMove,
   type VariantSelection,
 } from '@/engine/variant-engine';
@@ -63,11 +63,11 @@ function chooseVariant(): VariantSelection {
 function Home() {
   const [board, setBoard] = useState<Board>(() => makeInitialBoard());
   const [mode, setMode] = useState<PracticeMode>('free');
-  const [turn, setTurn] = useState<Side>('white');
+  const [turn, setTurno] = useState<Side>('white');
   const [selected, setSelected] = useState<Square | null>(null);
   const [lastMove, setLastMove] = useState<[string, string] | null>(null);
   const [moveHistory, setMoveHistory] = useState<string[]>([]);
-  const [focusCue, setFocusCue] = useState('Before you move, name the tension in the position.');
+  const [focusCue, setFocusCue] = useState('Antes de mover, identifica la tensión de la posición.');
   const [showGuide, setShowGuide] = useState(false);
   const [trainingSelection, setTrainingSelection] = useState<VariantSelection | null>(null);
   const [openingNodeId, setOpeningNodeId] = useState<string | null>(null);
@@ -93,26 +93,26 @@ function Home() {
 
   const openingVariant = trainingSelection?.variant ?? null;
   const openingTree = trainingSelection?.tree ?? null;
-  const trainingTurn = mode === 'opening' && openingTree && openingVariant && openingNodeId
-    ? getTrainingTurn(openingTree, openingVariant, openingNodeId)
+  const trainingTurno = mode === 'opening' && openingTree && openingVariant && openingNodeId
+    ? getTrainingTurno(openingTree, openingVariant, openingNodeId)
     : null;
-  const expectedNode = trainingTurn?.playerNode ?? null;
+  const expectedNode = trainingTurno?.playerNode ?? null;
   const expectedMove = expectedNode?.move ?? null;
-  const trainingComplete = mode === 'opening' && openingVariant !== null && trainingTurn !== null && trainingTurn.playerNode === null;
+  const trainingComplete = mode === 'opening' && openingVariant !== null && trainingTurno !== null && trainingTurno.playerNode === null;
   const trainingAccuracy = calculateAccuracy(trainingCorrectMoves, trainingAttempts);
   const freeGameStatus = mode === 'free' ? getGameStatus(board, turn) : null;
   const freeGameOver = freeGameStatus === 'checkmate' || freeGameStatus === 'stalemate';
-  const freeTurnLabel = turn === 'white' ? 'blancas' : 'negras';
-  const freeWinnerLabel = turn === 'white' ? 'negras' : 'blancas';
+  const freeTurnoLabel = turn === 'white' ? 'blancas' : 'negras';
+  const freeBinnerLabel = turn === 'white' ? 'negras' : 'blancas';
 
   const resetFreePractice = () => {
     setBoard(makeInitialBoard());
     setMode('free');
-    setTurn('white');
+    setTurno('white');
     setSelected(null);
     setLastMove(null);
     setMoveHistory([]);
-    setFocusCue('Before you move, name the tension in the position.');
+    setFocusCue('Antes de mover, identifica la tensión de la posición.');
     setTrainingSelection(null);
     setOpeningNodeId(null);
     setTrainingErrors(0);
@@ -129,7 +129,7 @@ function Home() {
   const startOpeningTraining = (selection = chooseVariant()) => {
     setBoard(makeInitialBoard());
     setMode('opening');
-    setTurn('white');
+    setTurno('white');
     setSelected(null);
     setLastMove(null);
     setMoveHistory([]);
@@ -163,7 +163,7 @@ function Home() {
   };
 
   const handleOpeningMove = (from: Square, to: Square) => {
-    if (!expectedMove || !expectedNode || !openingVariant || !openingTree || !trainingTurn) return;
+    if (!expectedMove || !expectedNode || !openingVariant || !openingTree || !trainingTurno) return;
 
     const fromName = squareName(from);
     const toName = squareName(to);
@@ -197,16 +197,16 @@ function Home() {
       return;
     }
 
-    const automaticMoves = trainingTurn.automaticNodes
+    const automaticMoves = trainingTurno.automaticNodes
       .flatMap((node) => (node.move ? [node.move] : []));
     const nextBoard = [expectedMove, ...automaticMoves].reduce(
       (currentBoard, move) => applyOpeningMove(currentBoard, move),
       board,
     );
-    const lastAutomaticNode = trainingTurn.automaticNodes[trainingTurn.automaticNodes.length - 1];
+    const lastAutomaticNode = trainingTurno.automaticNodes[trainingTurno.automaticNodes.length - 1];
     const nextNodeId = lastAutomaticNode?.id ?? expectedNode.id;
-    const nextTrainingTurn = getTrainingTurn(openingTree, openingVariant, nextNodeId);
-    const isLastWhiteMove = nextTrainingTurn.playerNode === null;
+    const nextTrainingTurno = getTrainingTurno(openingTree, openingVariant, nextNodeId);
+    const isLastBhiteMove = nextTrainingTurno.playerNode === null;
     const lastAppliedMove = automaticMoves[automaticMoves.length - 1] ?? expectedMove;
 
     setBoard(nextBoard);
@@ -223,7 +223,7 @@ function Home() {
     setTrainingAttempts((attempts) => attempts + 1);
     setTrainingCorrectMoves((moves) => moves + 1);
     setTrainingExplanation([`Idea: ${expectedMove.concept}`, `Objetivo: ${expectedMove.objective}`, `Amenaza/clave: ${expectedMove.threat}`, `Error típico: ${expectedMove.typicalError}`, `Nivel: ${expectedMove.difficulty}`, expectedMove.explanation].join('\n'));
-    setTrainingStatus(isLastWhiteMove ? 'complete' : 'correct');
+    setTrainingStatus(isLastBhiteMove ? 'complete' : 'correct');
   };
 
   const handleSquareClick = (row: number, col: number) => {
@@ -252,14 +252,14 @@ function Home() {
       setLastMove([from, to]);
       setMoveHistory((history) => [...history, `${from}–${to}`]);
       setSelected(null);
-      setTurn((current) => (current === 'white' ? 'black' : 'white'));
-      setFocusCue('Good. Now look at what changed before reaching for the next move.');
+      setTurno((current) => (current === 'white' ? 'black' : 'white'));
+      setFocusCue('Bien. Ahora observa qué cambió antes de buscar la siguiente jugada.');
       return;
     }
 
     if (clickedPiece?.color === turn) {
       setSelected({ row, col });
-      setFocusCue('Take a breath. Find the forcing move, then check it twice.');
+      setFocusCue('Respira. Busca la jugada forzada y compruébala dos veces.');
       return;
     }
 
@@ -272,16 +272,16 @@ function Home() {
         <aside className="hidden w-[238px] shrink-0 flex-col border-r border-[#d3cbb9] bg-[#ded6c6] px-5 py-7 lg:flex">
           <div className="flex items-center gap-3">
             <div className="flex size-10 items-center justify-center rounded-xl bg-[#1f5b49] text-[#f4ecd9] shadow-[0_8px_18px_rgba(31,91,73,.18)]">
-              <Crown size={20} strokeWidth={1.8} />
+              <Crown size={20} strokeBidth={1.8} />
             </div>
             <div>
               <p className="text-[15px] font-extrabold tracking-[-0.03em] text-[#243630]">The Quiet Board</p>
-              <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-[#718076]">practice room</p>
+              <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-[#718076]">sala de práctica</p>
             </div>
           </div>
 
           <div className="mt-14">
-            <p className="px-3 font-mono text-[9px] font-medium uppercase tracking-[0.22em] text-[#7d887b]">Your desk</p>
+            <p className="px-3 font-mono text-[9px] font-medium uppercase tracking-[0.22em] text-[#7d887b]">Tu espacio</p>
             <div className="mt-3 space-y-1 rounded-xl border border-[#c9c0ae] bg-[#e9e3d5] p-1.5">
               <button
                 type="button"
@@ -307,11 +307,11 @@ function Home() {
           <div className="mt-auto space-y-5">
             <div className="border-t border-[#c9c0ae] pt-5">
               <div className="flex items-center justify-between">
-                <p className="font-mono text-[9px] uppercase tracking-[0.2em] text-[#7d887b]">Session</p>
+                <p className="font-mono text-[9px] uppercase tracking-[0.2em] text-[#7d887b]">Sesión</p>
                 <Clock3 size={14} className="text-[#809087]" />
               </div>
               <p className="mt-2 font-mono text-[24px] tracking-[-0.08em] text-[#334940]">00:12:48</p>
-              <p className="mt-1 text-[11px] text-[#738078]">A quiet start is still a start.</p>
+              <p className="mt-1 text-[11px] text-[#738078]">Un comienzo tranquilo sigue siendo un comienzo.</p>
             </div>
             <button
               type="button"
@@ -320,12 +320,12 @@ function Home() {
               className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-[#5f7067] transition-colors hover:bg-[#d4ccbb] hover:text-[#1f5b49]"
             >
               <CircleHelp size={16} />
-              <span className="text-[11px] font-bold">How to use this room</span>
+              <span className="text-[11px] font-bold">Cómo usar esta sala</span>
               <ChevronDown size={14} className={`ml-auto transition-transform ${showGuide ? 'rotate-180' : ''}`} />
             </button>
             {showGuide && (
               <p className="rounded-lg bg-[#d4ccbb] px-3 py-2 text-[10px] leading-relaxed text-[#5f7067]">
-                Select a piece, then choose a destination. Both sides are available for local practice.
+                Selecciona una pieza y luego su destino. Puedes practicar con ambos bandos.
               </p>
             )}
           </div>
@@ -339,17 +339,17 @@ function Home() {
               </div>
               <div>
                 <p className="text-[13px] font-extrabold tracking-[-0.03em] text-[#243630]">The Quiet Board</p>
-                <p className="font-mono text-[8px] uppercase tracking-[0.18em] text-[#718076]">practice room</p>
+                <p className="font-mono text-[8px] uppercase tracking-[0.18em] text-[#718076]">sala de práctica</p>
               </div>
             </div>
             <div className="hidden lg:block">
-              <p className="font-mono text-[9px] uppercase tracking-[0.24em] text-[#7d887b]">Monday, 14 October 2024</p>
-              <h1 className="mt-1 text-[18px] font-extrabold tracking-[-0.04em] text-[#263a33]">A position worth your attention.</h1>
+              <p className="font-mono text-[9px] uppercase tracking-[0.24em] text-[#7d887b]">Sala de entrenamiento</p>
+              <h1 className="mt-1 text-[18px] font-extrabold tracking-[-0.04em] text-[#263a33]">Una posición que merece tu atención.</h1>
             </div>
             <div className="flex items-center gap-2 sm:gap-4">
               <div className="hidden items-center gap-2 rounded-full border border-[#cfc5b3] bg-[#e5dece] px-3 py-1.5 sm:flex">
                 <span className="size-1.5 rounded-full bg-[#c38a3d]" />
-                <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-[#64766c]">local board</span>
+                <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-[#64766c]">tablero local</span>
               </div>
                <button
                  type="button"
@@ -367,7 +367,7 @@ function Home() {
                 className="group flex items-center gap-2 rounded-lg border border-[#c6bdac] bg-[#f1ebdf] px-3 py-2 text-[11px] font-bold text-[#40564b] transition-all hover:-translate-y-0.5 hover:border-[#1f5b49] hover:text-[#1f5b49] active:translate-y-0"
               >
                 <RotateCcw size={14} className="transition-transform group-hover:-rotate-45" />
-                 <span className="hidden sm:inline">{mode === 'opening' ? 'Reiniciar entrenamiento' : 'New game'}</span>
+                 <span className="hidden sm:inline">{mode === 'opening' ? 'Reiniciar entrenamiento' : 'Nueva partida'}</span>
               </button>
             </div>
           </header>
@@ -376,9 +376,9 @@ function Home() {
             <div className="mb-8 flex items-end justify-between gap-5 fade-up">
               <div>
                 <div className="mb-3 flex items-center gap-2">
-                   <span className="rounded-full bg-[#c38a3d] px-2.5 py-1 font-mono text-[9px] font-medium uppercase tracking-[0.17em] text-[#2d3a31]">{mode === 'opening' ? 'training 01' : 'study 01'}</span>
+                   <span className="rounded-full bg-[#c38a3d] px-2.5 py-1 font-mono text-[9px] font-medium uppercase tracking-[0.17em] text-[#2d3a31]">{mode === 'opening' ? 'entrenamiento 01' : 'estudio 01'}</span>
                   <span className="font-mono text-[10px] uppercase tracking-[0.17em] text-[#829087]">/</span>
-                   <span className="font-mono text-[10px] uppercase tracking-[0.17em] text-[#829087]">{mode === 'opening' ? 'italian game' : 'the first decision'}</span>
+                   <span className="font-mono text-[10px] uppercase tracking-[0.17em] text-[#829087]">{mode === 'opening' ? 'apertura italiana' : 'la primera decisión'}</span>
                 </div>
                  {mode === 'opening' ? (
                    <>
@@ -391,12 +391,12 @@ function Home() {
                    </>
                  ) : (
                    <h2 className="max-w-[580px] text-[clamp(2rem,4vw,3.5rem)] font-extrabold leading-[0.98] tracking-[-0.075em] text-[#20362e]">
-                     Sit with the<br className="hidden sm:block" /> position.
+                     Observa la<br className="hidden sm:block" /> posición.
                    </h2>
                  )}
               </div>
               <div className="hidden max-w-[210px] pb-1 text-right sm:block">
-                 <p className="text-[12px] leading-relaxed text-[#6d7c73]">{mode === 'opening' ? 'Aprende la idea detrás de cada jugada, una decisión a la vez.' : 'No clock to chase. No feed to scroll. Just the board, and the next honest move.'}</p>
+                 <p className="text-[12px] leading-relaxed text-[#6d7c73]">{mode === 'opening' ? 'Aprende la idea detrás de cada jugada, una decisión a la vez.' : 'Sin reloj que perseguir. Sin distracciones. Solo el tablero y la próxima jugada.'}</p>
               </div>
             </div>
 
@@ -409,15 +409,15 @@ function Home() {
                       {mode === 'opening'
                         ? (trainingComplete ? 'Variante completada' : 'Tu turno · blancas')
                         : freeGameStatus === 'checkmate'
-                          ? `Jaque mate · ganan ${freeWinnerLabel}`
+                          ? `Jaque mate · ganan ${freeBinnerLabel}`
                           : freeGameStatus === 'stalemate'
                             ? 'Tablas por ahogado'
                             : freeGameStatus === 'check'
-                              ? `Jaque · turno ${freeTurnLabel}`
-                              : `Turno de ${freeTurnLabel}`}
+                              ? `Jaque · turno ${freeTurnoLabel}`
+                              : `Turnoo de ${freeTurnoLabel}`}
                     </span>
                   </div>
-                  <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-[#879389]">{mode === 'opening' ? 'opening training' : 'free practice'}</span>
+                  <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-[#879389]">{mode === 'opening' ? 'entrenamiento de aperturas' : 'práctica libre'}</span>
                 </div>
 
                 <div className="board-frame overflow-hidden rounded-[5px] border-[10px] border-[#263f35] bg-[#263f35] sm:border-[14px]">
@@ -454,11 +454,11 @@ function Home() {
 
                 <div className="mt-4 flex items-center justify-between">
                   <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#819087]">
-                    {selected ? `${squareName(selected)} selected · choose a square` : 'select a piece to begin'}
+                    {selected ? `${squareName(selected)} selected · elige una casilla` : 'selecciona una pieza para comenzar'}
                   </p>
                   <div className="flex items-center gap-2">
                     <span className="size-2 rounded-full bg-[#5f8073]" />
-                    <span className="text-[10px] text-[#819087]">legal move</span>
+                    <span className="text-[10px] text-[#819087]">jugada legal</span>
                   </div>
                 </div>
               </section>
@@ -466,7 +466,7 @@ function Home() {
               <aside className="fade-up fade-up-delay-2 xl:pt-7">
                 <div className="rounded-2xl border border-[#d1c8b7] bg-[#f2ece0] p-5 shadow-[0_12px_30px_rgba(65,70,58,.06)] sm:p-6">
                   <div className="flex items-center justify-between">
-                     <p className="font-mono text-[9px] font-medium uppercase tracking-[0.2em] text-[#7b897f]">{mode === 'opening' ? 'Opening coach' : 'Estado de la partida'}</p>
+                     <p className="font-mono text-[9px] font-medium uppercase tracking-[0.2em] text-[#7b897f]">{mode === 'opening' ? 'Entrenador de aperturas' : 'Estado de la partida'}</p>
                      {mode === 'opening' ? <Lightbulb size={15} className="text-[#c38a3d]" /> : <BookOpen size={15} className="text-[#1f5b49]" />}
                   </div>
                    {mode === 'opening' ? (
@@ -515,12 +515,12 @@ function Home() {
                      <div className="mt-5 space-y-3">
                        <p className="text-[16px] font-bold leading-snug tracking-[-0.03em] text-[#30473e]" data-testid="text-free-status">
                          {freeGameStatus === 'checkmate'
-                           ? `Jaque mate. Ganan las ${freeWinnerLabel}.`
+                           ? `Jaque mate. Ganan las ${freeBinnerLabel}.`
                            : freeGameStatus === 'stalemate'
                              ? 'Tablas por ahogado.'
                              : freeGameStatus === 'check'
-                               ? `Jaque. Turno de las ${freeTurnLabel}.`
-                               : `Turno de las ${freeTurnLabel}.`}
+                               ? `Jaque. Turnoo de las ${freeTurnoLabel}.`
+                               : `Turnoo de las ${freeTurnoLabel}.`}
                        </p>
                        <p className="text-[12px] leading-relaxed text-[#6d7c73]" data-testid="text-focus-cue">
                          {freeGameOver ? 'La partida terminó. Reinicia para volver a mover.' : focusCue}
@@ -530,20 +530,20 @@ function Home() {
                   <div className="my-5 h-px bg-[#d8cfbe]" />
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-mono text-[9px] uppercase tracking-[0.16em] text-[#89948a]">Moves made</p>
+                      <p className="font-mono text-[9px] uppercase tracking-[0.16em] text-[#89948a]">Jugadas realizadas</p>
                       <p className="mt-1 font-mono text-[22px] tracking-[-0.08em] text-[#334940]" data-testid="text-move-count">{String(moveHistory.length).padStart(2, '0')}</p>
                     </div>
                     <div className="text-right">
-                      <p className="font-mono text-[9px] uppercase tracking-[0.16em] text-[#89948a]">Turn</p>
-                      <p className="mt-1 text-[13px] font-bold text-[#334940]">{turn}</p>
+                      <p className="font-mono text-[9px] uppercase tracking-[0.16em] text-[#89948a]">Turno</p>
+                      <p className="mt-1 text-[13px] font-bold text-[#334940]">{turn === 'white' ? 'blancas' : 'negras'}</p>
                     </div>
                   </div>
                 </div>
 
                 <div className="mt-5 rounded-2xl border border-[#d1c8b7] bg-[#e2dacb] p-5 sm:p-6">
                   <div className="flex items-center justify-between">
-                    <p className="font-mono text-[9px] font-medium uppercase tracking-[0.2em] text-[#7b897f]">Move record</p>
-                    <span className="font-mono text-[9px] text-[#9aa399]">{moveHistory.length ? `${moveHistory.length} / ∞` : 'empty'}</span>
+                    <p className="font-mono text-[9px] font-medium uppercase tracking-[0.2em] text-[#7b897f]">Registro de jugadas</p>
+                    <span className="font-mono text-[9px] text-[#9aa399]">{moveHistory.length ? `${moveHistory.length} / ∞` : 'vacío'}</span>
                   </div>
                   {moveHistory.length ? (
                     <div className="mt-4 max-h-[164px] space-y-1 overflow-auto pr-1">
@@ -551,12 +551,12 @@ function Home() {
                         <div key={`${move}-${index}`} className="flex items-center justify-between border-b border-[#cec5b4] py-2 last:border-0">
                           <span className="font-mono text-[10px] text-[#8a958c]">{String(index + 1).padStart(2, '0')}</span>
                           <span className="font-mono text-[12px] font-medium text-[#3e564a]" data-testid={`move-record-${index}`}>{move}</span>
-                          <span className="text-[10px] text-[#8a958c]">{index % 2 === 0 ? 'W' : 'B'}</span>
+                          <span className="text-[10px] text-[#8a958c]">{index % 2 === 0 ? 'B' : 'B'}</span>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="mt-4 text-[11px] leading-relaxed text-[#7b897f]">Your moves will settle here, one decision at a time.</p>
+                    <p className="mt-4 text-[11px] leading-relaxed text-[#7b897f]">Tus jugadas aparecerán aquí, una decisión a la vez.</p>
                   )}
                 </div>
 
@@ -600,12 +600,12 @@ function Home() {
                      className="group mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#1f5b49] px-4 py-3.5 text-[11px] font-extrabold uppercase tracking-[0.13em] text-[#f5efdf] transition-all hover:-translate-y-0.5 hover:bg-[#174d3d] active:translate-y-0"
                    >
                      <RotateCcw size={14} className="transition-transform group-hover:-rotate-45" />
-                     Reset position
+                     Reiniciar posición
                    </button>
                  )}
                  <div className="mt-5 flex items-center gap-2 px-1 text-[10px] leading-relaxed text-[#879389]">
                    <ArrowUpRight size={13} className="shrink-0 text-[#c38a3d]" />
-                   <span>{mode === 'opening' ? 'Las respuestas negras se realizan automáticamente.' : 'Computer practice will live here soon.'}</span>
+                   <span>{mode === 'opening' ? 'Las respuestas negras se realizan automáticamente.' : 'La práctica contra la computadora estará disponible próximamente.'}</span>
                  </div>
               </aside>
             </div>
@@ -636,9 +636,9 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
+        <BouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
           <Router />
-        </WouterRouter>
+        </BouterRouter>
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>
