@@ -213,6 +213,37 @@ test('supports en passant after an opposing two-square pawn move', () => {
   assert.equal(next.board[squareFromName('d5').row][squareFromName('d5').col], null);
 });
 
+test('normalizes the en-passant field only when the capture is legally available', () => {
+  const board = boardWith([
+    ['e4', piece('white', 'king')],
+    ['e5', piece('white', 'pawn')],
+    ['e8', piece('black', 'rook')],
+    ['a8', piece('black', 'king')],
+    ['d7', piece('black', 'pawn')],
+  ]);
+  const state = gameStateWith(board, 'black');
+  const next = applyChessMove(state, { from: squareFromName('d7'), to: squareFromName('d5') });
+
+  assert.equal(next.enPassantTarget?.row, squareFromName('d6').row);
+  assert.equal(next.enPassantTarget?.col, squareFromName('d6').col);
+  assert.equal(getLegalChessMoves(next).some((move) => move.special === 'en-passant'), false);
+  assert.equal(next.positionHistory.at(-1)?.endsWith(' -'), true);
+});
+
+test('includes the en-passant target in the repetition key when the capture is legal', () => {
+  const board = boardWith([
+    ['e5', piece('white', 'pawn')],
+    ['e1', piece('white', 'king')],
+    ['a8', piece('black', 'king')],
+    ['d7', piece('black', 'pawn')],
+  ]);
+  const state = gameStateWith(board, 'black');
+  const next = applyChessMove(state, { from: squareFromName('d7'), to: squareFromName('d5') });
+
+  assert.equal(getLegalChessMoves(next).some((move) => move.special === 'en-passant'), true);
+  assert.equal(next.positionHistory.at(-1)?.endsWith(' d6'), true);
+});
+
 test('supports all four pawn promotion choices', () => {
   const board = boardWith([
     ['a7', piece('white', 'pawn')],
