@@ -192,9 +192,10 @@ function Home() {
     if (unexpectedPlayEnabled) {
       const event = chooseUnexpectedSituation(trainingBoard, getOpponentSide(playerColor), { enabled: true, difficulty: unexpectedDifficulty });
       if (event?.move) {
-        const challengeBoard = applyBoardMove(trainingBoard, event.move);
+        const challengeMove = event.move;
+        const challengeBoard = applyBoardMove(trainingBoard, challengeMove);
         setBoard(challengeBoard);
-        setLastMove([event.from ?? squareName(event.move.from), event.to ?? squareName(event.move.to)]);
+        setLastMove([event.from ?? squareName(challengeMove.from), event.to ?? squareName(challengeMove.to)]);
         setMoveHistory((history) => [...history, `Inesperado: ${event.from ?? squareName(event.move.from)}–${event.to ?? squareName(event.move.to)}`]);
         setUnexpectedChallenge({ event, resumeNodeId: initialAutomaticMoves.length ? initialTurn.automaticNodes[initialTurn.automaticNodes.length - 1].id : selection.variant.startNodeId });
         setUnexpectedEvent(event);
@@ -314,9 +315,10 @@ function Home() {
     setTrainingCorrectMoves((moves) => moves + 1);
     const nextUnexpectedEvent = unexpectedPlayEnabled ? chooseUnexpectedSituation(nextBoard, getOpponentSide(trainingPlayerColor), { enabled: true, difficulty: unexpectedDifficulty }) : null;
     if (nextUnexpectedEvent?.move) {
-      const challengeBoard = applyBoardMove(nextBoard, nextUnexpectedEvent.move);
+      const challengeMove = nextUnexpectedEvent.move;
+      const challengeBoard = applyBoardMove(nextBoard, challengeMove);
       setBoard(challengeBoard);
-      setLastMove([nextUnexpectedEvent.from ?? squareName(nextUnexpectedEvent.move.from), nextUnexpectedEvent.to ?? squareName(nextUnexpectedEvent.move.to)]);
+      setLastMove([nextUnexpectedEvent.from ?? squareName(challengeMove.from), nextUnexpectedEvent.to ?? squareName(challengeMove.to)]);
       setMoveHistory((history) => [...history, `Inesperado: ${nextUnexpectedEvent.from ?? squareName(nextUnexpectedEvent.move.from)}–${nextUnexpectedEvent.to ?? squareName(nextUnexpectedEvent.move.to)}`]);
       setUnexpectedChallenge({ event: nextUnexpectedEvent, resumeNodeId: nextNodeId });
       setUnexpectedEvent(nextUnexpectedEvent);
@@ -389,7 +391,7 @@ function Home() {
         <aside className="hidden w-[238px] shrink-0 flex-col border-r border-[#d3cbb9] bg-[#ded6c6] px-5 py-7 lg:flex">
           <div className="flex items-center gap-3">
             <div className="flex size-10 items-center justify-center rounded-xl bg-[#1f5b49] text-[#f4ecd9] shadow-[0_8px_18px_rgba(31,91,73,.18)]">
-              <Crown size={20} strokeBidth={1.8} />
+              <Crown size={20} strokeWidth={1.8} />
             </div>
             <div>
               <p className="text-[15px] font-extrabold tracking-[-0.03em] text-[#243630]">The Quiet Board</p>
