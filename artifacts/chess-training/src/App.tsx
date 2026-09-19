@@ -13,7 +13,9 @@ import {
   getProgressiveHintLevel,
   getTrainingTurn,
   classifyTrainingError,
+  chooseUnexpectedEvent,
   isExpectedMove,
+  type UnexpectedEvent,
   type VariantSelection,
 } from '@/engine/variant-engine';
 import {
@@ -84,6 +86,9 @@ function Home() {
   const [difficultMoves, setDifficultMoves] = useState<DifficultMove[]>([]);
   const [trainingStatus, setTrainingStatus] = useState<'idle' | 'incorrect' | 'correct' | 'complete'>('idle');
   const [trainingExplanation, setTrainingExplanation] = useState('');
+  const [unexpectedPlayEnabled, setUnexpectedPlayEnabled] = useState(true);
+  const [unexpectedDifficulty, setUnexpectedDifficulty] = useState<'fundamentos' | 'intermedio' | 'avanzado'>('intermedio');
+  const [unexpectedEvent, setUnexpectedEvent] = useState<UnexpectedEvent | null>(null);
 
   const legalMoves = useMemo(
     () => (selected ? getLegalMoves(board, selected) : []),
@@ -136,6 +141,7 @@ function Home() {
     setDifficultMoves([]);
     setTrainingStatus('idle');
     setTrainingExplanation('');
+    setUnexpectedEvent(null);
   };
 
   const startOpeningTraining = (
@@ -175,6 +181,7 @@ function Home() {
     setDifficultMoves([]);
     setTrainingStatus('idle');
     setTrainingExplanation('');
+    setUnexpectedEvent(unexpectedPlayEnabled ? chooseUnexpectedEvent({ enabled: true, difficulty: unexpectedDifficulty }) : null);
   };
 
   const resetTraining = () => {
@@ -224,6 +231,7 @@ function Home() {
         return [...moves, { nodeId: expectedNode.id, notation: expectedMove.notation, errors: nextMoveErrors, hintsUsed: nextHintLevel, category: errorCategory }];
       });
       setTrainingStatus('incorrect');
+      setUnexpectedEvent(unexpectedPlayEnabled ? chooseUnexpectedEvent({ enabled: true, difficulty: unexpectedDifficulty }) : null);
       setTrainingExplanation(`Por qué: ${expectedMove.whyWrong ?? expectedMove.typicalError}\nTipo de error: ${errorCategory}.`);
       setSelected(null);
       return;
@@ -254,6 +262,7 @@ function Home() {
     setHintLevel(0);
     setTrainingAttempts((attempts) => attempts + 1);
     setTrainingCorrectMoves((moves) => moves + 1);
+    setUnexpectedEvent(unexpectedPlayEnabled ? chooseUnexpectedEvent({ enabled: true, difficulty: unexpectedDifficulty }) : null);
     setTrainingExplanation([`Idea: ${expectedMove.concept}`, `Objetivo: ${expectedMove.objective}`, `Amenaza/clave: ${expectedMove.threat}`, `Error típico: ${expectedMove.typicalError}`, `Nivel: ${expectedMove.difficulty}`, expectedMove.explanation].join('\n'));
     setTrainingStatus(isLastPlayerMove ? 'complete' : 'correct');
   };
@@ -434,9 +443,37 @@ function Home() {
                          </button>
                        ))}
                      </div>
-                     <p className="mt-4 text-[13px] font-semibold text-[#5f7067]" data-testid="text-new-variant">
-                       Nueva variante: <span className="text-[#1f5b49]">{openingVariant?.name ?? 'seleccionando...'}</span>
-                     </p>
+                     <div className="mt-4 flex flex-wrap items-center gap-2">
+                       <p className="text-[13px] font-semibold text-[#5f7067]" data-testid="text-new-variant">
+                         Nueva variante: <span className="text-[#1f5b49]">{openingVariant?.name ?? 'seleccionando...'}</span>
+                       </p>
+                       <button
+                         type="button"
+                         onClick={() => setUnexpectedPlayEnabled((enabled) => !enabled)}
+                         className={`rounded-full border px-3 py-1.5 text-[10px] font-bold transition-colors ${unexpectedPlayEnabled ? 'border-[#1f5b49] bg-[#1f5b49] text-[#f5efdf]' : 'border-[#c8c0b0] bg-[#eee8dc] text-[#5f7067]'}`}
+                         data-testid="toggle-unexpected-play"
+                       >
+                         {unexpectedPlayEnabled ? 'Juego inesperado: activo' : 'Juego inesperado: apagado'}
+                       </button>
+                       {unexpectedPlayEnabled && (
+                         <select
+                           value={unexpectedDifficulty}
+                           onChange={(event) => setUnexpectedDifficulty(event.target.value as typeof unexpectedDifficulty)}
+                           className="rounded-full border border-[#c8c0b0] bg-[#eee8dc] px-3 py-1.5 text-[10px] font-bold text-[#5f7067]"
+                           aria-label="Dificultad del juego inesperado"
+                         >
+                           <option value="fundamentos">Inesperado: fundamentos</option>
+                           <option value="intermedio">Inesperado: intermedio</option>
+                           <option value="avanzado">Inesperado: avanzado</option>
+                         </select>
+                       )}
+                     </div>
+                     {unexpectedEvent && unexpectedPlayEnabled && (
+                       <div className="mt-3 rounded-xl border border-[#c9b98f] bg-[#eee4cc] px-3 py-2.5" data-testid="unexpected-event">
+                         <p className="text-[11px] font-extrabold text-[#5f563f]">{unexpectedEvent.title}</p>
+                         <p className="mt-1 text-[11px] leading-relaxed text-[#6c634d]">{unexpectedEvent.message}</p>
+                       </div>
+                     )}
                    </>
                  ) : (
                    <h2 className="max-w-[580px] text-[clamp(2rem,4vw,3.5rem)] font-extrabold leading-[0.98] tracking-[-0.075em] text-[#20362e]">
