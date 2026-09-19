@@ -339,7 +339,7 @@ function Home() {
   };
 
   const resetTraining = () => {
-    startOpeningTraining(trainingSelection ?? chooseVariant(), trainingPlayerColor);
+    startOpeningTraining(trainingSelection ?? chooseVariant(), trainingSideChoice);
   };
 
   const exitTraining = () => {
