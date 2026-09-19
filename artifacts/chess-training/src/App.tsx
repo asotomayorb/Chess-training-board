@@ -493,25 +493,41 @@ function Home() {
         ? 'Respuesta válida: calculaste la posición después del sacrificio antes de continuar.'
         : 'Respuesta válida: reaccionaste a la desviación y volviste a evaluar la posición.';
 
-    const resumedBoard = challenge.pendingAutomaticMoves.reduce(
-      (currentBoard, automaticMove) => applyOpeningMove(currentBoard, automaticMove),
-      challenge.resumeBoard,
-    );
+    // La respuesta del jugador a la desviación debe quedar realmente en la posición.
+    // Después intentamos continuar la línea teórica solo con respuestas legales;
+    // así evitamos "hacer desaparecer" la respuesta del alumno o encadenar jugadas
+    // rivales que ya no son legales tras el juego inesperado.
+    let resumedBoard = applyBoardMove(challenge.resumeBoard, move);
     const resumedHistory = [
       ...challenge.resumeHistory,
-      ...challenge.pendingAutomaticMoves.map((automaticMove) => automaticMove.notation),
+      `Respuesta: ${squareName(from)}–${squareName(to)}`,
+    ];
+    const appliedAutomaticMoves: OpeningMove[] = [];
+
+    for (const automaticMove of challenge.pendingAutomaticMoves) {
+      const legal = getLegalMoves(resumedBoard, squareFromName(automaticMove.from)).some(
+        (target) => target.row === squareFromName(automaticMove.to).row && target.col === squareFromName(automaticMove.to).col,
+      );
+      if (!legal) break;
+      resumedBoard = applyOpeningMove(resumedBoard, automaticMove);
+      appliedAutomaticMoves.push(automaticMove);
+    }
+
+    const finalHistory = [
+      ...resumedHistory,
+      ...appliedAutomaticMoves.map((automaticMove) => automaticMove.notation),
     ];
 
     setBoard(resumedBoard);
     setLastMove(
-      challenge.pendingAutomaticMoves.length
+      appliedAutomaticMoves.length
         ? [
-            challenge.pendingAutomaticMoves[challenge.pendingAutomaticMoves.length - 1].from,
-            challenge.pendingAutomaticMoves[challenge.pendingAutomaticMoves.length - 1].to,
+            appliedAutomaticMoves[appliedAutomaticMoves.length - 1].from,
+            appliedAutomaticMoves[appliedAutomaticMoves.length - 1].to,
           ]
         : [squareName(from), squareName(to)],
     );
-    setMoveHistory(resumedHistory);
+    setMoveHistory(finalHistory);
     setTurn(challenge.resumeTurn);
     setSelected(null);
     setOpeningNodeId(challenge.pendingNextNodeId);
