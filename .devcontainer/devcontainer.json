@@ -1,12 +1,15 @@
 {
   "name": "Chess Training Board",
   "image": "mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm",
-  "forwardPorts": [5173],
+  "forwardPorts": [
+    5173
+  ],
   "portsAttributes": {
     "5173": {
       "label": "Chess Training Board",
       "onAutoForward": "openPreview"
     }
   },
-  "postCreateCommand": "corepack enable && corepack prepare pnpm@10.12.4 --activate && pnpm install --no-frozen-lockfile"
+  "postCreateCommand": "corepack enable && corepack prepare pnpm@10.12.4 --activate && pnpm install --no-frozen-lockfile",
+  "postAttachCommand": "pnpm --filter @workspace/chess-training dev > /tmp/chess-training.log 2>&1 &"
 }
