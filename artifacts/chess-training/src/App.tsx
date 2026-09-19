@@ -12,6 +12,7 @@ import {
   chooseRandomVariant,
   getProgressiveHintLevel,
   getTrainingTurn,
+  getActiveOpeningLabel,
   classifyTrainingError,
   chooseUnexpectedSituation,
   isExpectedMove,
@@ -183,7 +184,7 @@ function Home() {
   const [unexpectedPlayEnabled, setUnexpectedPlayEnabled] = useState(true);
   const [unexpectedDifficulty, setUnexpectedDifficulty] = useState<'fundamentos' | 'intermedio' | 'avanzado'>('intermedio');
   const [unexpectedEvent, setUnexpectedEvent] = useState<UnexpectedEvent | null>(null);
-  const [unexpectedChallenge, setUnexpectedChallenge] = useState<{ event: UnexpectedEvent; resumeNodeId: string; resumeBoard: Board; resumeHistory: string[]; resumeTurn: OpeningColor } | null>(null);
+  const [unexpectedChallenge, setUnexpectedChallenge] = useState<{ event: UnexpectedEvent; resumeNodeId: string; resumeBoard: Board; resumeHistory: string[]; resumeTurn: OpeningColor; pendingAutomaticMoves: OpeningMove[]; pendingNextNodeId: string } | null>(null);
   const [completeUnexpectedChallenge, setCompleteUnexpectedChallenge] = useState<{ event: UnexpectedEvent; triggeringMove: ChessGameMove } | null>(null);
   useEffect(() => () => {
     stockfishAnalysisRequestRef.current += 1;
@@ -198,7 +199,7 @@ function Home() {
     setStockfishError('');
     try {
       if (!stockfishRef.current) stockfishRef.current = new StockfishEngine();
-      const analysis = await stockfishRef.current.analyze(completeGame, { depth: 12 });
+      const analysis = await stockfishRef.current.analyze(completeGame, { depth: trainingFocus === 'middlegame' || trainingFocus === 'endgame' ? 14 : 12 });
       setStockfishAnalysis(analysis);
     } catch (error) {
       setStockfishError(error instanceof Error ? error.message : 'No se pudo analizar la posición.');
@@ -225,6 +226,9 @@ function Home() {
   );
 
   const openingVariant = trainingSelection?.variant ?? null;
+  const activeOpeningLabel = mode === 'opening' && openingTree && openingVariant && openingNodeId
+    ? getActiveOpeningLabel(openingTree, openingNodeId)
+    : null;
   const openingTree = trainingSelection?.tree ?? null;
   const trainingTurno = mode === 'opening' && openingTree && openingVariant && openingNodeId
     ? getTrainingTurn(openingTree, openingVariant, openingNodeId, trainingPlayerColor)
@@ -482,20 +486,34 @@ function Home() {
 
     const challenge = unexpectedChallenge;
     const event = challenge.event;
-    const nextBoard = applyBoardMove(board, move);
-    const responseText = `${squareName(from)}–${squareName(to)}`;
     const explanation = event.type === 'amenaza'
       ? 'Respuesta válida: primero neutralizaste la amenaza y evitaste continuar de memoria.'
       : event.type === 'sacrificio'
         ? 'Respuesta válida: calculaste la posición después del sacrificio antes de continuar.'
         : 'Respuesta válida: reaccionaste a la desviación y volviste a evaluar la posición.';
 
-    setBoard(challenge.resumeBoard);
-    setLastMove(null);
-    setMoveHistory(challenge.resumeHistory);
+    const resumedBoard = challenge.pendingAutomaticMoves.reduce(
+      (currentBoard, automaticMove) => applyOpeningMove(currentBoard, automaticMove),
+      challenge.resumeBoard,
+    );
+    const resumedHistory = [
+      ...challenge.resumeHistory,
+      ...challenge.pendingAutomaticMoves.map((automaticMove) => automaticMove.notation),
+    ];
+
+    setBoard(resumedBoard);
+    setLastMove(
+      challenge.pendingAutomaticMoves.length
+        ? [
+            challenge.pendingAutomaticMoves[challenge.pendingAutomaticMoves.length - 1].from,
+            challenge.pendingAutomaticMoves[challenge.pendingAutomaticMoves.length - 1].to,
+          ]
+        : [squareName(from), squareName(to)],
+    );
+    setMoveHistory(resumedHistory);
     setTurn(challenge.resumeTurn);
     setSelected(null);
-    setOpeningNodeId(challenge.resumeNodeId);
+    setOpeningNodeId(challenge.pendingNextNodeId);
     setUnexpectedChallenge(null);
     setUnexpectedEvent(null);
     setTrainingStatus('correct');
@@ -581,28 +599,44 @@ function Home() {
 
     setOpeningOpponentPending(true);
     window.setTimeout(() => {
+      const nextUnexpectedEvent = unexpectedPlayEnabled
+        ? chooseUnexpectedSituation(playerBoard, getOpponentSide(trainingPlayerColor), { enabled: true, difficulty: unexpectedDifficulty })
+        : null;
+
+      // Juego inesperado sustituye la respuesta teórica inmediata: nunca hacemos dos jugadas consecutivas del rival.
+      if (nextUnexpectedEvent?.move) {
+        const challengeMove = nextUnexpectedEvent.move;
+        const challengeBoard = applyBoardMove(playerBoard, challengeMove);
+        setBoard(challengeBoard);
+        setLastMove([
+          nextUnexpectedEvent.from ?? squareName(challengeMove.from),
+          nextUnexpectedEvent.to ?? squareName(challengeMove.to),
+        ]);
+        setMoveHistory([...playerHistory, `Inesperado: ${nextUnexpectedEvent.from ?? squareName(challengeMove.from)}–${nextUnexpectedEvent.to ?? squareName(challengeMove.to)}`]);
+        setOpeningNodeId(expectedNode.id);
+        setOpeningOpponentPending(false);
+        setUnexpectedChallenge({
+          event: nextUnexpectedEvent,
+          resumeNodeId: expectedNode.id,
+          resumeBoard: playerBoard,
+          resumeHistory: playerHistory,
+          resumeTurn: trainingPlayerColor,
+          pendingAutomaticMoves: automaticMoves,
+          pendingNextNodeId: nextNodeId,
+        });
+        setUnexpectedEvent(nextUnexpectedEvent);
+        setTrainingStatus('correct');
+        return;
+      }
+
       setBoard(nextBoard);
       const lastAppliedMove = automaticMoves[automaticMoves.length - 1] ?? expectedMove;
       setLastMove([lastAppliedMove.from, lastAppliedMove.to]);
       setMoveHistory(nextHistory);
       setOpeningNodeId(nextNodeId);
       setOpeningOpponentPending(false);
-
-      const nextUnexpectedEvent = unexpectedPlayEnabled
-        ? chooseUnexpectedSituation(nextBoard, getOpponentSide(trainingPlayerColor), { enabled: true, difficulty: unexpectedDifficulty })
-        : null;
-      if (nextUnexpectedEvent?.move) {
-        const challengeMove = nextUnexpectedEvent.move;
-        const challengeBoard = applyBoardMove(nextBoard, challengeMove);
-        setBoard(challengeBoard);
-        setLastMove([nextUnexpectedEvent.from ?? squareName(challengeMove.from), nextUnexpectedEvent.to ?? squareName(challengeMove.to)]);
-        setMoveHistory((history) => [...history, `Inesperado: ${nextUnexpectedEvent.from ?? squareName(challengeMove.from)}–${nextUnexpectedEvent.to ?? squareName(challengeMove.to)}`]);
-        setUnexpectedChallenge({ event: nextUnexpectedEvent, resumeNodeId: nextNodeId, resumeBoard: nextBoard, resumeHistory: nextHistory, resumeTurn: trainingPlayerColor });
-        setUnexpectedEvent(nextUnexpectedEvent);
-      } else {
-        setUnexpectedEvent(null);
-        setUnexpectedChallenge(null);
-      }
+      setUnexpectedEvent(null);
+      setUnexpectedChallenge(null);
       setTrainingStatus(isLastPlayerMove ? 'complete' : 'correct');
     }, 900);
   };
@@ -641,7 +675,8 @@ function Home() {
       evaluation.newCaptures > 0,
     );
     const periodicPosition = previousGame.positionHistory.length % 4 === 0;
-    const shouldAutoAnalyze = previousGame.turn === 'white' && (tacticalPosition || periodicPosition);
+    const focusedTraining = trainingFocus === 'middlegame' || trainingFocus === 'endgame';
+    const shouldAutoAnalyze = previousGame.turn === 'white' && (focusedTraining || tacticalPosition || periodicPosition);
 
     if (shouldAutoAnalyze && !stockfishMoveBusyRef.current) {
       const requestId = ++stockfishAnalysisRequestRef.current;
@@ -649,7 +684,7 @@ function Home() {
       setStockfishMoveLoading(true);
       setStockfishError('');
       if (!stockfishRef.current) stockfishRef.current = new StockfishEngine();
-      void stockfishRef.current.analyzePlayedMove(previousGame, move, { depth: 10 })
+      void stockfishRef.current.analyzePlayedMove(previousGame, move, { depth: focusedTraining ? 14 : 12 })
         .then((quality) => {
           if (requestId !== stockfishAnalysisRequestRef.current) return;
           setStockfishMoveQuality(quality);
@@ -1201,7 +1236,12 @@ function Home() {
                      <div className="mt-5">
                        <div className="flex items-start gap-2">
                          {trainingStatus === 'incorrect' ? <XCircle size={17} className="mt-0.5 shrink-0 text-[#aa493e]" /> : trainingStatus === 'correct' || trainingStatus === 'complete' ? <CheckCircle2 size={17} className="mt-0.5 shrink-0 text-[#1f5b49]" /> : <Target size={17} className="mt-0.5 shrink-0 text-[#1f5b49]" />}
-                         <p className={`text-[16px] font-bold leading-snug tracking-[-0.03em] ${trainingStatus === 'incorrect' ? 'text-[#9e4138]' : 'text-[#30473e]'}`} data-testid="text-training-status">
+                         {activeOpeningLabel && (
+                         <p className="mb-2 text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#1f5b49]" data-testid="text-active-opening">
+                           Apertura activa: {activeOpeningLabel}
+                         </p>
+                       )}
+                       <p className={`text-[16px] font-bold leading-snug tracking-[-0.03em] ${trainingStatus === 'incorrect' ? 'text-[#9e4138]' : 'text-[#30473e]'}`} data-testid="text-training-status">
                            {unexpectedChallenge ? '⚠️ Responde a la situación inesperada' : trainingStatus === 'incorrect' ? 'Movimiento incorrecto' : trainingStatus === 'complete' ? '✅ Variante completada' : trainingStatus === 'correct' ? 'Movimiento correcto' : trainingComplete ? '✅ Variante completada' : `Encuentra la siguiente jugada de ${trainingPlayerColor === 'white' ? 'blancas' : 'negras'}.`}
                          </p>
                        </div>
