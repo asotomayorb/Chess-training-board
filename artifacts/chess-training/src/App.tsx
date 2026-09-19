@@ -1124,6 +1124,11 @@ function Home() {
                              {stockfishCoachResult.centipawnLoss !== null && (
                                <p className="mt-1 text-[10px] text-[#6c634d]">Pérdida estimada: <span className="font-mono font-bold">{stockfishCoachResult.centipawnLoss} cp</span>.</p>
                              )}
+                             {stockfishMoveQuality.principalVariation.length > 0 && (
+                               <p className="mt-1 font-mono text-[10px] leading-relaxed text-[#6c634d]" data-testid="text-stockfish-coach-pv">
+                                 Línea que explica la recomendación: {stockfishMoveQuality.principalVariation.slice(0, 6).join(' ')}
+                               </p>
+                             )}
                            </div>
                          )}
                          <button
