@@ -757,9 +757,35 @@ function Home() {
                      )}
                    </>
                  ) : (
-                   <h2 className="max-w-[580px] text-[clamp(2rem,4vw,3.5rem)] font-extrabold leading-[0.98] tracking-[-0.075em] text-[#20362e]">
-                     Observa la<br className="hidden sm:block" /> posición.
-                   </h2>
+                   <>
+                     <h2 className="max-w-[580px] text-[clamp(2rem,4vw,3.5rem)] font-extrabold leading-[0.98] tracking-[-0.075em] text-[#20362e]">
+                       Observa la<br className="hidden sm:block" /> posición.
+                     </h2>
+                     {mode === 'complete' && (
+                       <div className="mt-4 flex flex-wrap items-center gap-2">
+                         <button
+                           type="button"
+                           onClick={() => setUnexpectedPlayEnabled((enabled) => !enabled)}
+                           className={`rounded-full border px-3 py-1.5 text-[10px] font-bold transition-colors ${unexpectedPlayEnabled ? 'border-[#1f5b49] bg-[#1f5b49] text-[#f5efdf]' : 'border-[#c8c0b0] bg-[#eee8dc] text-[#5f7067]'}`}
+                           data-testid="toggle-complete-unexpected"
+                         >
+                           {unexpectedPlayEnabled ? 'Juego inesperado: activo' : 'Juego inesperado: apagado'}
+                         </button>
+                         {unexpectedPlayEnabled && (
+                           <select
+                             value={unexpectedDifficulty}
+                             onChange={(event) => setUnexpectedDifficulty(event.target.value as typeof unexpectedDifficulty)}
+                             className="rounded-full border border-[#c8c0b0] bg-[#eee8dc] px-3 py-1.5 text-[10px] font-bold text-[#5f7067]"
+                             aria-label="Dificultad del juego inesperado en modo completo"
+                           >
+                             <option value="fundamentos">Inesperado: fundamentos</option>
+                             <option value="intermedio">Inesperado: intermedio</option>
+                             <option value="avanzado">Inesperado: avanzado</option>
+                           </select>
+                         )}
+                       </div>
+                     )}
+                   </>
                  )}
               </div>
               <div className="hidden max-w-[210px] pb-1 text-right sm:block">
