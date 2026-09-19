@@ -47,6 +47,9 @@ test('activates the opening name first and the specific variant only after the b
   for (const [nodeId, expected] of labels) {
     assert.equal(getActiveOpeningLabel(italianGameTrainingTree, nodeId), expected);
   }
+  assert.equal(getActiveOpeningLabel(italianGameTrainingTree, 'italian-node-nf6'), 'Dos Caballos');
+  assert.equal(getActiveOpeningLabel(italianGameTrainingTree, 'italian-node-be7'), 'Defensa Húngara');
+  assert.equal(getActiveOpeningLabel(italianGameTrainingTree, 'italian-node-nxf7'), 'Ataque Fegatello');
 });
 
 test('all black opening decisions expose three progressive hints', () => {
