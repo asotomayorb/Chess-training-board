@@ -208,7 +208,7 @@ function Home() {
       }
     }, 350);
     return () => window.clearTimeout(timer);
-  }, [mode, completeGame, completeGameOver]);
+  }, [mode, completeGame, completeGameOver, unexpectedPlayEnabled, unexpectedDifficulty]);
 
   const resetFreePractice = () => {
     const freshCompleteGame = createChessGameState();
