@@ -227,7 +227,7 @@ function Home() {
     );
     const lastAutomaticNode = trainingTurno.automaticNodes[trainingTurno.automaticNodes.length - 1];
     const nextNodeId = lastAutomaticNode?.id ?? expectedNode.id;
-    const nextTrainingTurno = getTrainingTurn(openingTree, openingVariant, nextNodeId);
+    const nextTrainingTurno = getTrainingTurn(openingTree, openingVariant, nextNodeId, trainingPlayerColor);
     const isLastPlayerMove = nextTrainingTurno.playerNode === null;
     const lastAppliedMove = automaticMoves[automaticMoves.length - 1] ?? expectedMove;
 
