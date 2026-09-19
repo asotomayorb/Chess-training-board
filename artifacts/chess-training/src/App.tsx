@@ -78,8 +78,8 @@ function getOpponentSide(playerColor: OpeningColor): Side {
 
 function getCompleteThreatMessage(state: ChessGameState): string | null {
   if (state.turn !== 'white') return null;
-  const opponent = 'black' as Side;
-  const candidates = getLegalChessMoves(state, undefined, opponent);
+  const opponentState = { ...state, turn: 'black' as Side };
+  const candidates = getLegalChessMoves(opponentState);
   for (const move of candidates) {
     const next = applyChessMove(state, move);
     const status = getChessGameStatus(next);
