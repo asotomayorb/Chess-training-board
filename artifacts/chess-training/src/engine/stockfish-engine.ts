@@ -19,6 +19,7 @@ export type StockfishMoveQuality = {
   playedScore: StockfishScore | null;
   centipawnLoss: number | null;
   isBestMove: boolean;
+  principalVariation: string[];
 };
 
 export type StockfishEngineOptions = {
@@ -225,8 +226,13 @@ export class StockfishEngine {
     const playedScore = invertScore(opponentPerspective.score);
     const playedMove = chessMoveToUci(move);
     return {
-      playedMove, bestMove: best.bestMove, bestScore: best.score, playedScore,
-      centipawnLoss: centipawnLoss(best.score, playedScore), isBestMove: best.bestMove === playedMove,
+      playedMove,
+      bestMove: best.bestMove,
+      bestScore: best.score,
+      playedScore,
+      centipawnLoss: centipawnLoss(best.score, playedScore),
+      isBestMove: best.bestMove === playedMove,
+      principalVariation: best.principalVariation,
     };
   }
 
