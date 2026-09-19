@@ -654,8 +654,10 @@ function Home() {
       : null;
 
     if (evaluation.immediateCapture) setCompleteErrors((errors) => errors + 1);
-    if (endgameEvaluation && !endgameEvaluation.fulfilled) setEndgameErrors((errors) => errors + 1);
-    if (middlegameEvaluation && !middlegameEvaluation.fulfilled) setMiddlegameErrors((errors) => errors + 1);
+    if (trainingFocus === 'complete') {
+      if (endgameEvaluation && !endgameEvaluation.fulfilled) setEndgameErrors((errors) => errors + 1);
+      if (middlegameEvaluation && !middlegameEvaluation.fulfilled) setMiddlegameErrors((errors) => errors + 1);
+    }
 
     const objectiveEvaluation = endgameEvaluation ?? middlegameEvaluation;
     const combinedFeedback = objectiveEvaluation
@@ -690,6 +692,12 @@ function Home() {
           setStockfishMoveQuality(quality);
           const coach = classifyStockfishMove(quality);
           setStockfishCoachResult(coach);
+          if (trainingFocus === 'middlegame' && ['serious-error', 'losing', 'missed-mate'].includes(coach.quality)) {
+            setMiddlegameErrors((errors) => errors + 1);
+          }
+          if (trainingFocus === 'endgame' && ['serious-error', 'losing', 'missed-mate'].includes(coach.quality)) {
+            setEndgameErrors((errors) => errors + 1);
+          }
           setCompleteFeedback((current) => current + ' ' + coach.message);
         })
         .catch((error) => {
@@ -706,9 +714,16 @@ function Home() {
 
     setCompleteGame(nextGame);
     setBoard(nextGame.board);
-    const reachedEndgame = chooseEndgameTrainingPrompt(nextGame);
-    setEndgamePrompt(reachedEndgame);
-    setMiddlegamePrompt(reachedEndgame ? null : chooseMiddlegameTrainingPrompt(nextGame, { difficulty: 'intermedio' }));
+    if (trainingFocus === 'endgame') {
+      if (endgameEvaluation?.fulfilled) setEndgamePrompt(chooseEndgameTrainingPrompt(nextGame));
+    } else if (trainingFocus === 'middlegame') {
+      if (middlegameEvaluation?.fulfilled) setMiddlegamePrompt(chooseMiddlegameTrainingPrompt(nextGame, { difficulty: 'intermedio' }));
+      setEndgamePrompt(null);
+    } else {
+      const reachedEndgame = chooseEndgameTrainingPrompt(nextGame);
+      setEndgamePrompt(reachedEndgame);
+      setMiddlegamePrompt(reachedEndgame ? null : chooseMiddlegameTrainingPrompt(nextGame, { difficulty: 'intermedio' }));
+    }
     setLastMove([squareName(move.from), squareName(move.to)]);
     setMoveHistory((history) => [...history, `${squareName(move.from)}–${squareName(move.to)}${move.promotion ? '=' + move.promotion[0].toUpperCase() : ''}`]);
     setSelected(null);
