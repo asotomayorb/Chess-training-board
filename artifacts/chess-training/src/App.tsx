@@ -1155,7 +1155,7 @@ function Home() {
                             {displayColIndex === 0 && <span className="board-coord board-rank">{8 - rowIndex}</span>}
                             {displayRowIndex === 7 && <span className="board-coord board-file">{files[colIndex]}</span>}
                             {piece && (
-                              <span className={`chess-piece ${piece.color === 'white' ? 'piece-white' : 'piece-black'}`}>
+                              <span className={`chess-piece ${piece.color === 'white' ? 'piece-white' : 'piece-black'} ${isLastMove ? 'piece-moved' : ''}`}>
                                 {symbols[piece.color][piece.type]}
                               </span>
                             )}
