@@ -63,8 +63,7 @@ function movedPiece(previous: ChessGameState, move: ChessGameMove): Piece | null
 }
 
 function isKingMoveImprovingTowardPawn(previous: ChessGameState, next: ChessGameState, move: ChessGameMove): boolean {
-  const piece = movedPiece(previous, move);
-  if (piece?.type !== 'king') return false;
+  if (movedPiece(previous, move)?.type !== 'king') return false;
   const pawn = pawnSquare(next, previous.turn);
   const before = kingSquare(previous, previous.turn);
   const after = kingSquare(next, previous.turn);
@@ -75,6 +74,23 @@ function isPawnAdvance(previous: ChessGameState, move: ChessGameMove): boolean {
   return movedPiece(previous, move)?.type === 'pawn';
 }
 
+function isKingApproachingEnemy(previous: ChessGameState, next: ChessGameState, move: ChessGameMove): boolean {
+  if (movedPiece(previous, move)?.type !== 'king') return false;
+  const enemy = kingSquare(previous, previous.turn === 'white' ? 'black' : 'white');
+  const before = kingSquare(previous, previous.turn);
+  const after = kingSquare(next, previous.turn);
+  return Boolean(enemy && before && after && kingDistance(after, enemy) < kingDistance(before, enemy));
+}
+
+function isRookActivity(previous: ChessGameState, move: ChessGameMove): boolean {
+  if (movedPiece(previous, move)?.type !== 'rook') return false;
+  if (givesCheck(previous, move)) return true;
+  const captured = previous.board[move.to.row][move.to.col];
+  if (captured && captured.color !== previous.turn) return true;
+  const enemyKing = kingSquare(previous, previous.turn === 'white' ? 'black' : 'white');
+  return Boolean(enemyKing && (move.to.row === enemyKing.row || move.to.col === enemyKing.col));
+}
+
 export function evaluateEndgameMove(
   previous: ChessGameState,
   next: ChessGameState,
@@ -82,7 +98,6 @@ export function evaluateEndgameMove(
   prompt: EndgameTrainingPrompt,
 ): EndgameMoveEvaluation {
   const candidate = prompt.candidateMoves.some((candidateMove) => moveKey(candidateMove) === moveKey(move));
-  const piece = movedPiece(previous, move);
   const side = previous.turn;
 
   if (prompt.type === 'rey-y-peon') {
@@ -107,13 +122,7 @@ export function evaluateEndgameMove(
     }
 
     if (kingImproved || opposition || candidate) {
-      return {
-        fulfilled: true,
-        technique: opposition ? 'oposición' : 'actividad-del-rey',
-        feedback: opposition
-          ? 'Bien: has creado la oposición y estás utilizando el rey como pieza activa.'
-          : 'Bien: estás acercando el rey al peón y preparando su avance con más precisión.',
-      };
+      return { fulfilled: true, technique: opposition ? 'oposición' : 'actividad-del-rey', feedback: opposition ? 'Bien: has creado la oposición y estás utilizando el rey como pieza activa.' : 'Bien: estás acercando el rey al peón y preparando su avance con más precisión.' };
     }
 
     if (isPawnAdvance(previous, move)) {
@@ -124,25 +133,24 @@ export function evaluateEndgameMove(
   }
 
   if (prompt.type === 'torres') {
-    const rook = piece?.type === 'rook';
-    if (candidate || rook || givesCheck(previous, move)) {
-      return { fulfilled: true, technique: 'torre-activa', feedback: 'Bien: estás buscando actividad de torre, jaques útiles, ataque lateral o penetración.' };
+    if (isRookActivity(previous, move)) {
+      return { fulfilled: true, technique: 'torre-activa', feedback: 'Bien: la torre está activa mediante jaque, captura o control directo de la fila o columna del rey rival.' };
     }
-    return { fulfilled: false, technique: 'torre-activa', feedback: 'Busca una torre activa: jaques, ataque lateral, séptima/segunda fila o actividad detrás de peones pasados.' };
+    return { fulfilled: false, technique: 'torre-activa', feedback: 'Busca una torre realmente activa: jaque, captura útil, ataque al rey o penetración por una fila o columna.' };
   }
 
   if (prompt.type === 'dama-contra-rey') {
-    if (givesCheck(previous, move) || candidate || piece?.type === 'king') {
-      return { fulfilled: true, technique: 'mate-con-dama', feedback: 'Bien: aplicas el método de restringir al rey, acercar tu rey y ejecutar el mate.' };
+    if (givesCheck(previous, move) || isKingApproachingEnemy(previous, next, move)) {
+      return { fulfilled: true, technique: 'mate-con-dama', feedback: 'Bien: estás restringiendo al rey o acercando tu rey para preparar el mate.' };
     }
-    return { fulfilled: false, technique: 'mate-con-dama', feedback: 'No persigas al rey con jaques sin plan: primero reduce su espacio y acerca tu rey.' };
+    return { fulfilled: false, technique: 'mate-con-dama', feedback: 'No des una jugada arbitraria: reduce el espacio del rey o acerca tu rey antes del mate final.' };
   }
 
   if (prompt.type === 'torre-contra-rey') {
-    if (givesCheck(previous, move) || candidate || piece?.type === 'king') {
-      return { fulfilled: true, technique: 'mate-con-torre', feedback: 'Bien: estás trabajando la técnica de restricción, rey de apoyo y mate con torre.' };
+    if (givesCheck(previous, move) || isKingApproachingEnemy(previous, next, move)) {
+      return { fulfilled: true, technique: 'mate-con-torre', feedback: 'Bien: estás restringiendo al rey o acercando tu rey para preparar el mate con torre.' };
     }
-    return { fulfilled: false, technique: 'mate-con-torre', feedback: 'Con torre contra rey, restringe al rey y acerca tu propio rey antes del mate final.' };
+    return { fulfilled: false, technique: 'mate-con-torre', feedback: 'Con torre contra rey, busca restringir al rey y acercar tu propio rey; no muevas la torre sin propósito.' };
   }
 
   return { fulfilled: false, technique: 'actividad-del-rey', feedback: 'Reevalúa el principio técnico del final antes de continuar.' };
