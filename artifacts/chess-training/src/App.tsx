@@ -496,7 +496,7 @@ function Home() {
     setPromotionPending(null);
     setTurn(nextGame.turn);
     if (nextGame.turn === 'black') {
-      setFocusCue(middlegameEvaluation?.fulfilled
+      setFocusCue(objectiveEvaluation?.fulfilled
         ? 'Objetivo cumplido. El rival está calculando; después de su respuesta, vuelve a evaluar la posición.'
         : 'Objetivo no cumplido del todo. El rival está calculando; después de su respuesta, vuelve a evaluar la posición.');
     } else {
