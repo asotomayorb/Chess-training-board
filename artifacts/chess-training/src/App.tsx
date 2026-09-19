@@ -230,6 +230,7 @@ function Home() {
     setFocusCue('Antes de mover, identifica la tensión de la posición.');
     setCompleteFeedback('');
     setCompleteErrors(0);
+    setMiddlegameErrors(0);
     setMiddlegamePrompt(null);
     setTrainingSelection(null);
     setTrainingPlayerColor('white');
