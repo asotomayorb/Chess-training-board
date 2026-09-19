@@ -94,7 +94,7 @@ function parseScore(line: string): StockfishScore | null {
 function parseInfo(line: string): { score: StockfishScore | null; depth: number | null; pv: string[] } | null {
   if (!line.startsWith('info ')) return null;
 
-  const depthMatch = line.match(/\bdepth (\\d+)/);
+  const depthMatch = line.match(/\bdepth (\d+)/);
   const pvIndex = line.indexOf(' pv ');
   const pv = pvIndex >= 0 ? line.slice(pvIndex + 4).trim().split(/\s+/).filter(Boolean) : [];
 
