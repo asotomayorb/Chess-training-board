@@ -9,6 +9,8 @@ import {
   getVariantNodePath,
   getVariantSequence,
   isExpectedMove,
+  classifyTrainingError,
+  chooseUnexpectedEvent,
 } from './variant-engine';
 
 const [giuocoPiano, twoKnights] = italianGameTrainingTree.branches;
@@ -30,7 +32,7 @@ test('selects both current variants and supports future selection criteria', () 
   const first = chooseRandomVariant(trainingVariantCatalog, { random: () => 0 });
   const last = chooseRandomVariant(trainingVariantCatalog, { random: () => 0.999999 });
   assert.equal(first.variant.id, 'giuoco-piano');
-  assert.equal(last.variant.id, 'two-knights');
+  assert.equal(last.variant.id, 'hungarian-defense');
   assert.equal(first.tree.id, 'italian-game');
   assert.equal(chooseRandomVariant(trainingVariantCatalog, { tags: ['amenaza'], random: () => 0 }).variant.id, 'two-knights');
   assert.equal(chooseRandomVariant(trainingVariantCatalog, { excludeVariantIds: ['giuoco-piano'], random: () => 0 }).variant.id, 'two-knights');
@@ -69,4 +71,13 @@ test('reset starts the selected branch at its stable root node', () => {
   const resetTurn = getTrainingTurn(italianGameTrainingTree, twoKnights, twoKnights.startNodeId);
   assert.equal(resetTurn.currentNode.id, 'italian-root');
   assert.equal(resetTurn.playerNode?.id, 'italian-node-e4');
+});
+
+test('classifies opening mistakes and generates unexpected-play events by difficulty', () => {
+  assert.ok(giuocoPiano);
+  const move = getVariantSequence(italianGameTrainingTree, giuocoPiano)[4]!;
+  assert.equal(classifyTrainingError(move, 'a2', 'a3'), 'amenaza ignorada');
+  assert.equal(chooseUnexpectedEvent({ difficulty: 'fundamentos', random: () => 0 })?.type, 'amenaza');
+  assert.equal(chooseUnexpectedEvent({ enabled: false, random: () => 0 }) , null);
+  assert.equal(chooseUnexpectedEvent({ difficulty: 'avanzado', random: () => 0.999999 })?.type, 'cambio de plan');
 });
