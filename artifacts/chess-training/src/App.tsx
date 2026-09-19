@@ -481,13 +481,14 @@ function Home() {
     const isLastPlayerMove = nextTrainingTurno.playerNode === null;
     const lastAppliedMove = automaticMoves[automaticMoves.length - 1] ?? expectedMove;
 
-    setBoard(nextBoard);
-    setLastMove([lastAppliedMove.from, lastAppliedMove.to]);
-    setMoveHistory((history) => [
-      ...history,
+    const nextHistory = [
+      ...moveHistory,
       expectedMove.notation,
       ...automaticMoves.map((move) => move.notation),
-    ]);
+    ];
+    setBoard(nextBoard);
+    setLastMove([lastAppliedMove.from, lastAppliedMove.to]);
+    setMoveHistory(nextHistory);
     setSelected(null);
     setOpeningNodeId(nextNodeId);
     setMoveErrors(0);
@@ -501,7 +502,7 @@ function Home() {
       setBoard(challengeBoard);
       setLastMove([nextUnexpectedEvent.from ?? squareName(challengeMove.from), nextUnexpectedEvent.to ?? squareName(challengeMove.to)]);
       setMoveHistory((history) => [...history, `Inesperado: ${nextUnexpectedEvent.from ?? squareName(challengeMove.from)}–${nextUnexpectedEvent.to ?? squareName(challengeMove.to)}`]);
-      setUnexpectedChallenge({ event: nextUnexpectedEvent, resumeNodeId: nextNodeId, resumeBoard: nextBoard, resumeHistory: [...moveHistory, expectedMove.notation, ...automaticMoves.map((move) => move.notation)], resumeTurn: trainingPlayerColor });
+      setUnexpectedChallenge({ event: nextUnexpectedEvent, resumeNodeId: nextNodeId, resumeBoard: nextBoard, resumeHistory: nextHistory, resumeTurn: trainingPlayerColor });
       setUnexpectedEvent(nextUnexpectedEvent);
     } else {
       setUnexpectedEvent(null);
