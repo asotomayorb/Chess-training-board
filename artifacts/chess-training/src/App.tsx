@@ -568,7 +568,7 @@ function Home() {
     setHintLevel(0);
     setTrainingAttempts((attempts) => attempts + 1);
     setTrainingCorrectMoves((moves) => moves + 1);
-    setTrainingExplanation([`Idea: ${expectedMove.concept}`, `Objetivo: ${expectedMove.objective}`, `Amenaza/clave: ${expectedMove.threat}`, `Error típico: ${expectedMove.typicalError}`, `Nivel: ${expectedMove.difficulty}`, expectedMove.explanation].join('\\n'));
+    setTrainingExplanation([`Idea: ${expectedMove.concept}`, `Objetivo: ${expectedMove.objective}`, `Amenaza/clave: ${expectedMove.threat}`, `Error típico: ${expectedMove.typicalError}`, `Nivel: ${expectedMove.difficulty}`, expectedMove.explanation].join('\n'));
     setTrainingStatus('correct');
 
     if (!automaticMoves.length) {
