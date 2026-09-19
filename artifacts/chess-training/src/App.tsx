@@ -222,7 +222,7 @@ function Home() {
     setHintLevel(0);
     setTrainingAttempts((attempts) => attempts + 1);
     setTrainingCorrectMoves((moves) => moves + 1);
-    setTrainingExplanation(expectedMove.explanation ?? '');
+    setTrainingExplanation([`Idea: ${expectedMove.concept}`, `Objetivo: ${expectedMove.objective}`, `Amenaza/clave: ${expectedMove.threat}`, `Error típico: ${expectedMove.typicalError}`, `Nivel: ${expectedMove.difficulty}`, expectedMove.explanation].join('\n'));
     setTrainingStatus(isLastWhiteMove ? 'complete' : 'correct');
   };
 
@@ -482,10 +482,14 @@ function Home() {
                            💡 Pista {Math.min(hintLevel, 3)}: {expectedMove.hints[Math.min(hintLevel, 3) - 1]}
                          </p>
                        )}
-                       {trainingStatus === 'correct' && trainingExplanation && (
-                         <p className="mt-4 rounded-lg bg-[#e3e8dc] px-3 py-2.5 text-[12px] leading-relaxed text-[#486257]" data-testid="text-training-explanation">
-                           {trainingExplanation}
-                         </p>
+                       {(trainingStatus === 'correct' || trainingStatus === 'complete') && trainingExplanation && (
+                         <div className="mt-4 rounded-lg bg-[#e3e8dc] px-3 py-2.5 text-[12px] leading-relaxed text-[#486257]" data-testid="text-training-explanation">
+                           {trainingExplanation.split('\n').map((line, index) => (
+                             <p key={index} className={index === 0 ? 'font-semibold text-[#30473e]' : index === trainingExplanation.split('\n').length - 1 ? 'mt-2' : 'mt-1'}>
+                               {line}
+                             </p>
+                           ))}
+                         </div>
                        )}
                        {trainingStatus === 'complete' && (
                          <div className="mt-4 space-y-2 rounded-lg bg-[#e3e8dc] px-3 py-2.5 text-[12px] leading-relaxed text-[#486257]" data-testid="text-training-completion">
