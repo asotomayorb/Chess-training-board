@@ -71,33 +71,75 @@ export function chooseUnexpectedSituation(board: Board, sideToMove: Side, option
   if (options.enabled === false) return null;
   const legalMoves = getAllLegalMoves(board, sideToMove);
   if (!legalMoves.length) return null;
+
+  const difficulty = options.difficulty ?? 'intermedio';
   const randomValue = Math.min(Math.max((options.random ?? Math.random)(), 0), 0.999999);
-  const levels = options.difficulty === 'fundamentos' ? ['fundamentos'] : options.difficulty === 'intermedio' ? ['fundamentos', 'intermedio'] : ['fundamentos', 'intermedio', 'avanzado'];
   const opponent = oppositeSide(sideToMove);
-  const checkMove = legalMoves.find((move) => getGameStatus(applyBoardMove(board, move), opponent) === 'check');
-  if (levels.includes('fundamentos') && checkMove) return { type: 'amenaza', title: '⚠️ Amenaza real en la posición', message: 'El rival tiene una jugada legal que da jaque: ' + boardSquareName(checkMove.from) + '–' + boardSquareName(checkMove.to) + '. Antes de seguir tu plan, comprueba si debes responder a esta amenaza.', difficulty: 'fundamentos', move: checkMove, from: boardSquareName(checkMove.from), to: boardSquareName(checkMove.to), concrete: true };
+
+  const checkMoves = legalMoves.filter(
+    (move) => getGameStatus(applyBoardMove(board, move), opponent) === 'check',
+  );
+
   const capturableOffers = legalMoves.filter((move) => {
     const movedPiece = board[move.from.row][move.from.col];
     if (!movedPiece || movedPiece.type === 'king') return false;
     const next = applyBoardMove(board, move);
-    return getAllLegalMoves(next, opponent).some((reply) => reply.to.row === move.to.row && reply.to.col === move.to.col && pieceValue(movedPiece.type) >= 3);
+    return getAllLegalMoves(next, opponent).some(
+      (reply) =>
+        reply.to.row === move.to.row &&
+        reply.to.col === move.to.col &&
+        pieceValue(movedPiece.type) >= 3,
+    );
   });
-  if (levels.includes('intermedio') && capturableOffers.length) {
-    const move = capturableOffers[Math.floor(randomValue * capturableOffers.length)];
-    return { type: 'sacrificio', title: '⚔️ Posible sacrificio real', message: 'El rival puede jugar ' + boardSquareName(move.from) + '–' + boardSquareName(move.to) + ' y dejar esa pieza capturable. No captures automáticamente: calcula qué obtiene a cambio.', difficulty: 'intermedio', move, from: boardSquareName(move.from), to: boardSquareName(move.to), concrete: true };
-  }
-  if (levels.includes('intermedio')) {
-    const captures = legalMoves.filter((move) => Boolean(board[move.to.row][move.to.col]));
-    if (captures.length) {
-      const move = captures[Math.floor(randomValue * captures.length)];
-      return { type: 'gambito', title: '♟️ Juego inesperado: presión sobre material', message: 'El rival tiene una captura legal ' + boardSquareName(move.from) + '–' + boardSquareName(move.to) + '. Comprueba si aceptar el cambio favorece tu plan.', difficulty: 'intermedio', move, from: boardSquareName(move.from), to: boardSquareName(move.to), concrete: true };
-    }
-  }
-  const move = legalMoves[Math.floor(randomValue * legalMoves.length)];
-  const advanced = options.difficulty === 'avanzado';
-  return { type: advanced ? 'cambio de plan' : 'desviación', title: advanced ? '🔄 Cambio de plan posible' : '↪️ Desviación posible', message: advanced ? 'El rival tiene una jugada legal ' + boardSquareName(move.from) + '–' + boardSquareName(move.to) + ' que puede cambiar el plan. Reevalúa centro, rey y piezas activas.' : 'El rival tiene una alternativa legal: ' + boardSquareName(move.from) + '–' + boardSquareName(move.to) + '. Si aparece, busca la idea de la posición en lugar de repetir de memoria.', difficulty: advanced ? 'avanzado' : 'intermedio', move, from: boardSquareName(move.from), to: boardSquareName(move.to), concrete: true };
-}
 
+  const captures = legalMoves.filter((move) => Boolean(board[move.to.row][move.to.col]));
+  const randomMove = legalMoves[Math.floor(randomValue * legalMoves.length)];
+
+  if (difficulty === 'fundamentos') {
+    const move = checkMoves[0] ?? randomMove;
+    return {
+      type: 'amenaza',
+      title: '⚠️ Amenaza real en la posición',
+      message: checkMoves.length
+        ? 'El rival tiene una jugada legal que da jaque: ' + boardSquareName(move.from) + '–' + boardSquareName(move.to) + '. Comprueba primero esta amenaza antes de seguir tu plan.'
+        : 'El rival ha cambiado la posición. Antes de continuar tu plan, comprueba jaques, capturas y amenazas inmediatas.',
+      difficulty,
+      move,
+      from: boardSquareName(move.from),
+      to: boardSquareName(move.to),
+      concrete: checkMoves.length > 0,
+    };
+  }
+
+  if (difficulty === 'intermedio') {
+    const move = capturableOffers[0] ?? captures[0] ?? randomMove;
+    return {
+      type: capturableOffers.length ? 'sacrificio' : 'gambito',
+      title: capturableOffers.length ? '⚔️ Juego inesperado: sacrificio' : '♟️ Juego inesperado: presión sobre material',
+      message: capturableOffers.length
+        ? 'El rival ofrece material de forma concreta. No captures automáticamente: calcula qué obtiene a cambio.'
+        : captures.length
+          ? 'El rival cambia material de forma inesperada. Comprueba si aceptar el cambio favorece tu plan.'
+          : 'El rival se desvía de la línea esperada. Reevalúa la posición antes de continuar de memoria.',
+      difficulty,
+      move,
+      from: boardSquareName(move.from),
+      to: boardSquareName(move.to),
+      concrete: true,
+    };
+  }
+
+  return {
+    type: 'cambio de plan',
+    title: '🔄 Juego inesperado: cambio de plan',
+    message: 'El rival cambia el plan de forma inesperada. Reevalúa centro, seguridad del rey, piezas activas y amenazas antes de responder.',
+    difficulty,
+    move: randomMove,
+    from: boardSquareName(randomMove.from),
+    to: boardSquareName(randomMove.to),
+    concrete: true,
+  };
+}
 export function chooseUnexpectedEvent(options: UnexpectedEventOptions = {}): UnexpectedEvent | null {
   if (options.enabled === false) return null;
   const levels = options.difficulty === 'fundamentos'
