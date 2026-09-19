@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { italianGameTrainingTree, trainingVariantCatalog } from '@/data/openings';
+import { applyBoardMove, makeInitialBoard, squareFromName } from './chess-engine';
 import {
   calculateAccuracy,
   chooseRandomVariant,
@@ -11,6 +12,7 @@ import {
   isExpectedMove,
   classifyTrainingError,
   chooseUnexpectedEvent,
+  chooseUnexpectedSituation,
 } from './variant-engine';
 
 const [giuocoPiano, twoKnights] = italianGameTrainingTree.branches;
@@ -80,4 +82,17 @@ test('classifies opening mistakes and generates unexpected-play events by diffic
   assert.equal(chooseUnexpectedEvent({ difficulty: 'fundamentos', random: () => 0 })?.type, 'amenaza');
   assert.equal(chooseUnexpectedEvent({ enabled: false, random: () => 0 }) , null);
   assert.equal(chooseUnexpectedEvent({ difficulty: 'avanzado', random: () => 0.999999 })?.type, 'cambio de plan');
+});
+
+test('detects a concrete legal unexpected situation on a real board', () => {
+  let board = makeInitialBoard();
+  board = applyBoardMove(board, { from: squareFromName('e2'), to: squareFromName('e4') });
+  board = applyBoardMove(board, { from: squareFromName('e7'), to: squareFromName('e5') });
+  board = applyBoardMove(board, { from: squareFromName('g1'), to: squareFromName('f3') });
+  const event = chooseUnexpectedSituation(board, 'black', { difficulty: 'intermedio', random: () => 0 });
+  assert.ok(event);
+  assert.equal(event?.concrete, true);
+  assert.ok(event?.from);
+  assert.ok(event?.to);
+  assert.ok(event?.move);
 });
