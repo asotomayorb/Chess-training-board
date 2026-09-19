@@ -12,6 +12,7 @@ import {
   chooseRandomVariant,
   getProgressiveHintLevel,
   getTrainingTurn,
+  classifyTrainingError,
   isExpectedMove,
   type VariantSelection,
 } from '@/engine/variant-engine';
@@ -35,6 +36,7 @@ type DifficultMove = {
   notation: string;
   errors: number;
   hintsUsed: number;
+  category: string;
 };
 
 const queryClient = new QueryClient();
@@ -202,19 +204,20 @@ function Home() {
       if (nextHintLevel > previousHintLevel) {
         setTrainingHintsUsed((hints) => hints + 1);
       }
+      const errorCategory = expectedMove.errorCategory ?? classifyTrainingError(expectedMove, fromName, toName);
       setDifficultMoves((moves) => {
         const existingMove = moves.find((move) => move.nodeId === expectedNode.id);
         if (existingMove) {
           return moves.map((move) => (
             move.nodeId === expectedNode.id
-              ? { ...move, errors: nextMoveErrors, hintsUsed: Math.max(move.hintsUsed, nextHintLevel) }
+              ? { ...move, errors: nextMoveErrors, hintsUsed: Math.max(move.hintsUsed, nextHintLevel), category: errorCategory }
               : move
           ));
         }
-        return [...moves, { nodeId: expectedNode.id, notation: expectedMove.notation, errors: nextMoveErrors, hintsUsed: nextHintLevel }];
+        return [...moves, { nodeId: expectedNode.id, notation: expectedMove.notation, errors: nextMoveErrors, hintsUsed: nextHintLevel, category: errorCategory }];
       });
       setTrainingStatus('incorrect');
-      setTrainingExplanation('');
+      setTrainingExplanation(`Por qué: ${expectedMove.whyWrong ?? expectedMove.typicalError}\nTipo de error: ${errorCategory}.`);
       setSelected(null);
       return;
     }
@@ -543,7 +546,7 @@ function Home() {
                              <p data-testid="text-completion-difficult-moves">
                                Movimientos donde tuvo dificultades:{' '}
                                {difficultMoves.length
-                                 ? difficultMoves.map((move) => `${move.notation} (${move.errors} errores, ${move.hintsUsed} pistas)`).join(', ')
+                                 ? difficultMoves.map((move) => `${move.notation} (${move.errors} errores, ${move.hintsUsed} pistas, ${move.category})`).join(', ')
                                  : 'ninguno'}
                              </p>
                            </div>
