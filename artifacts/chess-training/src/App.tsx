@@ -635,8 +635,8 @@ function Home() {
         setUnexpectedChallenge({
           event: nextUnexpectedEvent,
           resumeNodeId: expectedNode.id,
-          resumeBoard: playerBoard,
-          resumeHistory: playerHistory,
+          resumeBoard: challengeBoard,
+          resumeHistory: [...playerHistory, `Inesperado: ${nextUnexpectedEvent.from ?? squareName(challengeMove.from)}–${nextUnexpectedEvent.to ?? squareName(challengeMove.to)}`],
           resumeTurn: trainingPlayerColor,
           pendingAutomaticMoves: automaticMoves,
           pendingNextNodeId: nextNodeId,
