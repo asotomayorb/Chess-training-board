@@ -243,10 +243,12 @@ export function getTrainingTurn(
   const playerNode = playerIndex === -1 ? null : remainingNodes[playerIndex];
   const automaticNodes: VariantNode[] = [];
   if (playerNode) {
-    // Automatic moves are the opponent's moves BEFORE the next player decision.
-    // The previous implementation took nodes after playerNode, which could skip
-    // the first move for Black and make the rival appear one or two moves ahead.
+    // Automatic moves are the opponent's moves before the next player decision.
     automaticNodes.push(...remainingNodes.slice(0, playerIndex));
+  } else {
+    // If the line ends after the player's last move, still play the final
+    // opponent response before marking the training complete.
+    automaticNodes.push(...remainingNodes.filter((node) => node.move?.color !== playerColor));
   }
 
   return {
