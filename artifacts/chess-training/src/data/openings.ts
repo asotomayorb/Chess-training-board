@@ -225,7 +225,7 @@ const italianBxb4: OpeningMove = {
   threat: 'Las blancas pueden jugar c3 para ganar otro tiempo sobre el alfil.',
   typicalError: 'Aferrarse al material y olvidar el desarrollo.',
   difficulty: 'avanzado',
-  hints: ['el alfil de c5 puede capturar el peón que acaba de avanzar a b4.', 'Acepta el gambito solo después de comprobar que la captura es legal y qué tiempos concede a las blancas.', 'La jugada correcta es Axb4.'],
+  hints: ['el alfil de c5 puede capturar el peón que acaba de avanzar a b4.', 'Acepta el gambito solo después de comprobar qué tiempos concede a las blancas.', 'La jugada correcta es Axb4.'],
 };
 
 const italianC3: OpeningMove = {
