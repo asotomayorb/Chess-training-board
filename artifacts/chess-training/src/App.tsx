@@ -382,7 +382,6 @@ function Home() {
     setUnexpectedEvent(null);
     setUnexpectedChallenge(null);
     // El juego inesperado se activa después de la primera decisión del jugador, no al arrancar.
-    }
   };
 
   const startFocusedTraining = (focus: Exclude<TrainingFocus, 'opening' | 'complete'>) => {
