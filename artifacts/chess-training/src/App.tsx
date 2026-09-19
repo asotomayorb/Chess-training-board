@@ -544,14 +544,15 @@ function Home() {
       return;
     }
 
-    const automaticMoves = trainingTurno.automaticNodes
-      .flatMap((node) => (node.move ? [node.move] : []));
     const playerBoard = applyOpeningMove(board, expectedMove);
     const playerHistory = [...moveHistory, expectedMove.notation];
-    const lastAutomaticNode = trainingTurno.automaticNodes[trainingTurno.automaticNodes.length - 1];
+    const nextTurnPreview = getTrainingTurn(openingTree, openingVariant, expectedNode.id, trainingPlayerColor);
+    const automaticMoves = nextTurnPreview.automaticNodes
+      .flatMap((node) => (node.move ? [node.move] : []));
+    const lastAutomaticNode = nextTurnPreview.automaticNodes[nextTurnPreview.automaticNodes.length - 1];
     const nextNodeId = lastAutomaticNode?.id ?? expectedNode.id;
-    const nextTrainingTurno = getTrainingTurn(openingTree, openingVariant, nextNodeId, trainingPlayerColor);
-    const isLastPlayerMove = nextTrainingTurno.playerNode === null;
+    const nextTrainingTurn = getTrainingTurn(openingTree, openingVariant, nextNodeId, trainingPlayerColor);
+    const isLastPlayerMove = nextTrainingTurn.playerNode === null;
     const nextBoard = automaticMoves.reduce(
       (currentBoard, move) => applyOpeningMove(currentBoard, move),
       playerBoard,
@@ -806,7 +807,8 @@ function Home() {
     setSelected(null);
   };
 
-  const displayedBoard = trainingPlayerColor === 'black'
+  const shouldRotateBoard = mode === 'opening' && trainingPlayerColor === 'black';
+  const displayedBoard = shouldRotateBoard
     ? board.slice().reverse().map((row) => row.slice().reverse())
     : board;
 
@@ -1133,8 +1135,8 @@ function Home() {
                   <div className="grid grid-cols-8 overflow-hidden rounded-[1px]" data-testid="chess-board">
                     {displayedBoard.map((row, displayRowIndex) =>
                       row.map((piece, displayColIndex) => {
-                        const rowIndex = trainingPlayerColor === 'black' ? 7 - displayRowIndex : displayRowIndex;
-                        const colIndex = trainingPlayerColor === 'black' ? 7 - displayColIndex : displayColIndex;
+                        const rowIndex = shouldRotateBoard ? 7 - displayRowIndex : displayRowIndex;
+                        const colIndex = shouldRotateBoard ? 7 - displayColIndex : displayColIndex;
                         const key = `${rowIndex}-${colIndex}`;
                         const isSelected = selected?.row === rowIndex && selected?.col === colIndex;
                         const isLegal = legalKeySet.has(key);
