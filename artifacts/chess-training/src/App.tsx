@@ -46,6 +46,7 @@ import {
 } from '@/engine/chess-engine';
 
 type PracticeMode = 'free' | 'opening' | 'complete';
+type TrainingFocus = 'opening' | 'middlegame' | 'endgame' | 'complete';
 type TrainingSideChoice = OpeningColor | 'random';
 type DifficultMove = {
   nodeId: string;
@@ -79,6 +80,43 @@ function chooseVariant(): VariantSelection {
   return chooseRandomVariant(trainingVariantCatalog);
 }
 
+function createFocusedGameState(board: Board, turn: Side = 'white'): ChessGameState {
+  const base = createChessGameState();
+  return {
+    ...base,
+    board,
+    turn,
+    castlingRights: { whiteKingSide: false, whiteQueenSide: false, blackKingSide: false, blackQueenSide: false },
+    enPassantTarget: null,
+    halfmoveClock: 0,
+    positionHistory: [],
+  };
+}
+
+function makeTrainingBoard(kind: 'middlegame' | 'opposition' | 'rooks' | 'queen'): Board {
+  const board: Board = Array.from({ length: 8 }, () => Array(8).fill(null));
+  const put = (name: string, type: PieceType, color: Side) => {
+    const square = squareFromName(name);
+    board[square.row][square.col] = { type, color };
+  };
+  if (kind === 'middlegame') {
+    put('e1', 'king', 'white'); put('d1', 'queen', 'white'); put('a1', 'rook', 'white'); put('h1', 'rook', 'white');
+    put('c1', 'bishop', 'white'); put('f1', 'bishop', 'white'); put('b1', 'knight', 'white'); put('g1', 'knight', 'white');
+    ['a2','b2','c3','d4','e4','f2','g2','h3'].forEach((s) => put(s, 'pawn', 'white'));
+    put('e8', 'king', 'black'); put('d8', 'queen', 'black'); put('a8', 'rook', 'black'); put('h8', 'rook', 'black');
+    put('c8', 'bishop', 'black'); put('f8', 'bishop', 'black'); put('b8', 'knight', 'black'); put('g8', 'knight', 'black');
+    ['a7','b6','c5','d6','e5','f7','g7','h6'].forEach((s) => put(s, 'pawn', 'black'));
+  } else if (kind === 'opposition') {
+    put('e5', 'king', 'white'); put('e6', 'pawn', 'white'); put('e7', 'king', 'black');
+  } else if (kind === 'rooks') {
+    put('e5', 'king', 'white'); put('a5', 'rook', 'white'); put('a6', 'pawn', 'white');
+    put('g7', 'king', 'black'); put('h7', 'rook', 'black'); put('g6', 'pawn', 'black');
+  } else {
+    put('e5', 'king', 'white'); put('e6', 'queen', 'white'); put('h8', 'king', 'black');
+  }
+  return board;
+}
+
 function getOpponentSide(playerColor: OpeningColor): Side {
   return playerColor === 'white' ? 'black' : 'white';
 }
@@ -104,6 +142,7 @@ function getCompleteThreatMessage(state: ChessGameState): string | null {
 function Home() {
   const [board, setBoard] = useState<Board>(() => makeInitialBoard());
   const [mode, setMode] = useState<PracticeMode>('free');
+  const [trainingFocus, setTrainingFocus] = useState<TrainingFocus>('complete');
   const [turn, setTurn] = useState<Side>('white');
   const [completeGame, setCompleteGame] = useState<ChessGameState>(() => createChessGameState());
   const [promotionPending, setPromotionPending] = useState<{ from: Square; to: Square } | null>(null);
@@ -255,7 +294,7 @@ function Home() {
           ? 'Final detectado. Cambia el plan: actividad del rey, peones pasados y técnica del final.'
           : 'El rival movió. Antes de responder, comprueba amenazas, capturas y jugadas forzadas.');
       }
-    }, 350);
+    }, 1000);
     return () => window.clearTimeout(timer);
   }, [mode, completeGame, completeGameOver, unexpectedPlayEnabled, unexpectedDifficulty]);
 
@@ -265,6 +304,7 @@ function Home() {
     setPromotionPending(null);
     setBoard(freshCompleteGame.board);
     setMode('free');
+    setTrainingFocus('complete');
     setTurn('white');
     setSelected(null);
     setLastMove(null);
@@ -317,6 +357,7 @@ function Home() {
 
     setBoard(trainingBoard);
     setMode('opening');
+    setTrainingFocus('opening');
     setTurn(playerColor);
     setSelected(null);
     setLastMove(null);
@@ -340,19 +381,45 @@ function Home() {
     setTrainingExplanation('');
     setUnexpectedEvent(null);
     setUnexpectedChallenge(null);
-    if (unexpectedPlayEnabled) {
-      const event = chooseUnexpectedSituation(trainingBoard, getOpponentSide(playerColor), { enabled: true, difficulty: unexpectedDifficulty });
-      if (event?.move) {
-        const challengeMove = event.move;
-        const challengeBoard = applyBoardMove(trainingBoard, challengeMove);
-        setBoard(challengeBoard);
-        setLastMove([event.from ?? squareName(challengeMove.from), event.to ?? squareName(challengeMove.to)]);
-        setMoveHistory((history) => [...history, `Inesperado: ${event.from ?? squareName(challengeMove.from)}–${event.to ?? squareName(challengeMove.to)}`]);
-        setUnexpectedChallenge({ event, resumeNodeId: initialAutomaticMoves.length ? initialTurn.automaticNodes[initialTurn.automaticNodes.length - 1].id : selection.variant.startNodeId, resumeBoard: trainingBoard, resumeHistory: initialAutomaticMoves.map((move) => move.notation), resumeTurn: playerColor });
-        setUnexpectedEvent(event);
-        setTurn(playerColor);
-      }
+    // El juego inesperado se activa después de la primera decisión del jugador, no al arrancar.
     }
+  };
+
+  const startFocusedTraining = (focus: Exclude<TrainingFocus, 'opening' | 'complete'>) => {
+    const kind = focus === 'middlegame'
+      ? 'middlegame' as const
+      : (['opposition', 'rooks', 'queen'] as const)[Math.floor(Math.random() * 3)];
+    const freshGame = createFocusedGameState(makeTrainingBoard(kind), 'white');
+    setCompleteGame(freshGame);
+    setPromotionPending(null);
+    setBoard(freshGame.board);
+    setMode('complete');
+    setTrainingFocus(focus);
+    setTurn('white');
+    setSelected(null);
+    setLastMove(null);
+    setMoveHistory([]);
+    setFocusCue(focus === 'middlegame'
+      ? 'Medio juego: identifica el objetivo de la posición y considera varias jugadas buenas, no una única línea memorizada.'
+      : 'Final: la posición comienza directamente en un ejercicio técnico. Calcula el objetivo antes de mover.');
+    setCompleteFeedback('');
+    setStockfishAnalysis(null);
+    setStockfishError('');
+    setStockfishMoveQuality(null);
+    setStockfishCoachResult(null);
+    setStockfishMoveLoading(false);
+    stockfishAnalysisRequestRef.current += 1;
+    stockfishMoveBusyRef.current = false;
+    setCompleteErrors(0);
+    setMiddlegameErrors(0);
+    setEndgameErrors(0);
+    const endgame = chooseEndgameTrainingPrompt(freshGame);
+    setEndgamePrompt(endgame);
+    setMiddlegamePrompt(focus === 'middlegame' ? chooseMiddlegameTrainingPrompt(freshGame, { difficulty: 'intermedio' }) : null);
+    setTrainingSelection(null);
+    setOpeningNodeId(null);
+    setUnexpectedEvent(null);
+    setUnexpectedChallenge(null);
   };
 
   const startCompleteGame = () => {
@@ -361,6 +428,7 @@ function Home() {
     setPromotionPending(null);
     setBoard(freshCompleteGame.board);
     setMode('complete');
+    setTrainingFocus('complete');
     setTurn('white');
     setSelected(null);
     setLastMove(null);
@@ -714,6 +782,10 @@ function Home() {
     setSelected(null);
   };
 
+  const displayedBoard = trainingPlayerColor === 'black'
+    ? board.slice().reverse().map((row) => row.slice().reverse())
+    : board;
+
   return (
     <div className="app-grain min-h-[100dvh] overflow-x-hidden bg-[#e9e3d5]">
       <div className="relative mx-auto flex min-h-[100dvh] max-w-[1600px]">
@@ -748,6 +820,12 @@ function Home() {
                 <Crown size={16} className="text-[#c38a3d]" />
                 <span className="text-[12px] font-bold text-[#2c4039]">Modo completo</span>
                 {mode === 'complete' && <span className="ml-auto size-1.5 rounded-full bg-[#c38a3d]" />}
+              </button>
+              <button type="button" onClick={() => startFocusedTraining('middlegame')} className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left transition-colors hover:bg-[#e5ddce]">
+                <BookOpen size={16} className="text-[#1f5b49]" /><span className="text-[12px] font-bold text-[#2c4039]">Entrenamiento de medio juego</span>
+              </button>
+              <button type="button" onClick={() => startFocusedTraining('endgame')} className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left transition-colors hover:bg-[#e5ddce]">
+                <Crown size={16} className="text-[#c38a3d]" /><span className="text-[12px] font-bold text-[#2c4039]">Entrenamiento de finales</span>
               </button>
               <button
                 type="button"
@@ -804,6 +882,12 @@ function Home() {
               <h1 className="mt-1 text-[18px] font-extrabold tracking-[-0.04em] text-[#263a33]">Una posición que merece tu atención.</h1>
             </div>
             <div className="flex items-center gap-2 sm:gap-4">
+              <div className="flex max-w-[190px] items-center gap-1 overflow-x-auto rounded-lg border border-[#cfc5b3] bg-[#e5dece] p-1 lg:hidden" data-testid="mobile-training-modes">
+                <button type="button" onClick={() => startOpeningTraining()} className={`shrink-0 rounded-md px-2 py-1.5 text-[9px] font-bold ${trainingFocus === 'opening' ? 'bg-[#1f5b49] text-[#f5efdf]' : 'text-[#5f7067]'}`}>Apertura</button>
+                <button type="button" onClick={() => startFocusedTraining('middlegame')} className={`shrink-0 rounded-md px-2 py-1.5 text-[9px] font-bold ${trainingFocus === 'middlegame' ? 'bg-[#1f5b49] text-[#f5efdf]' : 'text-[#5f7067]'}`}>Medio juego</button>
+                <button type="button" onClick={() => startFocusedTraining('endgame')} className={`shrink-0 rounded-md px-2 py-1.5 text-[9px] font-bold ${trainingFocus === 'endgame' ? 'bg-[#1f5b49] text-[#f5efdf]' : 'text-[#5f7067]'}`}>Final</button>
+                <button type="button" onClick={startCompleteGame} className={`shrink-0 rounded-md px-2 py-1.5 text-[9px] font-bold ${trainingFocus === 'complete' && mode === 'complete' ? 'bg-[#1f5b49] text-[#f5efdf]' : 'text-[#5f7067]'}`}>Completa</button>
+              </div>
               <div className="hidden items-center gap-2 rounded-full border border-[#cfc5b3] bg-[#e5dece] px-3 py-1.5 sm:flex">
                 <span className="size-1.5 rounded-full bg-[#c38a3d]" />
                 <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-[#64766c]">tablero local</span>
@@ -990,7 +1074,7 @@ function Home() {
                               : `Turno de ${freeTurnoLabel}`}
                     </span>
                   </div>
-                  <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-[#879389]">{mode === 'opening' ? 'entrenamiento de aperturas' : mode === 'complete' ? 'modo completo' : 'práctica libre'}</span>
+                  <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-[#879389]">{mode === 'opening' ? 'apertura' : trainingFocus === 'middlegame' ? 'medio juego' : trainingFocus === 'endgame' ? 'final' : trainingFocus === 'complete' ? 'partida completa' : 'práctica libre'}</span>
                 </div>
 
                 {promotionPending && mode === 'complete' && (
@@ -1023,8 +1107,10 @@ function Home() {
 
                 <div className="board-frame overflow-hidden rounded-[5px] border-[10px] border-[#263f35] bg-[#263f35] sm:border-[14px]">
                   <div className="grid grid-cols-8 overflow-hidden rounded-[1px]" data-testid="chess-board">
-                    {board.map((row, rowIndex) =>
-                      row.map((piece, colIndex) => {
+                    {displayedBoard.map((row, displayRowIndex) =>
+                      row.map((piece, displayColIndex) => {
+                        const rowIndex = trainingPlayerColor === 'black' ? 7 - displayRowIndex : displayRowIndex;
+                        const colIndex = trainingPlayerColor === 'black' ? 7 - displayColIndex : displayColIndex;
                         const key = `${rowIndex}-${colIndex}`;
                         const isSelected = selected?.row === rowIndex && selected?.col === colIndex;
                         const isLegal = legalKeySet.has(key);
@@ -1039,8 +1125,8 @@ function Home() {
                             aria-label={`${squareName({ row: rowIndex, col: colIndex })}${piece ? ` ${piece.color} ${piece.type}` : ''}`}
                             className={`chess-square ${isLight ? 'board-light text-[#527062]' : 'board-dark text-[#e5ddc8]'} ${isSelected ? 'selected' : ''} ${isLegal ? (piece ? 'legal capture' : 'legal') : ''} ${isLastMove ? 'last-move' : ''}`}
                           >
-                            {colIndex === 0 && <span className="board-coord board-rank">{8 - rowIndex}</span>}
-                            {rowIndex === 7 && <span className="board-coord board-file">{files[colIndex]}</span>}
+                            {displayColIndex === 0 && <span className="board-coord board-rank">{8 - rowIndex}</span>}
+                            {displayRowIndex === 7 && <span className="board-coord board-file">{files[colIndex]}</span>}
                             {piece && (
                               <span className={`chess-piece ${piece.color === 'white' ? 'piece-white' : 'piece-black'}`}>
                                 {symbols[piece.color][piece.type]}
@@ -1050,6 +1136,19 @@ function Home() {
                         );
                       }),
                     )}
+                  </div>
+                </div>
+
+                <div className="mt-4 xl:hidden rounded-xl border border-[#d1c8b7] bg-[#f2ece0] p-3.5" data-testid="mobile-training-summary">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-[13px] font-extrabold text-[#30473e]">{mode === 'opening' ? (unexpectedChallenge ? '⚠️ Responde a la situación inesperada' : trainingStatus === 'incorrect' ? 'Movimiento incorrecto' : trainingStatus === 'complete' ? '✅ Variante completada' : trainingStatus === 'correct' ? 'Movimiento correcto' : `Tu turno · ${trainingPlayerColor === 'white' ? 'blancas' : 'negras'}`) : trainingFocus === 'middlegame' ? '🎯 Medio juego' : trainingFocus === 'endgame' ? '♔ Final' : trainingFocus === 'complete' ? '♟ Partida completa' : 'Práctica libre'}</p>
+                    <span className="font-mono text-[10px] font-bold text-[#7b897f]">{moveHistory.length} jug.</span>
+                  </div>
+                  {mode === 'opening' && trainingStatus === 'incorrect' && expectedMove && hintLevel > 0 && <p className="mt-2 rounded-lg bg-[#e8dfcf] px-3 py-2 text-[11px] font-semibold leading-relaxed text-[#5b6c62]">💡 Pista {Math.min(hintLevel, 3)}: {expectedMove.hints[Math.min(hintLevel, 3) - 1]}</p>}
+                  {mode === 'opening' && (trainingStatus === 'correct' || trainingStatus === 'complete') && trainingExplanation && <p className="mt-2 rounded-lg bg-[#e3e8dc] px-3 py-2 text-[11px] leading-relaxed text-[#486257]">{trainingExplanation.split('\n')[0]}</p>}
+                  {mode !== 'opening' && <p className="mt-2 text-[11px] leading-relaxed text-[#5f7067]">{focusCue}</p>}
+                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[9px] uppercase tracking-[0.08em] text-[#89948a]">
+                    {mode === 'opening' ? <><span>Errores {trainingErrors}</span><span>Aciertos {trainingCorrectMoves}</span><span>Precisión {trainingAccuracy}%</span><span>Pistas {trainingHintsUsed}</span></> : <span>Alertas: {completeErrors + middlegameErrors + endgameErrors}</span>}
                   </div>
                 </div>
 
@@ -1064,10 +1163,10 @@ function Home() {
                 </div>
               </section>
 
-              <aside className="fade-up fade-up-delay-2 xl:pt-7">
+              <aside className="hidden fade-up fade-up-delay-2 xl:block xl:pt-7">
                 <div className="rounded-2xl border border-[#d1c8b7] bg-[#f2ece0] p-5 shadow-[0_12px_30px_rgba(65,70,58,.06)] sm:p-6">
                   <div className="flex items-center justify-between">
-                     <p className="font-mono text-[9px] font-medium uppercase tracking-[0.2em] text-[#7b897f]">{mode === 'opening' ? 'Entrenador de aperturas' : 'Estado de la partida'}</p>
+                     <p className="font-mono text-[9px] font-medium uppercase tracking-[0.2em] text-[#7b897f]">{mode === 'opening' ? 'Entrenador de aperturas' : trainingFocus === 'middlegame' ? 'Entrenador de medio juego' : trainingFocus === 'endgame' ? 'Entrenador de finales' : 'Estado de la partida'}</p>
                      {mode === 'opening' ? <Lightbulb size={15} className="text-[#c38a3d]" /> : <BookOpen size={15} className="text-[#1f5b49]" />}
                   </div>
                    {mode === 'opening' ? (
