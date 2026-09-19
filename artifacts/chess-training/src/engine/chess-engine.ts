@@ -289,8 +289,11 @@ function getStatePseudoLegalMoves(state: ChessGameState, from: Square): ChessGam
   }
   return moves;
 }
-function withPromotion(move: ChessGameMove, piece: Piece): ChessGameMove {
-  return piece.type === 'pawn' && (move.to.row === 0 || move.to.row === 7) ? { ...move, promotion: 'queen' } : move;
+const promotionPieces: PromotionPiece[] = ['queen', 'rook', 'bishop', 'knight'];
+
+function withPromotions(move: ChessGameMove, piece: Piece): ChessGameMove[] {
+  if (piece.type !== 'pawn' || (move.to.row !== 0 && move.to.row !== 7)) return [move];
+  return promotionPieces.map((promotion) => ({ ...move, promotion }));
 }
 function applyChessMoveUnchecked(state: ChessGameState, move: ChessGameMove): ChessGameState {
   const piece = state.board[move.from.row][move.from.col];
@@ -327,9 +330,10 @@ export function getLegalChessMoves(state: ChessGameState, from?: Square): ChessG
     const piece = state.board[source.row][source.col];
     if (!piece || piece.color !== state.turn) continue;
     for (const rawMove of getStatePseudoLegalMoves(state, source)) {
-      const move = withPromotion(rawMove, piece);
-      const next = applyChessMoveUnchecked(state, move);
-      if (!isInCheck(next.board, state.turn)) moves.push(move);
+      for (const move of withPromotions(rawMove, piece)) {
+        const next = applyChessMoveUnchecked(state, move);
+        if (!isInCheck(next.board, state.turn)) moves.push(move);
+      }
     }
   }
   return moves;
