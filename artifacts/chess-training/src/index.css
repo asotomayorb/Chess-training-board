@@ -262,12 +262,12 @@ button,
   box-shadow: 0 14px 32px rgba(0,0,0,.18), 0 0 0 1px rgba(0,0,0,.18);
 }
 
-.chess-piece {
-  animation: piece-land 180ms ease-out;
+.piece-moved {
+  animation: piece-arrive 220ms cubic-bezier(.2,.8,.2,1);
 }
 
-@keyframes piece-land {
-  from { opacity: .35; transform: translateY(-8%) scale(.96); }
+@keyframes piece-arrive {
+  from { opacity: .55; transform: translateY(7%) scale(.94); }
   to { opacity: 1; transform: translateY(-2%) scale(1); }
 }
 
