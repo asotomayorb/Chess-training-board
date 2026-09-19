@@ -213,18 +213,21 @@ test('supports en passant after an opposing two-square pawn move', () => {
   assert.equal(next.board[squareFromName('d5').row][squareFromName('d5').col], null);
 });
 
-test('supports pawn promotion', () => {
+test('supports all four pawn promotion choices', () => {
   const board = boardWith([
     ['a7', piece('white', 'pawn')],
     ['h1', piece('white', 'king')],
     ['h8', piece('black', 'king')],
   ]);
   const state = gameStateWith(board);
-  const promotion = getLegalChessMoves(state).find((move) => move.to.col === squareFromName('a8').col && move.to.row === squareFromName('a8').row);
-  assert.ok(promotion);
-  assert.equal(promotion?.promotion, 'queen');
-  const next = applyChessMove(state, promotion!);
-  assert.equal(next.board[squareFromName('a8').row][squareFromName('a8').col]?.type, 'queen');
+  const promotions = getLegalChessMoves(state).filter(
+    (move) => move.to.col === squareFromName('a8').col && move.to.row === squareFromName('a8').row,
+  );
+  assert.deepEqual(promotions.map((move) => move.promotion).sort(), ['bishop', 'knight', 'queen', 'rook']);
+  const knightPromotion = promotions.find((move) => move.promotion === 'knight');
+  assert.ok(knightPromotion);
+  const next = applyChessMove(state, knightPromotion!);
+  assert.equal(next.board[squareFromName('a8').row][squareFromName('a8').col]?.type, 'knight');
 });
 
 test('detects insufficient material', () => {
