@@ -251,11 +251,24 @@ function hasLegalEnPassantCapture(state: Pick<ChessGameState, 'board' | 'turn' |
   const direction = state.turn === 'white' ? -1 : 1;
   const fromRow = target.row - direction;
   if (fromRow < 0 || fromRow > 7) return false;
+
   return [-1, 1].some((delta) => {
-    const col = target.col + delta;
-    if (col < 0 || col > 7) return false;
-    const pawn = state.board[fromRow][col];
-    return pawn?.type === 'pawn' && pawn.color === state.turn;
+    const fromCol = target.col + delta;
+    if (fromCol < 0 || fromCol > 7) return false;
+    const pawn = state.board[fromRow][fromCol];
+    if (pawn?.type !== 'pawn' || pawn.color !== state.turn) return false;
+
+    const capturedRow = fromRow;
+    const captured = state.board[capturedRow][target.col];
+    if (captured?.type !== 'pawn' || captured.color === state.turn) return false;
+
+    // FIDE repetition identity includes the en-passant target only when an
+    // en-passant capture is actually legal (including king safety).
+    const board = cloneBoard(state.board);
+    board[fromRow][fromCol] = null;
+    board[capturedRow][target.col] = null;
+    board[target.row][target.col] = { ...pawn };
+    return !isInCheck(board, state.turn);
   });
 }
 function positionKey(state: Pick<ChessGameState, 'board' | 'turn' | 'castlingRights' | 'enPassantTarget'>): string {
