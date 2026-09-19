@@ -53,6 +53,7 @@ export function classifyStockfishMove(quality: StockfishMoveQuality, context?: {
       label: 'Jugada principal',
       message: 'Stockfish considera que esta jugada coincide con su principal candidata.',
       centipawnLoss: quality.centipawnLoss,
+      strategicReason,
     };
   }
 
@@ -63,6 +64,7 @@ export function classifyStockfishMove(quality: StockfishMoveQuality, context?: {
         label: 'Mate encontrado',
         message: 'También encontraste una continuación de mate o equivalente en el horizonte analizado.',
         centipawnLoss: null,
+      strategicReason,
       };
     }
     if (playedMate !== null && playedMate > 0) {
@@ -71,6 +73,7 @@ export function classifyStockfishMove(quality: StockfishMoveQuality, context?: {
         label: 'Mate más lento',
         message: 'Encontraste una continuación ganadora, pero el motor ve una forma más rápida de convertir la ventaja.',
         centipawnLoss: null,
+      strategicReason,
       };
     }
     return {
@@ -78,6 +81,7 @@ export function classifyStockfishMove(quality: StockfishMoveQuality, context?: {
       label: 'Se escapó una oportunidad de mate',
       message: 'Había una continuación de mate disponible. Revisa primero jaques, capturas y amenazas forzadas.',
       centipawnLoss: null,
+      strategicReason,
     };
   }
 
@@ -87,6 +91,7 @@ export function classifyStockfishMove(quality: StockfishMoveQuality, context?: {
       label: 'Problema táctico serio',
       message: 'La jugada permite una secuencia de mate contra tu rey. Busca la respuesta forzada antes de continuar el plan.',
       centipawnLoss: null,
+      strategicReason,
     };
   }
 
@@ -97,6 +102,7 @@ export function classifyStockfishMove(quality: StockfishMoveQuality, context?: {
       label: 'Sin conclusión suficiente',
       message: 'El motor no obtuvo una diferencia numérica fiable para esta comparación.',
       centipawnLoss: null,
+      strategicReason,
     };
   }
   if (loss < 20) {
@@ -105,6 +111,7 @@ export function classifyStockfishMove(quality: StockfishMoveQuality, context?: {
       label: 'Muy precisa',
       message: 'La diferencia frente a la principal candidata es pequeña; la jugada mantiene prácticamente la misma evaluación.',
       centipawnLoss: loss,
+      strategicReason,
     };
   }
   if (loss < 60) {
@@ -113,6 +120,7 @@ export function classifyStockfishMove(quality: StockfishMoveQuality, context?: {
       label: 'Razonable',
       message: 'La jugada es razonable. El motor encuentra una alternativa algo más precisa, útil para estudiar el plan.',
       centipawnLoss: loss,
+      strategicReason,
     };
   }
   if (loss < 120) {
@@ -121,6 +129,7 @@ export function classifyStockfishMove(quality: StockfishMoveQuality, context?: {
       label: 'Imprecisa',
       message: 'La posición sigue siendo jugable, pero has cedido una cantidad apreciable de evaluación. Compara las ideas de ambas jugadas.',
       centipawnLoss: loss,
+      strategicReason,
     };
   }
   if (loss < 250) {
@@ -129,6 +138,7 @@ export function classifyStockfishMove(quality: StockfishMoveQuality, context?: {
       label: 'Error importante',
       message: 'La jugada cambia de forma relevante la evaluación. Revisa qué amenaza o recurso táctico no fue considerado.',
       centipawnLoss: loss,
+      strategicReason,
     };
   }
   return {
@@ -136,5 +146,6 @@ export function classifyStockfishMove(quality: StockfishMoveQuality, context?: {
     label: 'Error grave',
     message: 'La jugada provoca una pérdida grande de evaluación. Antes de mover, vuelve a comprobar jaques, capturas y amenazas del rival.',
     centipawnLoss: loss,
+      strategicReason,
   };
 }
