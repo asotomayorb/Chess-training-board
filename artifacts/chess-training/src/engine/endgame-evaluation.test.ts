@@ -38,7 +38,7 @@ test('evalúa una mejora del rey en rey y peón contra rey', () => {
   assert.equal(result.fulfilled, true);
 });
 
-test('evalúa una jugada activa de torre', () => {
+test('evalúa una jugada de torre que activa una línea contra el rey', () => {
   const state = emptyPosition();
   state.board[7][4] = { color: 'white', type: 'king' };
   state.board[7][0] = { color: 'white', type: 'rook' };
@@ -47,7 +47,7 @@ test('evalúa una jugada activa de torre', () => {
   state.turn = 'white';
   const prompt = chooseEndgameTrainingPrompt(state);
   assert.ok(prompt);
-  const candidate = move(state, 'a1', 'a2');
+  const candidate = move(state, 'a1', 'a8');
   const next = applyChessMove(state, candidate);
   const result = evaluateEndgameMove(state, next, candidate, prompt);
   assert.equal(result.fulfilled, true);
