@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ArrowUpRight, BookOpen, CheckCircle2, ChevronDown, CircleHelp, Clock3, Crown, Lightbulb, LogOut, RotateCcw, Target, XCircle } from 'lucide-react';
 import { ErrorBoundary } from '@/components/error-boundary';
@@ -23,6 +23,7 @@ import { evaluateMiddlegameMove } from '@/engine/middlegame-evaluation';
 import { chooseEndgameTrainingPrompt, type EndgameTrainingPrompt } from '@/engine/endgame-training';
 import { evaluateEndgameMove } from '@/engine/endgame-evaluation';
 import { evaluateCompleteMove } from '@/engine/complete-training';
+import { StockfishEngine, type StockfishAnalysis } from '@/engine/stockfish-engine';
 import {
   applyBoardMove,
   applyChessMove,
@@ -110,6 +111,10 @@ function Home() {
   const [moveHistory, setMoveHistory] = useState<string[]>([]);
   const [focusCue, setFocusCue] = useState('Antes de mover, identifica la tensión de la posición.');
   const [completeFeedback, setCompleteFeedback] = useState('');
+  const stockfishRef = useRef<StockfishEngine | null>(null);
+  const [stockfishAnalysis, setStockfishAnalysis] = useState<StockfishAnalysis | null>(null);
+  const [stockfishLoading, setStockfishLoading] = useState(false);
+  const [stockfishError, setStockfishError] = useState('');
   const [completeErrors, setCompleteErrors] = useState(0);
   const [middlegameErrors, setMiddlegameErrors] = useState(0);
   const [endgameErrors, setEndgameErrors] = useState(0);
@@ -134,6 +139,26 @@ function Home() {
   const [unexpectedEvent, setUnexpectedEvent] = useState<UnexpectedEvent | null>(null);
   const [unexpectedChallenge, setUnexpectedChallenge] = useState<{ event: UnexpectedEvent; resumeNodeId: string; resumeBoard: Board; resumeHistory: string[]; resumeTurn: OpeningColor } | null>(null);
   const [completeUnexpectedChallenge, setCompleteUnexpectedChallenge] = useState<{ event: UnexpectedEvent; triggeringMove: ChessGameMove } | null>(null);
+  useEffect(() => () => {
+    stockfishRef.current?.dispose();
+    stockfishRef.current = null;
+  }, []);
+
+  const analyzeWithStockfish = async () => {
+    if (mode !== 'complete' || completeGameOver || stockfishLoading) return;
+    setStockfishLoading(true);
+    setStockfishError('');
+    try {
+      if (!stockfishRef.current) stockfishRef.current = new StockfishEngine();
+      const analysis = await stockfishRef.current.analyze(completeGame, { depth: 12 });
+      setStockfishAnalysis(analysis);
+    } catch (error) {
+      setStockfishError(error instanceof Error ? error.message : 'No se pudo analizar la posición.');
+    } finally {
+      setStockfishLoading(false);
+    }
+  };
+
 
   const legalMoves = useMemo(
     () => {
@@ -810,6 +835,34 @@ function Home() {
                      </h2>
                      {mode === 'complete' && (
                        <div className="mt-4 flex flex-wrap items-center gap-2">
+                         <button
+                           type="button"
+                           onClick={analyzeWithStockfish}
+                           disabled={stockfishLoading || completeGameOver}
+                           className="rounded-full border border-[#c8c0b0] bg-[#eee8dc] px-3 py-1.5 text-[10px] font-bold text-[#5f7067] transition-colors hover:border-[#1f5b49] hover:text-[#1f5b49] disabled:cursor-not-allowed disabled:opacity-50"
+                           data-testid="button-stockfish-analysis"
+                         >
+                           {stockfishLoading ? 'Analizando...' : 'Analizar con Stockfish'}
+                         </button>
+                         {stockfishAnalysis && (
+                           <div className="mt-2 w-full rounded-xl border border-[#c9b98f] bg-[#eee4cc] px-3 py-2.5">
+                             <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#5f563f]">Análisis del motor</p>
+                             <p className="mt-1 text-[11px] text-[#6c634d]">
+                               Mejor jugada: <span className="font-mono font-bold">{stockfishAnalysis.bestMove}</span>
+                               {stockfishAnalysis.score && (
+                                 <> · Evaluación: <span className="font-mono font-bold">
+                                   {stockfishAnalysis.score.type === 'mate' ? `mate en ${stockfishAnalysis.score.value}` : `${(stockfishAnalysis.score.value / 100).toFixed(2)}`}
+                                 </span></>
+                               )}
+                             </p>
+                             {stockfishAnalysis.principalVariation.length > 0 && (
+                               <p className="mt-1 font-mono text-[10px] text-[#6c634d]">PV: {stockfishAnalysis.principalVariation.slice(0, 8).join(' ')}</p>
+                             )}
+                           </div>
+                         )}
+                         {stockfishError && (
+                           <p className="mt-2 w-full text-[10px] font-semibold text-[#8a4b3f]">{stockfishError}</p>
+                         )}
                          <button
                            type="button"
                            onClick={() => setUnexpectedPlayEnabled((enabled) => !enabled)}
