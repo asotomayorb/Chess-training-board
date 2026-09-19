@@ -9,6 +9,11 @@ export type OpeningMove = {
   to: string;
   notation: string;
   explanation: string;
+  concept: string;
+  objective: string;
+  threat: string;
+  typicalError: string;
+  difficulty: 'fundamentos' | 'intermedio' | 'avanzado';
   hints: [string, string, string];
 };
 
@@ -51,6 +56,11 @@ const italianE4: OpeningMove = {
   to: 'e4',
   notation: 'e4',
   explanation: 'Controla el centro y abre líneas para el alfil de f1 y la dama.',
+  concept: 'Desarrollo y centro',
+  objective: 'Tomar espacio central y liberar el alfil de f1.',
+  threat: 'La respuesta negra puede disputar inmediatamente el centro.',
+  typicalError: 'Mover peones laterales o jugar sin reclamar el centro.',
+  difficulty: 'fundamentos',
   hints: [
     'busca una jugada de peón que dispute el centro desde el primer movimiento.',
     'El peón de rey puede avanzar dos casillas y dejar libre a tu alfil.',
@@ -65,6 +75,11 @@ const italianE5: OpeningMove = {
   to: 'e5',
   notation: 'e5',
   explanation: 'Las negras ocupan el centro y abren líneas para sus piezas menores.',
+  concept: 'Lucha por el centro',
+  objective: 'Igualar la disputa central y abrir líneas para el desarrollo negro.',
+  threat: 'Las blancas ya amenazan con controlar más espacio central.',
+  typicalError: 'Ignorar el centro y desarrollar lentamente.',
+  difficulty: 'fundamentos',
   hints: ['', '', ''],
 };
 
@@ -75,6 +90,11 @@ const italianNf3: OpeningMove = {
   to: 'f3',
   notation: 'Cf3',
   explanation: 'Desarrolla una pieza, controla e5 y prepara el enroque.',
+  concept: 'Desarrollo con tempo',
+  objective: 'Desarrollar una pieza hacia el centro, atacar e5 y preparar el enroque.',
+  threat: 'El peón e5 queda bajo presión.',
+  typicalError: 'Mover el caballo a una casilla periférica o repetir movimientos de peón.',
+  difficulty: 'fundamentos',
   hints: [
     'desarrolla tu caballo de rey hacia una casilla central activa.',
     'El caballo puede atacar e5 y ocupar f3 desde g1.',
@@ -89,6 +109,11 @@ const italianNc6: OpeningMove = {
   to: 'c6',
   notation: 'Cc6',
   explanation: 'Las negras desarrollan una pieza y refuerzan el control de e5 y d4.',
+  concept: 'Desarrollo y defensa',
+  objective: 'Desarrollar el caballo y sostener e5 con una pieza activa.',
+  threat: 'Las blancas ejercen presión sobre e5.',
+  typicalError: 'Defender pasivamente sin desarrollar piezas.',
+  difficulty: 'fundamentos',
   hints: ['', '', ''],
 };
 
@@ -99,6 +124,11 @@ const italianBc4: OpeningMove = {
   to: 'c4',
   notation: 'Ac4',
   explanation: 'El alfil apunta hacia f7, una zona sensible del rey negro, y completa el desarrollo inicial.',
+  concept: 'Desarrollo y presión sobre f7',
+  objective: 'Completar el desarrollo inicial y crear presión sobre el punto más vulnerable de la posición negra.',
+  threat: 'La diagonal hacia f7 puede generar tácticas tempranas.',
+  typicalError: 'Atacar f7 demasiado pronto sin completar el desarrollo.',
+  difficulty: 'fundamentos',
   hints: [
     'activa el alfil que quedó libre después de avanzar el peón de rey.',
     'Desde c4, el alfil mira directamente hacia f7.',
@@ -113,6 +143,11 @@ const italianBc5: OpeningMove = {
   to: 'c5',
   notation: 'Ac5',
   explanation: 'El alfil negro se activa sobre la diagonal que apunta al centro.',
+  concept: 'Desarrollo simétrico',
+  objective: 'Activar el alfil, controlar el centro y mantener una estructura armoniosa.',
+  threat: 'El alfil blanco ya apunta a f7.',
+  typicalError: 'Perder tiempos con la misma pieza sin una razón concreta.',
+  difficulty: 'fundamentos',
   hints: ['', '', ''],
 };
 
@@ -123,6 +158,11 @@ const italianNf6: OpeningMove = {
   to: 'f6',
   notation: 'Cf6',
   explanation: 'El segundo caballo ataca e4 y plantea la idea característica de esta defensa.',
+  concept: 'Desarrollo con ataque',
+  objective: 'Desarrollar el caballo atacando e4 y obligando a las blancas a responder con criterio.',
+  threat: 'El peón e4 queda directamente atacado.',
+  typicalError: 'Ignorar la amenaza sobre e4 y jugar una jugada lenta.',
+  difficulty: 'fundamentos',
   hints: ['', '', ''],
 };
 
