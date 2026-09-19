@@ -1,3 +1,11 @@
+import {
+  applyBoardMove,
+  getAllLegalMoves,
+  getGameStatus,
+  type Board,
+  type BoardMove,
+  type Side,
+} from './chess-engine';
 import type {
   OpeningColor,
   OpeningMove,
@@ -27,6 +35,10 @@ export type UnexpectedEvent = {
   title: string;
   message: string;
   difficulty: 'fundamentos' | 'intermedio' | 'avanzado';
+  move?: BoardMove;
+  from?: string;
+  to?: string;
+  concrete?: boolean;
 };
 
 const unexpectedEventCatalog: UnexpectedEvent[] = [
@@ -42,6 +54,49 @@ export type UnexpectedEventOptions = {
   difficulty?: 'fundamentos' | 'intermedio' | 'avanzado';
   random?: () => number;
 };
+
+function boardSquareName(square: { row: number; col: number }): string {
+  return String.fromCharCode(97 + square.col) + String(8 - square.row);
+}
+
+function oppositeSide(side: Side): Side {
+  return side === 'white' ? 'black' : 'white';
+}
+
+function pieceValue(type: string): number {
+  return type === 'queen' ? 9 : type === 'rook' ? 5 : type === 'bishop' || type === 'knight' ? 3 : type === 'pawn' ? 1 : 100;
+}
+
+export function chooseUnexpectedSituation(board: Board, sideToMove: Side, options: UnexpectedEventOptions = {}): UnexpectedEvent | null {
+  if (options.enabled === false) return null;
+  const legalMoves = getAllLegalMoves(board, sideToMove);
+  if (!legalMoves.length) return null;
+  const randomValue = Math.min(Math.max((options.random ?? Math.random)(), 0), 0.999999);
+  const levels = options.difficulty === 'fundamentos' ? ['fundamentos'] : options.difficulty === 'intermedio' ? ['fundamentos', 'intermedio'] : ['fundamentos', 'intermedio', 'avanzado'];
+  const opponent = oppositeSide(sideToMove);
+  const checkMove = legalMoves.find((move) => getGameStatus(applyBoardMove(board, move), opponent) === 'check');
+  if (levels.includes('fundamentos') && checkMove) return { type: 'amenaza', title: '⚠️ Amenaza real en la posición', message: 'El rival tiene una jugada legal que da jaque: ' + boardSquareName(checkMove.from) + '–' + boardSquareName(checkMove.to) + '. Antes de seguir tu plan, comprueba si debes responder a esta amenaza.', difficulty: 'fundamentos', move: checkMove, from: boardSquareName(checkMove.from), to: boardSquareName(checkMove.to), concrete: true };
+  const capturableOffers = legalMoves.filter((move) => {
+    const movedPiece = board[move.from.row][move.from.col];
+    if (!movedPiece || movedPiece.type === 'king') return false;
+    const next = applyBoardMove(board, move);
+    return getAllLegalMoves(next, opponent).some((reply) => reply.to.row === move.to.row && reply.to.col === move.to.col && pieceValue(movedPiece.type) >= 3);
+  });
+  if (levels.includes('intermedio') && capturableOffers.length) {
+    const move = capturableOffers[Math.floor(randomValue * capturableOffers.length)];
+    return { type: 'sacrificio', title: '⚔️ Posible sacrificio real', message: 'El rival puede jugar ' + boardSquareName(move.from) + '–' + boardSquareName(move.to) + ' y dejar esa pieza capturable. No captures automáticamente: calcula qué obtiene a cambio.', difficulty: 'intermedio', move, from: boardSquareName(move.from), to: boardSquareName(move.to), concrete: true };
+  }
+  if (levels.includes('intermedio')) {
+    const captures = legalMoves.filter((move) => Boolean(board[move.to.row][move.to.col]));
+    if (captures.length) {
+      const move = captures[Math.floor(randomValue * captures.length)];
+      return { type: 'gambito', title: '♟️ Juego inesperado: presión sobre material', message: 'El rival tiene una captura legal ' + boardSquareName(move.from) + '–' + boardSquareName(move.to) + '. Comprueba si aceptar el cambio favorece tu plan.', difficulty: 'intermedio', move, from: boardSquareName(move.from), to: boardSquareName(move.to), concrete: true };
+    }
+  }
+  const move = legalMoves[Math.floor(randomValue * legalMoves.length)];
+  const advanced = options.difficulty === 'avanzado';
+  return { type: advanced ? 'cambio de plan' : 'desviación', title: advanced ? '🔄 Cambio de plan posible' : '↪️ Desviación posible', message: advanced ? 'El rival tiene una jugada legal ' + boardSquareName(move.from) + '–' + boardSquareName(move.to) + ' que puede cambiar el plan. Reevalúa centro, rey y piezas activas.' : 'El rival tiene una alternativa legal: ' + boardSquareName(move.from) + '–' + boardSquareName(move.to) + '. Si aparece, busca la idea de la posición en lugar de repetir de memoria.', difficulty: advanced ? 'avanzado' : 'intermedio', move, from: boardSquareName(move.from), to: boardSquareName(move.to), concrete: true };
+}
 
 export function chooseUnexpectedEvent(options: UnexpectedEventOptions = {}): UnexpectedEvent | null {
   if (options.enabled === false) return null;
