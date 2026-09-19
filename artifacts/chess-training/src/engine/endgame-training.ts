@@ -8,8 +8,18 @@ export type EndgameType =
   | 'torre-contra-rey'
   | 'mate-básico';
 
+export type EndgameScenario =
+  | 'oposición'
+  | 'regla-del-cuadrado'
+  | 'peón-pasado'
+  | 'actividad-del-rey'
+  | 'torre-activa'
+  | 'mate-con-dama'
+  | 'mate-con-torre';
+
 export type EndgameTrainingPrompt = {
   type: EndgameType;
+  scenario: EndgameScenario;
   title: string;
   instruction: string;
   rationale: string;
@@ -61,7 +71,7 @@ function isRookMate(state: ChessGameState): boolean {
   const black = materialSignature(state, 'black');
   const oneSide = (a: typeof white, b: typeof black) =>
     a.king === 1 && a.rook === 1 && a.queen === 0 && a.bishop === 0 && a.knight === 0 && a.pawn === 0 &&
-    b.king === 1 && b.queen === 0 && b.rook === 0 && b.bishop === 0 && b.knight === 0 && b.pawn === 0;
+    b.king === 1 && b.queen === 0 && b.bishop === 0 && b.knight === 0 && b.rook === 0 && b.pawn === 0;
   return oneSide(white, black) || oneSide(black, white);
 }
 
@@ -74,18 +84,26 @@ function kingSquare(state: ChessGameState, side: Side) {
   return null;
 }
 
-function kingDistance(state: ChessGameState, side: Side): number {
-  const square = kingSquare(state, side);
-  if (!square) return 99;
-  const enemy = kingSquare(state, side === 'white' ? 'black' : 'white');
-  if (!enemy) return 99;
-  return Math.max(Math.abs(square.row - enemy.row), Math.abs(square.col - enemy.col));
+function pawnSquare(state: ChessGameState, side: Side) {
+  for (let row = 0; row < 8; row += 1) {
+    for (let col = 0; col < 8; col += 1) {
+      if (state.board[row][col]?.type === 'pawn' && state.board[row][col]?.color === side) return { row, col };
+    }
+  }
+  return null;
+}
+
+function kingDistance(a: { row: number; col: number } | null, b: { row: number; col: number } | null): number {
+  if (!a || !b) return 99;
+  return Math.max(Math.abs(a.row - b.row), Math.abs(a.col - b.col));
 }
 
 function centralKingMoves(state: ChessGameState, moves: ChessGameMove[]): ChessGameMove[] {
   return moves.filter((move) => {
     const piece = state.board[move.from.row][move.from.col];
-    return piece?.type === 'king' && Math.max(Math.abs(move.to.row - 3.5), Math.abs(move.to.col - 3.5)) < Math.max(Math.abs(move.from.row - 3.5), Math.abs(move.from.col - 3.5));
+    return piece?.type === 'king' &&
+      Math.max(Math.abs(move.to.row - 3.5), Math.abs(move.to.col - 3.5)) <
+      Math.max(Math.abs(move.from.row - 3.5), Math.abs(move.from.col - 3.5));
   });
 }
 
@@ -93,8 +111,33 @@ function checkingMoves(state: ChessGameState, moves: ChessGameMove[]): ChessGame
   return moves.filter((move) => {
     const next = applyChessMove(state, move);
     const status = getChessGameStatus(next);
-    return status === 'check' || status === 'checkmate' || isInCheck(next.board, state.turn === 'white' ? 'black' : 'white');
+    return status === 'check' || status === 'checkmate' ||
+      isInCheck(next.board, state.turn === 'white' ? 'black' : 'white');
   });
+}
+
+function isOpposition(state: ChessGameState, side: Side): boolean {
+  const own = kingSquare(state, side);
+  const enemy = kingSquare(state, side === 'white' ? 'black' : 'white');
+  if (!own || !enemy) return false;
+  return (own.row === enemy.row || own.col === enemy.col) && kingDistance(own, enemy) === 2;
+}
+
+function kingMovesTowardPawn(state: ChessGameState, side: Side, moves: ChessGameMove[]): ChessGameMove[] {
+  const pawn = pawnSquare(state, side);
+  const king = kingSquare(state, side);
+  if (!pawn || !king) return [];
+  return moves.filter((move) => {
+    const piece = state.board[move.from.row][move.from.col];
+    if (piece?.type !== 'king') return false;
+    return Math.max(Math.abs(move.to.row - pawn.row), Math.abs(move.to.col - pawn.col)) <
+      Math.max(Math.abs(move.from.row - pawn.row), Math.abs(move.from.col - pawn.col));
+  });
+}
+
+function pawnMoves(state: ChessGameState, side: Side, moves: ChessGameMove[]): ChessGameMove[] {
+  return moves.filter((move) => state.board[move.from.row][move.from.col]?.type === 'pawn' &&
+    state.board[move.from.row][move.from.col]?.color === side);
 }
 
 export function detectEndgameType(state: ChessGameState): EndgameType | null {
@@ -112,14 +155,33 @@ export function chooseEndgameTrainingPrompt(state: ChessGameState): EndgameTrain
   if (!moves.length) return null;
 
   if (type === 'rey-y-peon') {
-    const kingMoves = centralKingMoves(state, moves);
-    const pawnMoves = moves.filter((move) => state.board[move.from.row][move.from.col]?.type === 'pawn');
-    const candidates = [...kingMoves, ...pawnMoves];
+    const side = state.turn;
+    const kingMoves = kingMovesTowardPawn(state, side, moves);
+    const pawnMoveList = pawnMoves(state, side, moves);
+    const opposition = isOpposition(state, side);
+
+    if (opposition) {
+      return {
+        type,
+        scenario: 'oposición',
+        title: 'Oposición',
+        instruction: 'Mantén la oposición y calcula qué ocurre si el rey rival debe ceder terreno.',
+        rationale: 'La oposición permite ganar una casilla clave obligando al rey rival a apartarse.',
+        candidateMoves: kingMoves.length ? kingMoves.slice(0, 8) : moves.slice(0, 8),
+      };
+    }
+
+    const candidates = [...kingMoves, ...pawnMoveList];
     return {
       type,
-      title: 'Rey activo y oposición',
-      instruction: 'Acerca tu rey al peón o busca la oposición antes de avanzar automáticamente el peón.',
-      rationale: 'En finales de rey y peón, la actividad del rey y la oposición suelen decidir si el peón puede coronar.',
+      scenario: kingMoves.length ? 'actividad-del-rey' : 'regla-del-cuadrado',
+      title: kingMoves.length ? 'Rey activo y peón pasado' : 'Regla del cuadrado',
+      instruction: kingMoves.length
+        ? 'Antes de avanzar automáticamente el peón, mejora la posición de tu rey y calcula la coronación.'
+        : 'Antes de mover el peón, comprueba la regla del cuadrado y si el rey rival puede alcanzarlo.',
+      rationale: kingMoves.length
+        ? 'En finales de rey y peón, la actividad del rey suele decidir el resultado.'
+        : 'La regla del cuadrado permite saber rápidamente si el rey defensor alcanza al peón.',
       candidateMoves: candidates.length ? candidates.slice(0, 8) : moves.slice(0, 8),
     };
   }
@@ -129,19 +191,22 @@ export function chooseEndgameTrainingPrompt(state: ChessGameState): EndgameTrain
     const rookMoves = moves.filter((move) => state.board[move.from.row][move.from.col]?.type === 'rook');
     return {
       type,
+      scenario: 'torre-activa',
       title: 'Torre activa',
-      instruction: 'Busca jaques, actividad detrás del peón pasado o una posición activa de la torre.',
-      rationale: 'En finales de torres, la actividad suele ser más importante que mantener la torre pasiva.',
+      instruction: 'Busca jaques, actividad detrás de un peón pasado, ataque lateral o una invasión activa.',
+      rationale: 'En finales de torres, la actividad puede ser más importante que mantener la torre pasiva.',
       candidateMoves: [...checks, ...rookMoves].slice(0, 8),
     };
   }
 
   const checks = checkingMoves(state, moves);
+  const scenario = type === 'dama-contra-rey' ? 'mate-con-dama' : 'mate-con-torre';
   return {
     type,
+    scenario,
     title: type === 'dama-contra-rey' ? 'Mate con dama y rey' : 'Mate con torre y rey',
-    instruction: 'Reduce el espacio del rey rival y acerca tu rey antes del mate final. Busca jaques cuando sean útiles y seguros.',
-    rationale: 'Los mates básicos se entrenan como un proceso: restringir, acercar el rey y ejecutar el patrón de mate.',
+    instruction: 'Reduce el espacio del rey rival, acerca tu rey y ejecuta el patrón de mate. No des jaques sin propósito.',
+    rationale: 'Los mates básicos se entrenan como un proceso: restringir, acercar el rey y ejecutar el mate.',
     candidateMoves: checks.length ? checks.slice(0, 8) : moves.slice(0, 8),
   };
 }
