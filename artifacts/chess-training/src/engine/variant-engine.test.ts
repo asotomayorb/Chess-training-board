@@ -41,7 +41,7 @@ test('activates the opening name first and the specific variant only after the b
     ['italian-node-nf3', 'Apertura Italiana'],
     ['italian-node-nc6', 'Apertura Italiana'],
     ['italian-node-bc4', 'Apertura Italiana'],
-    ['italian-node-bc5', 'Apertura Italiana'],
+    ['italian-node-bc5', 'Giuoco Piano'],
     ['italian-node-b4', 'Gambito Evans'],
   ] as const;
   for (const [nodeId, expected] of labels) {
