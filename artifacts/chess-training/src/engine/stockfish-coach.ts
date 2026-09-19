@@ -1,3 +1,5 @@
+import type { ChessGameMove, ChessGameState, PieceType, Side } from './chess-engine';
+import { applyChessMove, getLegalChessMoves, isInCheck } from './chess-engine';
 import type { StockfishMoveQuality, StockfishScore } from './stockfish-engine';
 
 export type StockfishCoachQuality =
@@ -15,6 +17,7 @@ export type StockfishCoachResult = {
   message: string;
   centipawnLoss: number | null;
   strategicReason: string;
+  positionInsight: string;
 };
 
 function scoreToMate(score: StockfishScore | null): number | null {
@@ -42,8 +45,69 @@ export function buildStrategicReason(context?: { objective?: string; scenario?: 
   }
 }
 
-export function classifyStockfishMove(quality: StockfishMoveQuality, context?: { objective?: string; scenario?: string }): StockfishCoachResult {
+function uciToMove(state: ChessGameState, uci: string): ChessGameMove | null {
+  if (!uci || uci.length < 4) return null;
+  const file = (value: string) => value.charCodeAt(0) - 97;
+  const rank = (value: string) => 8 - Number(value[1]);
+  const from = { row: rank(uci.slice(0, 2)), col: file(uci.slice(0, 2)) };
+  const to = { row: rank(uci.slice(2, 4)), col: file(uci.slice(2, 4)) };
+  const promotionMap: Record<string, PieceType> = { q: 'queen', r: 'rook', b: 'bishop', n: 'knight' };
+  const promotion = uci[4] ? promotionMap[uci[4].toLowerCase()] : undefined;
+  return getLegalChessMoves(state, from).find((candidate) =>
+    candidate.to.row === to.row &&
+    candidate.to.col === to.col &&
+    candidate.promotion === promotion
+  ) ?? null;
+}
+
+function squareName(square: { row: number; col: number }): string {
+  return String.fromCharCode(97 + square.col) + String(8 - square.row);
+}
+
+function materialValue(type: PieceType): number {
+  return ({ pawn: 1, knight: 3, bishop: 3, rook: 5, queen: 9, king: 0 } as Record<PieceType, number>)[type];
+}
+
+function buildPositionInsight(
+  state: ChessGameState | undefined,
+  bestMoveUci: string,
+  playedMoveUci: string,
+): string {
+  if (!state) return 'Compara la jugada propuesta con la línea principal para identificar la idea concreta.';
+  const bestMove = uciToMove(state, bestMoveUci);
+  const playedMove = uciToMove(state, playedMoveUci);
+  if (!bestMove) return 'La posición no permitió reconstruir la jugada principal con suficiente información.';
+  const bestPiece = state.board[bestMove.from.row][bestMove.from.col];
+  const bestCaptured = state.board[bestMove.to.row][bestMove.to.col];
+  const bestNext = applyChessMove(state, bestMove);
+  const bestGivesCheck = isInCheck(bestNext.board, bestNext.turn);
+  const playedNext = playedMove ? applyChessMove(state, playedMove) : null;
+  const playedGivesCheck = playedNext ? isInCheck(playedNext.board, playedNext.turn) : false;
+  const bestCaptureText = bestCaptured
+    ? ` captura ${bestCaptured.type === 'knight' ? 'un caballo' : bestCaptured.type === 'bishop' ? 'un alfil' : bestCaptured.type === 'rook' ? 'una torre' : bestCaptured.type === 'queen' ? 'la dama' : 'un peón'}`
+    : '';
+  const bestCheckText = bestGivesCheck ? ' y da jaque' : '';
+  const bestSquareText = bestPiece
+    ? `${bestPiece.type === 'knight' ? 'caballo' : bestPiece.type === 'bishop' ? 'alfil' : bestPiece.type === 'rook' ? 'torre' : bestPiece.type === 'queen' ? 'dama' : bestPiece.type === 'king' ? 'rey' : 'peón'} de ${squareName(bestMove.from)} a ${squareName(bestMove.to)}`
+    : `de ${squareName(bestMove.from)} a ${squareName(bestMove.to)}`;
+  const materialText = bestCaptured && bestPiece && materialValue(bestCaptured.type) >= materialValue(bestPiece.type)
+    ? ' La ganancia material o el cambio favorable es una parte importante de la idea.'
+    : '';
+  if (bestCaptureText || bestGivesCheck) {
+    return `La línea empieza con ${bestSquareText}${bestCaptureText}${bestCheckText}.${materialText}`;
+  }
+  if (bestPiece?.type === 'king') {
+    return `La jugada principal mueve el rey hacia ${squareName(bestMove.to)}, buscando mejorar su actividad y la coordinación de la posición.`;
+  }
+  if (playedMove && playedGivesCheck && !bestGivesCheck) {
+    return 'Tu jugada es forzada para el rival, pero la línea principal prioriza una mejora concreta que el motor considera más urgente.';
+  }
+  return `La jugada principal coloca el ${bestPiece?.type ?? 'pieza'} en ${squareName(bestMove.to)}. La línea posterior muestra qué mejora concreta obtiene el motor.`;
+}
+
+export function classifyStockfishMove(quality: StockfishMoveQuality, context?: { objective?: string; scenario?: string; state?: ChessGameState }): StockfishCoachResult {
   const strategicReason = buildStrategicReason(context);
+  const positionInsight = buildPositionInsight(context?.state, quality.bestMove, quality.playedMove);
   const bestMate = scoreToMate(quality.bestScore);
   const playedMate = scoreToMate(quality.playedScore);
 
@@ -54,6 +118,7 @@ export function classifyStockfishMove(quality: StockfishMoveQuality, context?: {
       message: 'Stockfish considera que esta jugada coincide con su principal candidata.',
       centipawnLoss: quality.centipawnLoss,
       strategicReason,
+      positionInsight,
     };
   }
 
@@ -65,6 +130,7 @@ export function classifyStockfishMove(quality: StockfishMoveQuality, context?: {
         message: 'También encontraste una continuación de mate o equivalente en el horizonte analizado.',
         centipawnLoss: null,
       strategicReason,
+      positionInsight,
       };
     }
     if (playedMate !== null && playedMate > 0) {
@@ -74,6 +140,7 @@ export function classifyStockfishMove(quality: StockfishMoveQuality, context?: {
         message: 'Encontraste una continuación ganadora, pero el motor ve una forma más rápida de convertir la ventaja.',
         centipawnLoss: null,
       strategicReason,
+      positionInsight,
       };
     }
     return {
@@ -82,6 +149,7 @@ export function classifyStockfishMove(quality: StockfishMoveQuality, context?: {
       message: 'Había una continuación de mate disponible. Revisa primero jaques, capturas y amenazas forzadas.',
       centipawnLoss: null,
       strategicReason,
+      positionInsight,
     };
   }
 
@@ -92,6 +160,7 @@ export function classifyStockfishMove(quality: StockfishMoveQuality, context?: {
       message: 'La jugada permite una secuencia de mate contra tu rey. Busca la respuesta forzada antes de continuar el plan.',
       centipawnLoss: null,
       strategicReason,
+      positionInsight,
     };
   }
 
@@ -103,6 +172,7 @@ export function classifyStockfishMove(quality: StockfishMoveQuality, context?: {
       message: 'El motor no obtuvo una diferencia numérica fiable para esta comparación.',
       centipawnLoss: null,
       strategicReason,
+      positionInsight,
     };
   }
   if (loss < 20) {
@@ -112,6 +182,7 @@ export function classifyStockfishMove(quality: StockfishMoveQuality, context?: {
       message: 'La diferencia frente a la principal candidata es pequeña; la jugada mantiene prácticamente la misma evaluación.',
       centipawnLoss: loss,
       strategicReason,
+      positionInsight,
     };
   }
   if (loss < 60) {
@@ -121,6 +192,7 @@ export function classifyStockfishMove(quality: StockfishMoveQuality, context?: {
       message: 'La jugada es razonable. El motor encuentra una alternativa algo más precisa, útil para estudiar el plan.',
       centipawnLoss: loss,
       strategicReason,
+      positionInsight,
     };
   }
   if (loss < 120) {
@@ -130,6 +202,7 @@ export function classifyStockfishMove(quality: StockfishMoveQuality, context?: {
       message: 'La posición sigue siendo jugable, pero has cedido una cantidad apreciable de evaluación. Compara las ideas de ambas jugadas.',
       centipawnLoss: loss,
       strategicReason,
+      positionInsight,
     };
   }
   if (loss < 250) {
@@ -139,6 +212,7 @@ export function classifyStockfishMove(quality: StockfishMoveQuality, context?: {
       message: 'La jugada cambia de forma relevante la evaluación. Revisa qué amenaza o recurso táctico no fue considerado.',
       centipawnLoss: loss,
       strategicReason,
+      positionInsight,
     };
   }
   return {
@@ -147,5 +221,6 @@ export function classifyStockfishMove(quality: StockfishMoveQuality, context?: {
     message: 'La jugada provoca una pérdida grande de evaluación. Antes de mover, vuelve a comprobar jaques, capturas y amenazas del rival.',
     centipawnLoss: loss,
       strategicReason,
+      positionInsight,
   };
 }
