@@ -39,7 +39,8 @@ function movedPiece(state: ChessGameState, move: ChessGameMove) {
 function mobilityOfMovedPiece(state: ChessGameState, move: ChessGameMove): number {
   const piece = state.board[move.to.row][move.to.col];
   if (!piece) return 0;
-  return getLegalChessMoves(state, move.to).length;
+  const ownTurnState = { ...state, turn: piece.color };
+  return getLegalChessMoves(ownTurnState, move.to).length;
 }
 
 function opponentCheckingMoves(state: ChessGameState): ChessGameMove[] {
