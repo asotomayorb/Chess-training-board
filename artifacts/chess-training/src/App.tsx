@@ -196,7 +196,7 @@ function Home() {
         const challengeBoard = applyBoardMove(trainingBoard, challengeMove);
         setBoard(challengeBoard);
         setLastMove([event.from ?? squareName(challengeMove.from), event.to ?? squareName(challengeMove.to)]);
-        setMoveHistory((history) => [...history, `Inesperado: ${event.from ?? squareName(event.move.from)}–${event.to ?? squareName(event.move.to)}`]);
+        setMoveHistory((history) => [...history, `Inesperado: ${event.from ?? squareName(challengeMove.from)}–${event.to ?? squareName(challengeMove.to)}`]);
         setUnexpectedChallenge({ event, resumeNodeId: initialAutomaticMoves.length ? initialTurn.automaticNodes[initialTurn.automaticNodes.length - 1].id : selection.variant.startNodeId });
         setUnexpectedEvent(event);
         setTurn(playerColor);
@@ -319,7 +319,7 @@ function Home() {
       const challengeBoard = applyBoardMove(nextBoard, challengeMove);
       setBoard(challengeBoard);
       setLastMove([nextUnexpectedEvent.from ?? squareName(challengeMove.from), nextUnexpectedEvent.to ?? squareName(challengeMove.to)]);
-      setMoveHistory((history) => [...history, `Inesperado: ${nextUnexpectedEvent.from ?? squareName(nextUnexpectedEvent.move.from)}–${nextUnexpectedEvent.to ?? squareName(nextUnexpectedEvent.move.to)}`]);
+      setMoveHistory((history) => [...history, `Inesperado: ${nextUnexpectedEvent.from ?? squareName(challengeMove.from)}–${nextUnexpectedEvent.to ?? squareName(challengeMove.to)}`]);
       setUnexpectedChallenge({ event: nextUnexpectedEvent, resumeNodeId: nextNodeId });
       setUnexpectedEvent(nextUnexpectedEvent);
     } else {
