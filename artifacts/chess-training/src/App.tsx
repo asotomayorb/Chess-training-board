@@ -81,44 +81,17 @@ function getCompleteThreatMessage(state: ChessGameState): string | null {
   const opponentState = { ...state, turn: 'black' as Side };
   const candidates = getLegalChessMoves(opponentState);
   for (const move of candidates) {
-    const next = applyChessMove(state, move);
+    const next = applyChessMove(opponentState, move);
     const status = getChessGameStatus(next);
     if (status === 'check' || status === 'checkmate') {
       return `Amenaza concreta: negras puede dar jaque con ${squareName(move.from)}–${squareName(move.to)}. Comprueba primero las respuestas forzadas.`;
     }
-    const target = state.board[move.to.row][move.to.col];
+    const target = opponentState.board[move.to.row][move.to.col];
     if (target && target.type !== 'pawn' && target.type !== 'king') {
       return `Amenaza concreta: negras puede capturar ${target.type} en ${squareName(move.to)}. Antes de seguir tu plan, revisa si esa pieza queda protegida.`;
     }
   }
   return null;
-}
-
-function getCompleteMoveFeedback(
-  previous: ChessGameState,
-  next: ChessGameState,
-  move: ChessGameMove,
-): string {
-  if (getChessGameStatus(next) === 'checkmate') return 'Excelente: la jugada produjo jaque mate.';
-  if (getChessGameStatus(next) === 'check') return 'Jaque. Ahora el rival debe responder a una amenaza forzada.';
-  const opponentMoves = getLegalChessMoves(next);
-  const movedPiece = next.board[move.to.row][move.to.col];
-  const immediateCapture = opponentMoves.find(
-    (reply) => reply.to.row === move.to.row && reply.to.col === move.to.col,
-  );
-  if (movedPiece && immediateCapture) {
-    return 'Atención: tu pieza movida queda capturable de inmediato. Antes de repetir la idea, calcula si existe una compensación concreta.';
-  }
-  const previousOpponentMoves = getLegalChessMoves(previous);
-  const gaveNewThreat = opponentMoves.some((reply) => {
-    const nextReply = applyChessMove(next, reply);
-    const status = getChessGameStatus(nextReply);
-    return status === 'check' || status === 'checkmate';
-  });
-  if (gaveNewThreat && previousOpponentMoves.length > 0) {
-    return 'La posición cambió. Antes de seguir tu plan, vuelve a comprobar jaques, capturas y amenazas del rival.';
-  }
-  return 'Jugada registrada. Mantén la rutina: comprueba jaques, capturas y amenazas antes de tu próxima decisión.';
 }
 
 function Home() {
@@ -462,11 +435,9 @@ function Home() {
 
   const applyCompleteMove = (move: ChessGameMove) => {
     const nextGame = applyChessMove(completeGame, move);
-    const feedback = getCompleteMoveFeedback(completeGame, nextGame, move);
-    const isImmediateCapture = nextGame.board[move.to.row][move.to.col] !== null &&
-      getLegalChessMoves(nextGame).some((reply) => reply.to.row === move.to.row && reply.to.col === move.to.col);
-    if (isImmediateCapture) setCompleteErrors((errors) => errors + 1);
-    setCompleteFeedback(feedback);
+    const evaluation = evaluateCompleteMove(completeGame, nextGame, move);
+    if (evaluation.immediateCapture) setCompleteErrors((errors) => errors + 1);
+    setCompleteFeedback(evaluation.feedback);
     setCompleteGame(nextGame);
     setBoard(nextGame.board);
     setLastMove([squareName(move.from), squareName(move.to)]);
