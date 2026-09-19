@@ -118,6 +118,7 @@ function Home() {
   const [showGuide, setShowGuide] = useState(false);
   const [trainingSelection, setTrainingSelection] = useState<VariantSelection | null>(null);
   const [trainingPlayerColor, setTrainingPlayerColor] = useState<OpeningColor>('white');
+  const [trainingSideChoice, setTrainingSideChoice] = useState<TrainingSideChoice>('random');
   const [openingNodeId, setOpeningNodeId] = useState<string | null>(null);
   const [trainingErrors, setTrainingErrors] = useState(0);
   const [moveErrors, setMoveErrors] = useState(0);
@@ -244,6 +245,7 @@ function Home() {
     setMiddlegamePrompt(null);
     setTrainingSelection(null);
     setTrainingPlayerColor('white');
+    setTrainingSideChoice('random');
     setOpeningNodeId(null);
     setTrainingErrors(0);
     setMoveErrors(0);
@@ -281,6 +283,7 @@ function Home() {
     setMoveHistory(initialAutomaticMoves.map((move) => move.notation));
     setTrainingSelection(selection);
     setTrainingPlayerColor(playerColor);
+    setTrainingSideChoice(sideChoice);
     setOpeningNodeId(
       initialAutomaticMoves.length
         ? initialTurn.automaticNodes[initialTurn.automaticNodes.length - 1].id
@@ -760,7 +763,7 @@ function Home() {
                            key={value}
                            type="button"
                            onClick={() => startOpeningTraining(trainingSelection ?? chooseVariant(), value)}
-                           className={`rounded-full border px-3 py-1.5 text-[10px] font-bold transition-colors ${((value === 'random' && false) || (value !== 'random' && trainingPlayerColor === value)) ? 'border-[#1f5b49] bg-[#1f5b49] text-[#f5efdf]' : 'border-[#c8c0b0] bg-[#eee8dc] text-[#5f7067] hover:border-[#1f5b49] hover:text-[#1f5b49]'}`}
+                           className={`rounded-full border px-3 py-1.5 text-[10px] font-bold transition-colors ${(trainingSideChoice === value) ? 'border-[#1f5b49] bg-[#1f5b49] text-[#f5efdf]' : 'border-[#c8c0b0] bg-[#eee8dc] text-[#5f7067] hover:border-[#1f5b49] hover:text-[#1f5b49]'}`}
                          >
                            {label}
                          </button>
