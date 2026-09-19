@@ -19,6 +19,8 @@ import {
   type VariantSelection,
 } from '@/engine/variant-engine';
 import { chooseMiddlegameTrainingPrompt, type MiddlegameTrainingPrompt } from '@/engine/middlegame-training';
+import { evaluateMiddlegameMove } from '@/engine/middlegame-evaluation';
+import { evaluateCompleteMove } from '@/engine/complete-training';
 import {
   applyBoardMove,
   applyChessMove,
@@ -107,6 +109,7 @@ function Home() {
   const [focusCue, setFocusCue] = useState('Antes de mover, identifica la tensión de la posición.');
   const [completeFeedback, setCompleteFeedback] = useState('');
   const [completeErrors, setCompleteErrors] = useState(0);
+  const [middlegameErrors, setMiddlegameErrors] = useState(0);
   const [middlegamePrompt, setMiddlegamePrompt] = useState<MiddlegameTrainingPrompt | null>(null);
   const [showGuide, setShowGuide] = useState(false);
   const [trainingSelection, setTrainingSelection] = useState<VariantSelection | null>(null);
@@ -195,6 +198,7 @@ function Home() {
       const nextGame = applyChessMove(completeGame, move);
       setCompleteGame(nextGame);
       setBoard(nextGame.board);
+      setMiddlegamePrompt(chooseMiddlegameTrainingPrompt(nextGame, { difficulty: unexpectedDifficulty }));
       setLastMove([squareName(move.from), squareName(move.to)]);
       setMoveHistory((history) => [...history, `Rival: ${squareName(move.from)}–${squareName(move.to)}${move.promotion ? '=' + move.promotion[0].toUpperCase() : ''}`]);
       setTurn(nextGame.turn);
@@ -310,6 +314,7 @@ function Home() {
     setFocusCue('Modo completo: juega la partida y aplica las ideas aprendidas durante la apertura.');
     setCompleteFeedback('');
     setCompleteErrors(0);
+    setMiddlegameErrors(0);
     setMiddlegamePrompt(chooseMiddlegameTrainingPrompt(freshCompleteGame, { difficulty: 'intermedio' }));
     setTrainingSelection(null);
     setOpeningNodeId(null);
@@ -452,8 +457,18 @@ function Home() {
   const applyCompleteMove = (move: ChessGameMove) => {
     const nextGame = applyChessMove(completeGame, move);
     const evaluation = evaluateCompleteMove(completeGame, nextGame, move);
+    const middlegameEvaluation = middlegamePrompt
+      ? evaluateMiddlegameMove(completeGame, nextGame, move, middlegamePrompt)
+      : null;
+
     if (evaluation.immediateCapture) setCompleteErrors((errors) => errors + 1);
-    setCompleteFeedback(evaluation.feedback);
+    if (middlegameEvaluation && !middlegameEvaluation.fulfilled) setMiddlegameErrors((errors) => errors + 1);
+
+    const combinedFeedback = middlegameEvaluation
+      ? `${middlegameEvaluation.feedback} ${evaluation.feedback}`
+      : evaluation.feedback;
+
+    setCompleteFeedback(combinedFeedback);
     setCompleteGame(nextGame);
     setBoard(nextGame.board);
     setLastMove([squareName(move.from), squareName(move.to)]);
@@ -461,13 +476,17 @@ function Home() {
     setSelected(null);
     setPromotionPending(null);
     setTurn(nextGame.turn);
-    setFocusCue(
-      nextGame.turn === 'black'
-        ? 'Jugada realizada. El rival está calculando.'
-        : getChessGameStatus(nextGame) === 'check'
+    if (nextGame.turn === 'black') {
+      setFocusCue(middlegameEvaluation?.fulfilled
+        ? 'Objetivo cumplido. El rival está calculando; después de su respuesta, vuelve a evaluar la posición.'
+        : 'Objetivo no cumplido del todo. El rival está calculando; después de su respuesta, vuelve a evaluar la posición.');
+    } else {
+      setFocusCue(
+        getChessGameStatus(nextGame) === 'check'
           ? 'Jaque. Busca primero las respuestas legales antes de continuar.'
           : 'Bien. Ahora observa qué cambió antes de buscar la siguiente jugada.'
-    );
+      );
+    }
   };
 
   const handleSquareClick = (row: number, col: number) => {
@@ -981,7 +1000,7 @@ function Home() {
                        )}
                        {mode === 'complete' && (
                          <p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#89948a]" data-testid="text-complete-errors">
-                           Alertas tácticas detectadas: {completeErrors}
+                           Alertas tácticas detectadas: {completeErrors} · Objetivos de medio juego no cumplidos: {middlegameErrors}
                          </p>
                        )}
                      </div>
