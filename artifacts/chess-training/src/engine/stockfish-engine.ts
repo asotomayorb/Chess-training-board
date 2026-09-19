@@ -150,7 +150,11 @@ export class StockfishEngine {
         resolveAnalysis({ bestMove, score: this.latestScore, depth: this.latestDepth, principalVariation: this.latestPv });
       };
       this.worker.onerror = (event) => {
-        const error = new Error(event.message || 'Error del motor Stockfish.');
+        const error = new Error(
+          event.message
+            ? `Error del motor Stockfish: ${event.message}`
+            : `No se pudo cargar Stockfish desde ${workerUrl}`,
+        );
         if (this.pendingReject) {
           const rejectAnalysis = this.pendingReject;
           this.pendingResolve = null;
@@ -158,6 +162,9 @@ export class StockfishEngine {
           rejectAnalysis(error);
         }
         fail(error);
+      };
+      this.worker.onmessageerror = () => {
+        fail(new Error(`Stockfish cargó el worker pero no pudo comunicar mensajes desde ${workerUrl}`));
       };
       this.worker.postMessage('uci');
     });
@@ -172,11 +179,36 @@ export class StockfishEngine {
     const depth = options.depth ?? 12;
     const fen = boardToFen(state);
     return new Promise<StockfishAnalysis>((resolve, reject) => {
-      this.pendingResolve = resolve; this.pendingReject = reject;
-      this.worker?.postMessage('stop');
-      this.worker?.postMessage('ucinewgame');
-      this.worker?.postMessage('position fen ' + fen);
-      this.worker?.postMessage('go depth ' + depth);
+      this.pendingResolve = resolve;
+      this.pendingReject = reject;
+      const timeout = window.setTimeout(() => {
+        if (this.pendingReject !== reject) return;
+        this.pendingResolve = null;
+        this.pendingReject = null;
+        this.worker?.postMessage('stop');
+        reject(new Error('Stockfish agotó el tiempo de análisis (20 s).'));
+      }, 20000);
+      const wrappedResolve = (analysis: StockfishAnalysis) => {
+        window.clearTimeout(timeout);
+        resolve(analysis);
+      };
+      const wrappedReject = (error: Error) => {
+        window.clearTimeout(timeout);
+        reject(error);
+      };
+      this.pendingResolve = wrappedResolve;
+      this.pendingReject = wrappedReject;
+      try {
+        this.worker?.postMessage('stop');
+        this.worker?.postMessage('ucinewgame');
+        this.worker?.postMessage('position fen ' + fen);
+        this.worker?.postMessage('go depth ' + depth);
+      } catch (error) {
+        this.pendingResolve = null;
+        this.pendingReject = null;
+        window.clearTimeout(timeout);
+        wrappedReject(error instanceof Error ? error : new Error('No se pudo enviar la posición a Stockfish.'));
+      }
     });
   }
 
