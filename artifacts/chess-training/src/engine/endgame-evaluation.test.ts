@@ -26,13 +26,13 @@ function move(state: ReturnType<typeof createChessGameState>, from: string, to: 
 
 test('evalúa una mejora del rey en rey y peón contra rey', () => {
   const state = emptyPosition();
-  state.board[6][4] = { color: 'white', type: 'pawn' };
-  state.board[7][3] = { color: 'white', type: 'king' };
-  state.board[5][7] = { color: 'black', type: 'king' };
+  state.board[4][4] = { color: 'white', type: 'pawn' };
+  state.board[6][3] = { color: 'white', type: 'king' };
+  state.board[0][7] = { color: 'black', type: 'king' };
   state.turn = 'white';
   const prompt = chooseEndgameTrainingPrompt(state);
   assert.ok(prompt);
-  const candidate = move(state, 'd1', 'e2');
+  const candidate = move(state, 'd2', 'e3');
   const next = applyChessMove(state, candidate);
   const result = evaluateEndgameMove(state, next, candidate, prompt);
   assert.equal(result.fulfilled, true);
