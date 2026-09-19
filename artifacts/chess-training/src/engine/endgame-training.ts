@@ -179,13 +179,14 @@ export function chooseEndgameTrainingPrompt(state: ChessGameState): EndgameTrain
     const opposition = isOpposition(state, side);
 
     if (opposition) {
+      const reserveMoves = pawnMoveList.filter((move) => !kingMoves.includes(move));
       return {
         type,
         scenario: 'oposición',
-        title: 'Oposición',
-        instruction: 'Mantén la oposición y calcula qué ocurre si el rey rival debe ceder terreno.',
-        rationale: 'La oposición permite ganar una casilla clave obligando al rey rival a apartarse.',
-        candidateMoves: kingMoves.length ? kingMoves.slice(0, 8) : moves.slice(0, 8),
+        title: 'Oposición y tiempo de reserva',
+        instruction: 'Los reyes ya están en oposición. Busca un tiempo de reserva con el peón para devolver la jugada al rival sin ceder la oposición.',
+        rationale: 'Cuando la oposición ya está construida, un tempo de peón puede transferir la obligación de mover al rival y conservar la penetración.',
+        candidateMoves: reserveMoves.length ? reserveMoves : moves.filter((move) => move.from.row !== move.to.row || move.from.col !== move.to.col).slice(0, 8),
       };
     }
 
