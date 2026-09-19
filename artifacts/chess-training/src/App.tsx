@@ -105,8 +105,14 @@ function Home() {
   const [unexpectedChallenge, setUnexpectedChallenge] = useState<{ event: UnexpectedEvent; resumeNodeId: string; resumeBoard: Board; resumeHistory: string[]; resumeTurn: OpeningColor } | null>(null);
 
   const legalMoves = useMemo(
-    () => (selected ? getLegalMoves(board, selected) : []),
-    [board, selected],
+    () => {
+      if (!selected) return [];
+      if (mode === 'complete') {
+        return getLegalChessMoves(completeGame, selected).map((move) => move.to);
+      }
+      return getLegalMoves(board, selected);
+    },
+    [board, completeGame, mode, selected],
   );
 
   const legalKeySet = useMemo(
