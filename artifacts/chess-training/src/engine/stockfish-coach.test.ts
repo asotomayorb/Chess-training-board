@@ -73,3 +73,9 @@ test('detecta que la jugada permite mate contra el jugador', () => {
   }));
   assert.equal(result.quality, 'losing');
 });
+
+
+test('genera una explicación estratégica según el objetivo de entrenamiento', () => {
+  const result = classifyStockfishMove(quality(), { objective: 'actividad de piezas' });
+  assert.match(result.strategicReason, /actividad/i);
+});
