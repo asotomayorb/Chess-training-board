@@ -122,7 +122,8 @@ function Home() {
   const [unexpectedPlayEnabled, setUnexpectedPlayEnabled] = useState(true);
   const [unexpectedDifficulty, setUnexpectedDifficulty] = useState<'fundamentos' | 'intermedio' | 'avanzado'>('intermedio');
   const [unexpectedEvent, setUnexpectedEvent] = useState<UnexpectedEvent | null>(null);
-  const [unexpectedChallenge, setUnexpectedChallenge] = useState<{ event: UnexpectedEvent; resumeNodeId: string; resumeBoard: Board; resumeHistory: string[]; resumeTurn: OpeningColor } | null>(null);\n  const [completeUnexpectedChallenge, setCompleteUnexpectedChallenge] = useState<{ event: UnexpectedEvent; triggeringMove: ChessGameMove } | null>(null);
+  const [unexpectedChallenge, setUnexpectedChallenge] = useState<{ event: UnexpectedEvent; resumeNodeId: string; resumeBoard: Board; resumeHistory: string[]; resumeTurn: OpeningColor } | null>(null);
+  const [completeUnexpectedChallenge, setCompleteUnexpectedChallenge] = useState<{ event: UnexpectedEvent; triggeringMove: ChessGameMove } | null>(null);
 
   const legalMoves = useMemo(
     () => {
