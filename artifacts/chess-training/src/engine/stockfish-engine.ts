@@ -183,7 +183,10 @@ export class StockfishEngine {
       this.pendingResolve = resolve;
       this.pendingReject = reject;
       let finished = false;
-      const timeout = window.setTimeout(() => {
+      let timeout: number | null = null;
+      let wrappedResolve: (analysis: StockfishAnalysis) => void;
+      let wrappedReject: (error: Error) => void;
+      timeout = window.setTimeout(() => {
         if (finished || this.pendingReject !== wrappedReject) return;
         finished = true;
         this.pendingResolve = null;
@@ -191,16 +194,16 @@ export class StockfishEngine {
         this.worker?.postMessage('stop');
         reject(new Error('Stockfish agotó el tiempo de análisis (20 s).'));
       }, 20000);
-      const wrappedResolve = (analysis: StockfishAnalysis) => {
+      wrappedResolve = (analysis: StockfishAnalysis) => {
         if (finished) return;
         finished = true;
-        window.clearTimeout(timeout);
+        if (timeout !== null) window.clearTimeout(timeout);
         resolve(analysis);
       };
-      const wrappedReject = (error: Error) => {
+      wrappedReject = (error: Error) => {
         if (finished) return;
         finished = true;
-        window.clearTimeout(timeout);
+        if (timeout !== null) window.clearTimeout(timeout);
         reject(error);
       };
       this.pendingResolve = wrappedResolve;
