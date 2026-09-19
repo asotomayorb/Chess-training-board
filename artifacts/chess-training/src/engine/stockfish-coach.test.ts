@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { classifyStockfishMove } from './stockfish-coach';
 import type { StockfishMoveQuality } from './stockfish-engine';
+import { createChessGameState } from './chess-engine';
 
 function quality(overrides: Partial<StockfishMoveQuality> = {}): StockfishMoveQuality {
   return {
@@ -78,4 +79,13 @@ test('detecta que la jugada permite mate contra el jugador', () => {
 test('genera una explicación estratégica según el objetivo de entrenamiento', () => {
   const result = classifyStockfishMove(quality(), { objective: 'actividad de piezas' });
   assert.match(result.strategicReason, /actividad/i);
+});
+
+
+test('explica una característica concreta de la posición real', () => {
+  const result = classifyStockfishMove(
+    quality({ bestMove: 'd2d4', playedMove: 'e2e4', isBestMove: false, centipawnLoss: 45 }),
+    { state: createChessGameState() },
+  );
+  assert.match(result.positionInsight, /d4|pieza|posición/i);
 });
