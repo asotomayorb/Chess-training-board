@@ -14,13 +14,36 @@ export type StockfishCoachResult = {
   label: string;
   message: string;
   centipawnLoss: number | null;
+  strategicReason: string;
 };
 
 function scoreToMate(score: StockfishScore | null): number | null {
   return score?.type === 'mate' ? score.value : null;
 }
 
-export function classifyStockfishMove(quality: StockfishMoveQuality): StockfishCoachResult {
+export function buildStrategicReason(context?: { objective?: string; scenario?: string }): string {
+  const key = context?.objective ?? context?.scenario;
+  switch (key) {
+    case 'seguridad del rey': return 'La prioridad es reducir amenazas contra el rey antes de buscar mejoras posicionales.';
+    case 'actividad de piezas': return 'La idea estratégica es aumentar la actividad de tus piezas y evitar que queden pasivas.';
+    case 'control del centro': return 'La prioridad es disputar casillas centrales y mejorar el espacio y la coordinación.';
+    case 'mejorar la peor pieza': return 'La idea es identificar tu pieza menos activa y encontrar una mejora concreta para ella.';
+    case 'ruptura de peones': return 'La clave es preparar una ruptura de peones que cambie favorablemente la estructura o abra líneas.';
+    case 'táctica': return 'La prioridad es calcular primero jaques, capturas y amenazas antes de elegir un plan tranquilo.';
+    case 'simplificación': return 'La idea es valorar si el cambio de piezas conduce a una posición más favorable o más fácil de convertir.';
+    case 'oposición': return 'La clave es la relación entre ambos reyes: un tempo puede decidir quién obtiene la oposición.';
+    case 'regla-del-cuadrado': return 'La decisión depende de si el rey puede entrar en el cuadrado del peón a tiempo.';
+    case 'peón-pasado': return 'La prioridad es apoyar el peón pasado y limitar al rey rival antes de avanzar sin cálculo.';
+    case 'actividad-del-rey': return 'En el final, la actividad del rey suele ser una de las fuentes principales de ventaja.';
+    case 'torre-activa': return 'La idea es colocar la torre donde pueda dar jaques, atacar peones o limitar al rey rival.';
+    case 'mate-con-dama': return 'La técnica busca coordinar dama y rey, restringiendo progresivamente las casillas del rey rival.';
+    case 'mate-con-torre': return 'La técnica busca cortar al rey con la torre y acercar después el propio rey para completar el mate.';
+    default: return 'La línea principal muestra qué recurso táctico o mejora posicional considera prioritario el motor.';
+  }
+}
+
+export function classifyStockfishMove(quality: StockfishMoveQuality, context?: { objective?: string; scenario?: string }): StockfishCoachResult {
+  const strategicReason = buildStrategicReason(context);
   const bestMate = scoreToMate(quality.bestScore);
   const playedMate = scoreToMate(quality.playedScore);
 
