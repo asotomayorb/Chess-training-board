@@ -6,7 +6,19 @@ import type {
   VariantNode,
   VariantTag,
   VariantTree,
+  TrainingErrorCategory,
 } from '@/data/openings';
+
+export function classifyTrainingError(expectedMove: OpeningMove, from: string, to: string): TrainingErrorCategory {
+  const context = [expectedMove.concept, expectedMove.objective, expectedMove.threat, expectedMove.typicalError].join(' ').toLowerCase();
+  if (/captur|material|peón/.test(context)) return 'captura prematura';
+  if (/amenaza|ataca|presión|táctic/.test(context)) return 'amenaza ignorada';
+  if (/gambito|sacrificio|táctic/.test(context)) return 'táctica';
+  if (/desarroll|caballo|alfil|enroque/.test(context)) return 'desarrollo';
+  if (/tiempo|repetir|mismo/.test(context)) return 'pérdida de tiempo';
+  if (/debil|rey|estructura|peones/.test(context)) return 'debilitamiento';
+  return 'plan incorrecto';
+}
 
 export type VariantSelection = {
   tree: VariantTree;
