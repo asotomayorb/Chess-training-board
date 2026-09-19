@@ -20,13 +20,20 @@ import {
 } from '@/engine/variant-engine';
 import {
   applyBoardMove,
+  applyChessMove,
   cloneBoard,
+  createChessGameState,
+  getChessGameStatus,
   getGameStatus,
+  getLegalChessMoves,
   getLegalMoves,
   makeInitialBoard,
   squareFromName,
   type Board,
+  type ChessGameMove,
+  type ChessGameState,
   type PieceType,
+  type PromotionPiece,
   type Side,
   type Square,
 } from '@/engine/chess-engine';
@@ -73,6 +80,8 @@ function Home() {
   const [board, setBoard] = useState<Board>(() => makeInitialBoard());
   const [mode, setMode] = useState<PracticeMode>('free');
   const [turn, setTurn] = useState<Side>('white');
+  const [completeGame, setCompleteGame] = useState<ChessGameState>(() => createChessGameState());
+  const [promotionPending, setPromotionPending] = useState<{ from: Square; to: Square } | null>(null);
   const [selected, setSelected] = useState<Square | null>(null);
   const [lastMove, setLastMove] = useState<[string, string] | null>(null);
   const [moveHistory, setMoveHistory] = useState<string[]>([]);
@@ -121,39 +130,51 @@ function Home() {
     }
     return [...counts.entries()].sort((a, b) => b[1] - a[1]);
   }, [difficultMoves]);
-  const freeGameStatus = (mode === 'free' || mode === 'complete') ? getGameStatus(board, turn) : null;
-  const freeGameOver = freeGameStatus === 'checkmate' || freeGameStatus === 'stalemate';
+  const freeGameStatus = mode === 'complete'
+    ? getChessGameStatus(completeGame)
+    : mode === 'free'
+      ? getGameStatus(board, turn)
+      : null;
+  const freeGameOver = freeGameStatus === 'checkmate' || freeGameStatus === 'stalemate' || freeGameStatus?.startsWith('draw-') === true;
+  const completeGameOver = mode === 'complete' && freeGameOver;
   const freeTurnoLabel = turn === 'white' ? 'blancas' : 'negras';
   const isBoardGameMode = mode === 'free' || mode === 'complete';
   const freeWinnerLabel = turn === 'white' ? 'negras' : 'blancas';
 
   useEffect(() => {
-    if (mode !== 'complete' || turn !== 'black' || freeGameOver) return;
+    if (mode !== 'complete' || completeGame.turn !== 'black' || completeGameOver) return;
     const timer = window.setTimeout(() => {
-      const sources = Array.from({ length: 64 }, (_, index) => ({ row: Math.floor(index / 8), col: index % 8 }));
-      const candidates = sources.flatMap((from) => getLegalMoves(board, from).map((to) => ({ from, to })));
+      const candidates = getLegalChessMoves(completeGame);
       if (!candidates.length) return;
-      const captures = candidates.filter(({ to }) => board[to.row][to.col]);
-      const checks = candidates.filter(({ from, to }) => {
-        const next = applyBoardMove(board, { from, to });
-        const status = getGameStatus(next, 'white');
-        return status === 'check' || status === 'checkmate';
-      });
+      const checks: ChessGameMove[] = [];
+      const captures: ChessGameMove[] = [];
+      for (const move of candidates) {
+        const target = completeGame.board[move.to.row][move.to.col];
+        const next = applyChessMove(completeGame, move);
+        const status = getChessGameStatus(next);
+        if (status === 'check' || status === 'checkmate') checks.push(move);
+        if (target || move.special === 'en-passant') captures.push(move);
+      }
       const pool = checks.length ? checks : captures.length ? captures : candidates;
       const move = pool[Math.floor(Math.random() * pool.length)];
-      const nextBoard = applyBoardMove(board, move);
-      setBoard(nextBoard);
+      const nextGame = applyChessMove(completeGame, move);
+      setCompleteGame(nextGame);
+      setBoard(nextGame.board);
       setLastMove([squareName(move.from), squareName(move.to)]);
-      setMoveHistory((history) => [...history, `Rival: ${squareName(move.from)}–${squareName(move.to)}`]);
-      setTurn('white');
+      setMoveHistory((history) => [...history, `Rival: ${squareName(move.from)}–${squareName(move.to)}${move.promotion ? '=' + move.promotion[0].toUpperCase() : ''}`]);
+      setTurn(nextGame.turn);
       setSelected(null);
+      setPromotionPending(null);
       setFocusCue('El rival movió. Antes de responder, comprueba amenazas, capturas y jugadas forzadas.');
     }, 350);
     return () => window.clearTimeout(timer);
-  }, [mode, turn, board, freeGameOver]);
+  }, [mode, completeGame, completeGameOver]);
 
   const resetFreePractice = () => {
-    setBoard(makeInitialBoard());
+    const freshCompleteGame = createChessGameState();
+    setCompleteGame(freshCompleteGame);
+    setPromotionPending(null);
+    setBoard(freshCompleteGame.board);
     setMode('free');
     setTurn('white');
     setSelected(null);
@@ -231,7 +252,10 @@ function Home() {
   };
 
   const startCompleteGame = () => {
-    setBoard(makeInitialBoard());
+    const freshCompleteGame = createChessGameState();
+    setCompleteGame(freshCompleteGame);
+    setPromotionPending(null);
+    setBoard(freshCompleteGame.board);
     setMode('complete');
     setTurn('white');
     setSelected(null);
@@ -376,6 +400,24 @@ function Home() {
     setTrainingStatus(isLastPlayerMove ? 'complete' : 'correct');
   };
 
+  const applyCompleteMove = (move: ChessGameMove) => {
+    const nextGame = applyChessMove(completeGame, move);
+    setCompleteGame(nextGame);
+    setBoard(nextGame.board);
+    setLastMove([squareName(move.from), squareName(move.to)]);
+    setMoveHistory((history) => [...history, `${squareName(move.from)}–${squareName(move.to)}${move.promotion ? '=' + move.promotion[0].toUpperCase() : ''}`]);
+    setSelected(null);
+    setPromotionPending(null);
+    setTurn(nextGame.turn);
+    setFocusCue(
+      nextGame.turn === 'black'
+        ? 'Jugada realizada. El rival está calculando.'
+        : getChessGameStatus(nextGame) === 'check'
+          ? 'Jaque. Busca primero las respuestas legales antes de continuar.'
+          : 'Bien. Ahora observa qué cambió antes de buscar la siguiente jugada.'
+    );
+  };
+
   const handleSquareClick = (row: number, col: number) => {
     if (mode === 'opening' && unexpectedChallenge) {
       const clickedPiece = board[row][col];
@@ -396,7 +438,7 @@ function Home() {
       setSelected(null);
       return;
     }
-    if (mode === 'free' && freeGameOver) {
+    if ((mode === 'free' || mode === 'complete') && freeGameOver) {
       setSelected(null);
       return;
     }
@@ -410,6 +452,19 @@ function Home() {
         return;
       }
 
+      if (mode === 'complete') {
+        const moveCandidates = getLegalChessMoves(completeGame).filter(
+          (move) => move.from.row === selected.row && move.from.col === selected.col && move.to.row === row && move.to.col === col,
+        );
+        if (!moveCandidates.length) return;
+        if (moveCandidates.some((move) => move.promotion)) {
+          setPromotionPending({ from: selected, to: { row, col } });
+          return;
+        }
+        applyCompleteMove(moveCandidates[0]);
+        return;
+      }
+
       const from = squareName(selected);
       const to = squareName({ row, col });
       const nextBoard = applyBoardMove(board, { from: selected, to: { row, col } });
@@ -419,6 +474,11 @@ function Home() {
       setSelected(null);
       setTurn((current) => (current === 'white' ? 'black' : 'white'));
       setFocusCue('Bien. Ahora observa qué cambió antes de buscar la siguiente jugada.');
+      return;
+    }
+
+    if (mode === 'complete' && completeGame.turn === 'black') {
+      setSelected(null);
       return;
     }
 
@@ -641,6 +701,34 @@ function Home() {
                   <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-[#879389]">{mode === 'opening' ? 'entrenamiento de aperturas' : mode === 'complete' ? 'modo completo' : 'práctica libre'}</span>
                 </div>
 
+                {promotionPending && mode === 'complete' && (
+                  <div className="mb-3 rounded-xl border border-[#c9b98f] bg-[#eee4cc] p-3">
+                    <p className="text-[11px] font-extrabold text-[#5f563f]">Elige la pieza de promoción</p>
+                    <div className="mt-2 flex gap-2">
+                      {(['queen', 'rook', 'bishop', 'knight'] as PromotionPiece[]).map((promotion) => (
+                        <button
+                          key={promotion}
+                          type="button"
+                          onClick={() => {
+                            const move = getLegalChessMoves(completeGame).find(
+                              (candidate) =>
+                                candidate.from.row === promotionPending.from.row &&
+                                candidate.from.col === promotionPending.from.col &&
+                                candidate.to.row === promotionPending.to.row &&
+                                candidate.to.col === promotionPending.to.col &&
+                                candidate.promotion === promotion,
+                            );
+                            if (move) applyCompleteMove(move);
+                          }}
+                          className="rounded-lg border border-[#c8c0b0] bg-[#f6f0e4] px-3 py-2 text-[11px] font-bold text-[#40564b] hover:border-[#1f5b49] hover:text-[#1f5b49]"
+                        >
+                          {promotion === 'queen' ? 'Dama' : promotion === 'rook' ? 'Torre' : promotion === 'bishop' ? 'Alfil' : 'Caballo'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="board-frame overflow-hidden rounded-[5px] border-[10px] border-[#263f35] bg-[#263f35] sm:border-[14px]">
                   <div className="grid grid-cols-8 overflow-hidden rounded-[1px]" data-testid="chess-board">
                     {board.map((row, rowIndex) =>
@@ -744,9 +832,15 @@ function Home() {
                            ? `Jaque mate. Ganan las ${freeWinnerLabel}.`
                            : freeGameStatus === 'stalemate'
                              ? 'Tablas por ahogado.'
-                             : freeGameStatus === 'check'
-                               ? `Jaque. Turno de las ${freeTurnoLabel}.`
-                               : `Turno de las ${freeTurnoLabel}.`}
+                             : freeGameStatus === 'draw-insufficient-material'
+                               ? 'Tablas por material insuficiente.'
+                               : freeGameStatus === 'draw-fifty-move'
+                                 ? 'Tablas por regla de las 50 jugadas.'
+                                 : freeGameStatus === 'draw-repetition'
+                                   ? 'Tablas por triple repetición.'
+                                   : freeGameStatus === 'check'
+                                     ? `Jaque. Turno de las ${freeTurnoLabel}.`
+                                     : `Turno de las ${freeTurnoLabel}.`}
                        </p>
                        <p className="text-[12px] leading-relaxed text-[#6d7c73]" data-testid="text-focus-cue">
                          {freeGameOver ? 'La partida terminó. Reinicia para volver a mover.' : focusCue}
@@ -831,7 +925,7 @@ function Home() {
                  )}
                  <div className="mt-5 flex items-center gap-2 px-1 text-[10px] leading-relaxed text-[#879389]">
                    <ArrowUpRight size={13} className="shrink-0 text-[#c38a3d]" />
-                   <span>{mode === 'opening' ? 'Las jugadas del rival se realizan automáticamente.' : mode === 'complete' ? 'Modo completo: la partida termina con mate o ahogado.' : 'Práctica libre: juega sin una variante obligatoria.'}</span>
+                   <span>{mode === 'opening' ? 'Las jugadas del rival se realizan automáticamente.' : mode === 'complete' ? 'Modo completo: también reconoce enroque, captura al paso, promoción y tablas reglamentarias.' : 'Práctica libre: juega sin una variante obligatoria.'}</span>
                  </div>
               </aside>
             </div>
