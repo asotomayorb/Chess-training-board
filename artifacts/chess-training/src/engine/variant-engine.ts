@@ -257,6 +257,13 @@ export function getActiveOpeningLabel(tree: VariantTree, nodeId: string): string
     return path.some((node) => node.id === nodeId);
   });
   if (!matching.length) return null;
+
+  // Una variante puede compartir varias jugadas con otra línea. La nombramos
+  // cuando su propio final ya fue alcanzado; por ejemplo, ...Ac5 activa
+  // Giuoco Piano aunque el Gambito Evans comparta esa posición como punto
+  // de partida de su continuación 4.b4.
+  const completedHere = matching.filter((branch) => branch.leafNodeId === nodeId);
+  if (completedHere.length === 1) return completedHere[0].name;
   if (matching.length === 1) return matching[0].name;
   return tree.opening;
 }
