@@ -1165,6 +1165,7 @@ function Home() {
                     )}
                   </div>
                 </div>
+                </div>
 
                 <div className="mt-4 xl:hidden rounded-xl border border-[#d1c8b7] bg-[#f2ece0] p-3.5" data-testid="mobile-training-summary">
                   <div className="flex items-center justify-between gap-3">
