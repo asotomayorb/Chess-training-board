@@ -6,7 +6,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
 import { Route, Switch, useLocation, Router as BouterRouter } from 'wouter';
-import { trainingVariantCatalog, type OpeningMove } from '@/data/openings';
+import { trainingVariantCatalog, type OpeningColor, type OpeningMove } from '@/data/openings';
 import {
   calculateAccuracy,
   chooseRandomVariant,
@@ -29,6 +29,7 @@ import {
 } from '@/engine/chess-engine';
 
 type PracticeMode = 'free' | 'opening';
+type TrainingSideChoice = OpeningColor | 'random';
 type DifficultMove = {
   nodeId: string;
   notation: string;
@@ -70,6 +71,7 @@ function Home() {
   const [focusCue, setFocusCue] = useState('Antes de mover, identifica la tensión de la posición.');
   const [showGuide, setShowGuide] = useState(false);
   const [trainingSelection, setTrainingSelection] = useState<VariantSelection | null>(null);
+  const [trainingPlayerColor, setTrainingPlayerColor] = useState<OpeningColor>('white');
   const [openingNodeId, setOpeningNodeId] = useState<string | null>(null);
   const [trainingErrors, setTrainingErrors] = useState(0);
   const [moveErrors, setMoveErrors] = useState(0);
@@ -114,6 +116,7 @@ function Home() {
     setMoveHistory([]);
     setFocusCue('Antes de mover, identifica la tensión de la posición.');
     setTrainingSelection(null);
+    setTrainingPlayerColor('white');
     setOpeningNodeId(null);
     setTrainingErrors(0);
     setMoveErrors(0);
@@ -124,6 +127,7 @@ function Home() {
     setDifficultMoves([]);
     setTrainingStatus('idle');
     setTrainingExplanation('');
+    setMoveHistory(initialAutomaticMoves.map((move) => move.notation));
   };
 
   const startOpeningTraining = (selection = chooseVariant()) => {
@@ -134,7 +138,8 @@ function Home() {
     setLastMove(null);
     setMoveHistory([]);
     setTrainingSelection(selection);
-    setOpeningNodeId(selection.variant.startNodeId);
+    setTrainingPlayerColor(playerColor);
+    setOpeningNodeId(initialAutomaticMoves.length ? initialTurn.automaticNodes[initialTurn.automaticNodes.length - 1].id : selection.variant.startNodeId);
     setTrainingErrors(0);
     setMoveErrors(0);
     setHintLevel(0);
@@ -147,7 +152,7 @@ function Home() {
   };
 
   const resetTraining = () => {
-    startOpeningTraining(trainingSelection ?? chooseVariant());
+    startOpeningTraining(trainingSelection ?? chooseVariant(), trainingPlayerColor);
   };
 
   const exitTraining = () => {
@@ -285,7 +290,7 @@ function Home() {
             <div className="mt-3 space-y-1 rounded-xl border border-[#c9c0ae] bg-[#e9e3d5] p-1.5">
               <button
                 type="button"
-                onClick={() => startOpeningTraining()}
+                onClick={() => startOpeningTraining(undefined, trainingPlayerColor)}
                 className={`flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left transition-colors ${mode === 'opening' ? 'bg-[#f3eee3] shadow-sm' : 'hover:bg-[#e5ddce]'}`}
               >
                 <Target size={16} className="text-[#1f5b49]" />
@@ -385,6 +390,23 @@ function Home() {
                      <h2 className="max-w-[580px] text-[clamp(2rem,4vw,3.5rem)] font-extrabold leading-[0.98] tracking-[-0.075em] text-[#20362e]">
                        Entrenamiento de<br className="hidden sm:block" /> Aperturas
                      </h2>
+                     <div className="mt-4 flex flex-wrap items-center gap-2" data-testid="training-side-selector">
+                       <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#7b897f]">Jugar con</span>
+                       {([
+                         ['white', 'Blancas'],
+                         ['black', 'Negras'],
+                         ['random', 'Aleatorio'],
+                       ] as const).map(([value, label]) => (
+                         <button
+                           key={value}
+                           type="button"
+                           onClick={() => startOpeningTraining(trainingSelection ?? chooseVariant(), value)}
+                           className={`rounded-full border px-3 py-1.5 text-[10px] font-bold transition-colors ${((value === 'random' && false) || (value !== 'random' && trainingPlayerColor === value)) ? 'border-[#1f5b49] bg-[#1f5b49] text-[#f5efdf]' : 'border-[#c8c0b0] bg-[#eee8dc] text-[#5f7067] hover:border-[#1f5b49] hover:text-[#1f5b49]'}`}
+                         >
+                           {label}
+                         </button>
+                       ))}
+                     </div>
                      <p className="mt-4 text-[13px] font-semibold text-[#5f7067]" data-testid="text-new-variant">
                        Nueva variante: <span className="text-[#1f5b49]">{openingVariant?.name ?? 'seleccionando...'}</span>
                      </p>
@@ -407,7 +429,7 @@ function Home() {
                     <span className={`size-2 rounded-full ${mode === 'opening' || turn === 'white' ? 'bg-[#f7f0df] ring-1 ring-[#b7ad9b]' : 'bg-[#263a33]'}`} />
                     <span className="text-[12px] font-bold text-[#40564b]">
                       {mode === 'opening'
-                        ? (trainingComplete ? 'Variante completada' : 'Tu turno · blancas')
+                        ? (trainingComplete ? 'Variante completada' : `Tu turno · ${trainingPlayerColor === 'white' ? 'blancas' : 'negras'}`)
                         : freeGameStatus === 'checkmate'
                           ? `Jaque mate · ganan ${freeBinnerLabel}`
                           : freeGameStatus === 'stalemate'
@@ -565,7 +587,7 @@ function Home() {
                      {trainingComplete && (
                        <button
                          type="button"
-                          onClick={() => startOpeningTraining()}
+                          onClick={() => startOpeningTraining(undefined, trainingPlayerColor)}
                          data-testid="button-another-variant"
                          className="group flex w-full items-center justify-center gap-2 rounded-xl bg-[#1f5b49] px-4 py-3.5 text-[11px] font-extrabold uppercase tracking-[0.13em] text-[#f5efdf] transition-all hover:-translate-y-0.5 hover:bg-[#174d3d] active:translate-y-0"
                        >
