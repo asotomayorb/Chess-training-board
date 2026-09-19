@@ -197,7 +197,7 @@ function Home() {
       }
       const pool = checks.length ? checks : captures.length ? captures : candidates;
       const unexpected = unexpectedPlayEnabled
-        ? chooseUnexpectedSituation(completeGame, 'black', { enabled: true, difficulty: unexpectedDifficulty })
+        ? chooseUnexpectedSituation(completeGame.board, 'black', { enabled: true, difficulty: unexpectedDifficulty })
         : null;
       const move = unexpected?.move ?? pool[Math.floor(Math.random() * pool.length)];
       const nextGame = applyChessMove(completeGame, move);
@@ -207,7 +207,7 @@ function Home() {
       setEndgamePrompt(nextEndgamePrompt);
       setMiddlegamePrompt(nextEndgamePrompt ? null : chooseMiddlegameTrainingPrompt(nextGame, { difficulty: unexpectedDifficulty }));
       setLastMove([squareName(move.from), squareName(move.to)]);
-      setMoveHistory((history) => [...history, `Rival: ${squareName(move.from)}–${squareName(move.to)}${move.promotion ? '=' + move.promotion[0].toUpperCase() : ''}`]);
+      setMoveHistory((history) => [...history, "Rival: " + squareName(move.from) + "–" + squareName(move.to)]);
       setTurn(nextGame.turn);
       setSelected(null);
       setPromotionPending(null);
