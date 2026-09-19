@@ -104,6 +104,13 @@ function Home() {
   const expectedMove = expectedNode?.move ?? null;
   const trainingComplete = mode === 'opening' && openingVariant !== null && trainingTurno !== null && trainingTurno.playerNode === null;
   const trainingAccuracy = calculateAccuracy(trainingCorrectMoves, trainingAttempts);
+  const errorCategorySummary = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const move of difficultMoves) {
+      counts.set(move.category, (counts.get(move.category) ?? 0) + move.errors);
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  }, [difficultMoves]);
   const freeGameStatus = mode === 'free' ? getGameStatus(board, turn) : null;
   const freeGameOver = freeGameStatus === 'checkmate' || freeGameStatus === 'stalemate';
   const freeTurnoLabel = turn === 'white' ? 'blancas' : 'negras';
@@ -535,7 +542,6 @@ function Home() {
                        )}
                        {trainingStatus === 'complete' && (
                          <div className="mt-4 space-y-2 rounded-lg bg-[#e3e8dc] px-3 py-2.5 text-[12px] leading-relaxed text-[#486257]" data-testid="text-training-completion">
-                           <p>{trainingExplanation}</p>
                            <div className="border-t border-[#cbd8c8] pt-2">
                              <p className="font-semibold text-[#30473e]" data-testid="text-completion-variant">
                                Variante entrenada: {openingVariant?.name}
@@ -548,6 +554,12 @@ function Home() {
                                {difficultMoves.length
                                  ? difficultMoves.map((move) => `${move.notation} (${move.errors} errores, ${move.hintsUsed} pistas, ${move.category})`).join(', ')
                                  : 'ninguno'}
+                             </p>
+                             <p className="mt-2" data-testid="text-completion-error-patterns">
+                               Patrón de errores:{' '}
+                               {errorCategorySummary.length
+                                 ? errorCategorySummary.map(([category, count]) => `${category}: ${count}`).join(' · ')
+                                 : 'sin errores'}
                              </p>
                            </div>
                          </div>
