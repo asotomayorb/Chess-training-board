@@ -81,12 +81,20 @@ test('advances through the selected branch one player move and response at a tim
 
   const afterE5Turn = getTrainingTurn(italianGameTrainingTree, giuocoPiano, afterE4Turn.automaticNodes[0]!.id);
   assert.equal(afterE5Turn.playerNode?.move?.notation, 'Cf3');
-  assert.deepEqual(afterE5Turn.automaticNodes.map((node) => node.move?.notation), ['Cc6']);
+  assert.deepEqual(afterE5Turn.automaticNodes.map((node) => node.move?.notation), []);
 
-  const afterNc6Turn = getTrainingTurn(italianGameTrainingTree, giuocoPiano, afterE5Turn.automaticNodes[0]!.id);
+  const afterNf3Turn = getTrainingTurn(italianGameTrainingTree, giuocoPiano, afterE5Turn.playerNode!.id);
+  assert.equal(afterNf3Turn.playerNode?.move?.notation, 'Ac4');
+  assert.deepEqual(afterNf3Turn.automaticNodes.map((node) => node.move?.notation), ['Cc6']);
+
+  const afterNc6Turn = getTrainingTurn(italianGameTrainingTree, giuocoPiano, afterNf3Turn.automaticNodes[0]!.id);
   assert.equal(afterNc6Turn.playerNode?.move?.notation, 'Ac4');
-  assert.deepEqual(afterNc6Turn.automaticNodes.map((node) => node.move?.notation), ['Ac5']);
-  const completeTurn = getTrainingTurn(italianGameTrainingTree, giuocoPiano, afterNc6Turn.automaticNodes[0]!.id);
+  assert.deepEqual(afterNc6Turn.automaticNodes.map((node) => node.move?.notation), []);
+
+  const afterBc4Turn = getTrainingTurn(italianGameTrainingTree, giuocoPiano, afterNc6Turn.playerNode!.id);
+  assert.equal(afterBc4Turn.playerNode, null);
+  assert.deepEqual(afterBc4Turn.automaticNodes.map((node) => node.move?.notation), ['Ac5']);
+  const completeTurn = getTrainingTurn(italianGameTrainingTree, giuocoPiano, afterBc4Turn.automaticNodes[0]!.id);
   assert.equal(completeTurn.playerNode, null);
 });
 
