@@ -446,14 +446,14 @@ function Home() {
                     <span className={`size-2 rounded-full ${mode === 'opening' || turn === 'white' ? 'bg-[#f7f0df] ring-1 ring-[#b7ad9b]' : 'bg-[#263a33]'}`} />
                     <span className="text-[12px] font-bold text-[#40564b]">
                       {mode === 'opening'
-                        ? (trainingComplete ? 'Variante completada' : `Tu turn · ${trainingPlayerColor === 'white' ? 'blancas' : 'negras'}`)
+                        ? (trainingComplete ? 'Variante completada' : `Tu turno · ${trainingPlayerColor === 'white' ? 'blancas' : 'negras'}`)
                         : freeGameStatus === 'checkmate'
                           ? `Jaque mate · ganan ${freeWinnerLabel}`
                           : freeGameStatus === 'stalemate'
                             ? 'Tablas por ahogado'
                             : freeGameStatus === 'check'
                               ? `Jaque · turn ${freeTurnoLabel}`
-                              : `Turnoo de ${freeTurnoLabel}`}
+                              : `Turno de ${freeTurnoLabel}`}
                     </span>
                   </div>
                   <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-[#879389]">{mode === 'opening' ? 'entrenamiento de aperturas' : 'práctica libre'}</span>
@@ -493,7 +493,7 @@ function Home() {
 
                 <div className="mt-4 flex items-center justify-between">
                   <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#819087]">
-                    {selected ? `${squareName(selected)} selected · elige una casilla` : 'selecciona una pieza para comenzar'}
+                    {selected ? `${squareName(selected)} seleccionada · elige una casilla` : 'selecciona una pieza para comenzar'}
                   </p>
                   <div className="flex items-center gap-2">
                     <span className="size-2 rounded-full bg-[#5f8073]" />
@@ -558,8 +558,8 @@ function Home() {
                            : freeGameStatus === 'stalemate'
                              ? 'Tablas por ahogado.'
                              : freeGameStatus === 'check'
-                               ? `Jaque. Turnoo de las ${freeTurnoLabel}.`
-                               : `Turnoo de las ${freeTurnoLabel}.`}
+                               ? `Jaque. Turno de las ${freeTurnoLabel}.`
+                               : `Turno de las ${freeTurnoLabel}.`}
                        </p>
                        <p className="text-[12px] leading-relaxed text-[#6d7c73]" data-testid="text-focus-cue">
                          {freeGameOver ? 'La partida terminó. Reinicia para volver a mover.' : focusCue}
