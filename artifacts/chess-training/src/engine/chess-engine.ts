@@ -235,3 +235,136 @@ export function getGameStatus(board: Board, sideToMove: Side): GameStatus {
 export function squareFromName(name: string): Square {
   return { row: 8 - Number(name[1]), col: files.indexOf(name[0]) };
 }
+export type PromotionPiece = Exclude<PieceType, 'king' | 'pawn'>;
+export type CastlingRights = { whiteKingSide: boolean; whiteQueenSide: boolean; blackKingSide: boolean; blackQueenSide: boolean; };
+export type ChessGameMove = BoardMove & { promotion?: PromotionPiece; special?: 'castle-kingside' | 'castle-queenside' | 'en-passant'; };
+export type ChessGameState = { board: Board; turn: Side; castlingRights: CastlingRights; enPassantTarget: Square | null; halfmoveClock: number; positionHistory: string[]; };
+export type ChessGameStatus = GameStatus | 'draw-repetition' | 'draw-fifty-move' | 'draw-insufficient-material';
+
+function cloneSquare(square: Square | null): Square | null { return square ? { ...square } : null; }
+function sameSquare(a: Square, b: Square): boolean { return a.row === b.row && a.col === b.col; }
+function initialCastlingRights(): CastlingRights { return { whiteKingSide: true, whiteQueenSide: true, blackKingSide: true, blackQueenSide: true }; }
+function boardSquareNameForEngine(square: Square): string { return `${files[square.col]}${8 - square.row}`; }
+function positionKey(state: Pick<ChessGameState, 'board' | 'turn' | 'castlingRights' | 'enPassantTarget'>): string {
+  const boardKey = state.board.map((row) => row.map((piece) => piece ? `${piece.color[0]}${piece.type[0]}` : '--').join('')).join('/');
+  const rights = [state.castlingRights.whiteKingSide ? 'K' : '', state.castlingRights.whiteQueenSide ? 'Q' : '', state.castlingRights.blackKingSide ? 'k' : '', state.castlingRights.blackQueenSide ? 'q' : ''].join('') || '-';
+  return `${boardKey} ${state.turn[0]} ${rights} ${state.enPassantTarget ? boardSquareNameForEngine(state.enPassantTarget) : '-'}`;
+}
+export function createChessGameState(): ChessGameState {
+  const state: ChessGameState = { board: makeInitialBoard(), turn: 'white', castlingRights: initialCastlingRights(), enPassantTarget: null, halfmoveClock: 0, positionHistory: [] };
+  state.positionHistory = [positionKey(state)];
+  return state;
+}
+function kingStart(color: Side): Square { return { row: color === 'white' ? 7 : 0, col: 4 }; }
+function rookStart(color: Side, side: 'king' | 'queen'): Square { return { row: color === 'white' ? 7 : 0, col: side === 'king' ? 7 : 0 }; }
+function castleDestination(color: Side, side: 'king' | 'queen'): { king: Square; rook: Square } {
+  const row = color === 'white' ? 7 : 0;
+  return { king: { row, col: side === 'king' ? 6 : 2 }, rook: { row, col: side === 'king' ? 5 : 3 } };
+}
+function canCastle(state: ChessGameState, color: Side, side: 'king' | 'queen'): boolean {
+  const rights = color === 'white' ? (side === 'king' ? state.castlingRights.whiteKingSide : state.castlingRights.whiteQueenSide) : (side === 'king' ? state.castlingRights.blackKingSide : state.castlingRights.blackQueenSide);
+  if (!rights) return false;
+  const king = kingStart(color), rook = rookStart(color, side);
+  const kingPiece = state.board[king.row][king.col], rookPiece = state.board[rook.row][rook.col];
+  if (kingPiece?.type !== 'king' || kingPiece.color !== color || rookPiece?.type !== 'rook' || rookPiece.color !== color) return false;
+  const row = king.row;
+  if ((side === 'king' ? [5, 6] : [1, 2, 3]).some((col) => state.board[row][col] !== null)) return false;
+  if (isInCheck(state.board, color)) return false;
+  const enemy = color === 'white' ? 'black' : 'white';
+  return (side === 'king' ? [5, 6] : [3, 2]).every((col) => !isSquareAttacked(state.board, { row, col }, enemy));
+}
+function getStatePseudoLegalMoves(state: ChessGameState, from: Square): ChessGameMove[] {
+  const piece = state.board[from.row][from.col];
+  if (!piece || piece.color !== state.turn) return [];
+  const moves: ChessGameMove[] = getPseudoLegalMoves(state.board, from).map((to) => ({ from, to }));
+  if (piece.type === 'pawn' && state.enPassantTarget) {
+    const direction = piece.color === 'white' ? -1 : 1;
+    if (state.enPassantTarget.row === from.row + direction && Math.abs(state.enPassantTarget.col - from.col) === 1 && !state.board[state.enPassantTarget.row][state.enPassantTarget.col]) {
+      moves.push({ from, to: cloneSquare(state.enPassantTarget)!, special: 'en-passant' });
+    }
+  }
+  if (piece.type === 'king') {
+    if (canCastle(state, piece.color, 'king')) moves.push({ from, to: castleDestination(piece.color, 'king').king, special: 'castle-kingside' });
+    if (canCastle(state, piece.color, 'queen')) moves.push({ from, to: castleDestination(piece.color, 'queen').king, special: 'castle-queenside' });
+  }
+  return moves;
+}
+function withPromotion(move: ChessGameMove, piece: Piece): ChessGameMove {
+  return piece.type === 'pawn' && (move.to.row === 0 || move.to.row === 7) ? { ...move, promotion: 'queen' } : move;
+}
+function applyChessMoveUnchecked(state: ChessGameState, move: ChessGameMove): ChessGameState {
+  const piece = state.board[move.from.row][move.from.col];
+  if (!piece) throw new Error('Cannot move from an empty square.');
+  const board = cloneBoard(state.board);
+  let captured = board[move.to.row][move.to.col];
+  if (move.special === 'en-passant') { captured = board[move.from.row][move.to.col]; board[move.from.row][move.to.col] = null; }
+  board[move.to.row][move.to.col] = move.promotion ? { type: move.promotion, color: piece.color } : { ...piece };
+  board[move.from.row][move.from.col] = null;
+  const rights = { ...state.castlingRights };
+  if (piece.type === 'king') { if (piece.color === 'white') { rights.whiteKingSide = false; rights.whiteQueenSide = false; } else { rights.blackKingSide = false; rights.blackQueenSide = false; } }
+  if (piece.type === 'rook') {
+    if (sameSquare(move.from, rookStart(piece.color, 'king'))) { if (piece.color === 'white') rights.whiteKingSide = false; else rights.blackKingSide = false; }
+    if (sameSquare(move.from, rookStart(piece.color, 'queen'))) { if (piece.color === 'white') rights.whiteQueenSide = false; else rights.blackQueenSide = false; }
+  }
+  if (captured?.type === 'rook') {
+    if (sameSquare(move.to, rookStart(captured.color, 'king'))) { if (captured.color === 'white') rights.whiteKingSide = false; else rights.blackKingSide = false; }
+    if (sameSquare(move.to, rookStart(captured.color, 'queen'))) { if (captured.color === 'white') rights.whiteQueenSide = false; else rights.blackQueenSide = false; }
+  }
+  if (move.special === 'castle-kingside' || move.special === 'castle-queenside') {
+    const side = move.special === 'castle-kingside' ? 'king' : 'queen';
+    const rookFrom = rookStart(piece.color, side), rookTo = castleDestination(piece.color, side).rook;
+    board[rookTo.row][rookTo.col] = board[rookFrom.row][rookFrom.col]; board[rookFrom.row][rookFrom.col] = null;
+  }
+  const enPassantTarget = piece.type === 'pawn' && Math.abs(move.to.row - move.from.row) === 2 ? { row: (move.from.row + move.to.row) / 2, col: move.from.col } : null;
+  const nextState: ChessGameState = { board, turn: state.turn === 'white' ? 'black' : 'white', castlingRights: rights, enPassantTarget, halfmoveClock: piece.type === 'pawn' || Boolean(captured) ? 0 : state.halfmoveClock + 1, positionHistory: [] };
+  nextState.positionHistory = [...state.positionHistory, positionKey(nextState)];
+  return nextState;
+}
+export function getLegalChessMoves(state: ChessGameState, from?: Square): ChessGameMove[] {
+  const sources = from ? [from] : Array.from({ length: 64 }, (_, i) => ({ row: Math.floor(i / 8), col: i % 8 }));
+  const moves: ChessGameMove[] = [];
+  for (const source of sources) {
+    const piece = state.board[source.row][source.col];
+    if (!piece || piece.color !== state.turn) continue;
+    for (const rawMove of getStatePseudoLegalMoves(state, source)) {
+      const move = withPromotion(rawMove, piece);
+      const next = applyChessMoveUnchecked(state, move);
+      if (!isInCheck(next.board, state.turn)) moves.push(move);
+    }
+  }
+  return moves;
+}
+export function isLegalChessMove(state: ChessGameState, move: ChessGameMove): boolean {
+  return getLegalChessMoves(state).some((candidate) => sameSquare(candidate.from, move.from) && sameSquare(candidate.to, move.to) && candidate.promotion === move.promotion);
+}
+export function applyChessMove(state: ChessGameState, move: ChessGameMove): ChessGameState {
+  if (!isLegalChessMove(state, move)) throw new Error('Illegal chess move.');
+  return applyChessMoveUnchecked(state, move);
+}
+export function isThreefoldRepetition(state: ChessGameState): boolean {
+  const current = positionKey(state);
+  return state.positionHistory.filter((key) => key === current).length >= 3;
+}
+export function hasInsufficientMaterial(board: Board): boolean {
+  const pieces = board.flat().filter((piece): piece is Piece => Boolean(piece));
+  const nonKings = pieces.filter((piece) => piece.type !== 'king');
+  if (nonKings.length === 0) return true;
+  if (nonKings.some((piece) => ['pawn', 'rook', 'queen'].includes(piece.type))) return false;
+  if (nonKings.length === 1) return true;
+  if (nonKings.every((piece) => piece.type === 'bishop')) {
+    const bishopSquares = board.flatMap((row, r) => row.map((piece, col) => piece?.type === 'bishop' ? { row: r, col, color: piece.color } : null)).filter(Boolean) as Array<{ row: number; col: number; color: Side }>;
+    const colors = bishopSquares.map(({ row, col }) => (row + col) % 2);
+    return colors.every((color) => color === colors[0]);
+  }
+  return false;
+}
+export function getChessGameStatus(state: ChessGameState): ChessGameStatus {
+  const legalMoves = getLegalChessMoves(state);
+  const inCheck = isInCheck(state.board, state.turn);
+  if (inCheck && legalMoves.length === 0) return 'checkmate';
+  if (!inCheck && legalMoves.length === 0) return 'stalemate';
+  if (hasInsufficientMaterial(state.board)) return 'draw-insufficient-material';
+  if (state.halfmoveClock >= 100) return 'draw-fifty-move';
+  if (isThreefoldRepetition(state)) return 'draw-repetition';
+  return inCheck ? 'check' : 'playing';
+}
