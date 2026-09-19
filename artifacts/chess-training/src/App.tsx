@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ArrowUpRight, BookOpen, CheckCircle2, ChevronDown, CircleHelp, Clock3, Crown, Lightbulb, LogOut, RotateCcw, Target, XCircle } from 'lucide-react';
 import { ErrorBoundary } from '@/components/error-boundary';
@@ -126,6 +126,31 @@ function Home() {
   const freeTurnoLabel = turn === 'white' ? 'blancas' : 'negras';
   const isBoardGameMode = mode === 'free' || mode === 'complete';
   const freeWinnerLabel = turn === 'white' ? 'negras' : 'blancas';
+
+  useEffect(() => {
+    if (mode !== 'complete' || turn !== 'black' || freeGameOver) return;
+    const timer = window.setTimeout(() => {
+      const sources = Array.from({ length: 64 }, (_, index) => ({ row: Math.floor(index / 8), col: index % 8 }));
+      const candidates = sources.flatMap((from) => getLegalMoves(board, from).map((to) => ({ from, to })));
+      if (!candidates.length) return;
+      const captures = candidates.filter(({ to }) => board[to.row][to.col]);
+      const checks = candidates.filter(({ from, to }) => {
+        const next = applyBoardMove(board, { from, to });
+        const status = getGameStatus(next, 'white');
+        return status === 'check' || status === 'checkmate';
+      });
+      const pool = checks.length ? checks : captures.length ? captures : candidates;
+      const move = pool[Math.floor(Math.random() * pool.length)];
+      const nextBoard = applyBoardMove(board, move);
+      setBoard(nextBoard);
+      setLastMove([squareName(move.from), squareName(move.to)]);
+      setMoveHistory((history) => [...history, `Rival: ${squareName(move.from)}–${squareName(move.to)}`]);
+      setTurn('white');
+      setSelected(null);
+      setFocusCue('El rival movió. Antes de responder, comprueba amenazas, capturas y jugadas forzadas.');
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [mode, turn, board, freeGameOver]);
 
   const resetFreePractice = () => {
     setBoard(makeInitialBoard());
