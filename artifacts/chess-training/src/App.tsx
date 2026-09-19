@@ -1003,6 +1003,12 @@ function Home() {
                      <h2 className="max-w-[580px] text-[clamp(2rem,4vw,3.5rem)] font-extrabold leading-[0.98] tracking-[-0.075em] text-[#20362e]">
                        Entrenamiento de<br className="hidden sm:block" /> Aperturas
                      </h2>
+                     {activeOpeningLabel && (
+                       <div className="mb-3 rounded-lg border border-[#c9c0ae] bg-white/70 px-3 py-2 text-[11px] font-bold text-[#2c4039]" data-testid="text-active-opening">
+                         ♟ {activeOpeningLabel}
+                         {activeOpeningLabel !== openingTree?.opening && openingTree?.opening ? <span className="ml-1 font-normal text-[#718078]">· {openingTree.opening}</span> : null}
+                       </div>
+                     )}
                      <div className="mt-4 flex flex-wrap items-center gap-2" data-testid="training-side-selector">
                        <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#7b897f]">Jugar con</span>
                        {([
