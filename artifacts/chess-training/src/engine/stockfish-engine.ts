@@ -64,16 +64,16 @@ function boardToFen(state: ChessGameState): string {
 }
 
 function parseScore(line: string): StockfishScore | null {
-  const mate = line.match(/\\bscore mate (-?\\d+)/);
+  const mate = line.match(/\bscore mate (-?\\d+)/);
   if (mate) return { type: 'mate', value: Number(mate[1]) };
-  const cp = line.match(/\\bscore cp (-?\\d+)/);
+  const cp = line.match(/\bscore cp (-?\\d+)/);
   if (cp) return { type: 'cp', value: Number(cp[1]) };
   return null;
 }
 
 function parseInfo(line: string): { score: StockfishScore | null; depth: number | null; pv: string[] } | null {
   if (!line.startsWith('info ')) return null;
-  const depthMatch = line.match(/\\bdepth (\\d+)/);
+  const depthMatch = line.match(/\bdepth (\\d+)/);
   const pvIndex = line.indexOf(' pv ');
   const pv = pvIndex >= 0 ? line.slice(pvIndex + 4).trim().split(/\\s+/).filter(Boolean) : [];
   return { score: parseScore(line), depth: depthMatch ? Number(depthMatch[1]) : null, pv };
@@ -113,7 +113,7 @@ export class StockfishEngine {
     if (this.worker && this.ready) return this.ready;
     if (typeof Worker === 'undefined') throw new Error('Este navegador no admite Web Workers para ejecutar Stockfish.');
     if (typeof WebAssembly === 'undefined') throw new Error('Este navegador no admite WebAssembly para ejecutar Stockfish.');
-    const workerUrl = options.workerUrl ?? new URL('stockfish/stockfish-19-lite-single.js', window.location.origin + import.meta.env.BASE_URL).toString();
+    const workerUrl = options.workerUrl ?? new URL(`${import.meta.env.BASE_URL}stockfish/stockfish-19-lite-single.js`, window.location.origin).toString();
     try { this.worker = new Worker(workerUrl, { type: 'classic' }); }
     catch (error) { this.worker = null; throw new Error(error instanceof Error ? error.message : 'No se pudo crear el worker de Stockfish.'); }
 
