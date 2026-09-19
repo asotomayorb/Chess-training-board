@@ -93,7 +93,7 @@ const italianE5: OpeningMove = {
   threat: 'Las blancas ya amenazan con controlar más espacio central.',
   typicalError: 'Ignorar el centro y desarrollar lentamente.',
   difficulty: 'fundamentos',
-  hints: ['', '', ''],
+  hints: ['responde al avance blanco con el peón de rey para disputar el centro.', 'El peón de e7 puede avanzar dos casillas hasta e5 y abre líneas para el alfil y la dama.', 'La jugada correcta es e5.'],
 };
 
 const italianNf3: OpeningMove = {
@@ -127,7 +127,7 @@ const italianNc6: OpeningMove = {
   threat: 'Las blancas ejercen presión sobre e5.',
   typicalError: 'Defender pasivamente sin desarrollar piezas.',
   difficulty: 'fundamentos',
-  hints: ['', '', ''],
+  hints: ['desarrolla el caballo de dama hacia una casilla central.', 'Desde b8, el caballo puede ir a c6 y defender e5 mientras controla d4.', 'La jugada correcta es Cc6.'],
 };
 
 const italianBc4: OpeningMove = {
@@ -161,7 +161,7 @@ const italianBc5: OpeningMove = {
   threat: 'El alfil blanco ya apunta a f7.',
   typicalError: 'Perder tiempos con la misma pieza sin una razón concreta.',
   difficulty: 'fundamentos',
-  hints: ['', '', ''],
+  hints: ['activa el alfil de rey hacia una diagonal central.', 'Desde f8, el alfil puede ocupar c5 y mirar hacia f2.', 'La jugada correcta es Ac5.'],
 };
 
 const italianNf6: OpeningMove = {
@@ -176,7 +176,7 @@ const italianNf6: OpeningMove = {
   threat: 'El peón e4 queda directamente atacado.',
   typicalError: 'Ignorar la amenaza sobre e4 y jugar una jugada lenta.',
   difficulty: 'fundamentos',
-  hints: ['', '', ''],
+  hints: ['busca la segunda pieza menor que puede atacar directamente el centro blanco.', 'El caballo de g8 puede saltar a f6 y presionar e4.', 'La jugada correcta es Cf6.'],
 };
 
 const italianBe7: OpeningMove = {
@@ -191,7 +191,7 @@ const italianBe7: OpeningMove = {
   threat: 'Las blancas conservan más espacio y pueden preparar el enroque.',
   typicalError: 'Buscar tácticas inmediatas sin terminar el desarrollo.',
   difficulty: 'intermedio',
-  hints: ['', '', ''],
+  hints: ['busca una respuesta sólida que desarrolle el alfil sin entrar en la línea de Ac5.', 'El alfil de f8 puede retirarse a e7, preparando un desarrollo compacto.', 'La jugada correcta es Ae7.'],
 };
 
 const italianB4: OpeningMove = {
@@ -225,7 +225,7 @@ const italianBxb4: OpeningMove = {
   threat: 'Las blancas pueden jugar c3 para ganar otro tiempo sobre el alfil.',
   typicalError: 'Aferrarse al material y olvidar el desarrollo.',
   difficulty: 'avanzado',
-  hints: ['', '', ''],
+  hints: ['el alfil de c5 puede capturar el peón que acaba de avanzar a b4.', 'Acepta el gambito solo después de comprobar que la captura es legal y qué tiempos concede a las blancas.', 'La jugada correcta es Axb4.'],
 };
 
 const italianC3: OpeningMove = {
@@ -259,7 +259,7 @@ const italianBa5: OpeningMove = {
   threat: 'Las blancas pueden continuar con d4 y abrir el centro.',
   typicalError: 'Retirar una pieza sin considerar qué casillas y tiempos conserva.',
   difficulty: 'avanzado',
-  hints: ['', '', ''],
+  hints: ['retira el alfil atacado conservando una diagonal activa.', 'Desde b4, la casilla a5 mantiene el alfil fuera del alcance inmediato del peón c3.', 'La jugada correcta es Aa5.'],
 };
 
 const italianNg5: OpeningMove = {
@@ -274,7 +274,7 @@ const italianNg5: OpeningMove = {
   threat: 'La presión sobre f7 puede generar tácticas contra el rey negro.',
   typicalError: 'Lanzar el caballo sin calcular la respuesta central ...d5.',
   difficulty: 'avanzado',
-  hints: ['', '', ''],
+  hints: ['busca una casilla activa para el caballo que ya está en f3.', 'El caballo puede saltar a g5 y aumentar la presión sobre f7.', 'La jugada correcta es Cg5.'],
 };
 
 const italianD5: OpeningMove = {
@@ -289,7 +289,7 @@ const italianD5: OpeningMove = {
   threat: 'El peón e4 queda expuesto a cambios y capturas en el centro.',
   typicalError: 'Defender pasivamente f7 y permitir que las blancas acumulen piezas.',
   difficulty: 'avanzado',
-  hints: ['', '', ''],
+  hints: ['en lugar de defender pasivamente f7, golpea el centro de inmediato.', 'El peón de d7 puede avanzar a d5 para atacar el centro blanco y abrir líneas.', 'La jugada correcta es d5.'],
 };
 
 const italianExd5: OpeningMove = {
@@ -304,7 +304,7 @@ const italianExd5: OpeningMove = {
   threat: 'El caballo negro de f6 puede recuperar en d5.',
   typicalError: 'Capturar automáticamente sin considerar el desarrollo posterior.',
   difficulty: 'avanzado',
-  hints: ['', '', ''],
+  hints: ['responde a la ruptura negra resolviendo la tensión central.', 'El peón de e4 puede capturar en d5 y abrir líneas para las piezas blancas.', 'La jugada correcta es exd5.'],
 };
 
 const italianNxd5: OpeningMove = {
@@ -319,7 +319,7 @@ const italianNxd5: OpeningMove = {
   threat: 'Las blancas pueden explotar la posición del caballo con presión sobre f7.',
   typicalError: 'Recapturar sin evaluar las amenazas tácticas sobre f7.',
   difficulty: 'avanzado',
-  hints: ['', '', ''],
+  hints: ['recupera el peón con una pieza desarrollada.', 'El caballo de f6 puede capturar en d5 y ocupar una casilla central activa.', 'La jugada correcta es Cxd5.'],
 };
 
 const italianNxf7: OpeningMove = {
@@ -334,7 +334,7 @@ const italianNxf7: OpeningMove = {
   threat: 'El caballo ataca la torre h8 y crea amenazas contra el rey.',
   typicalError: 'Confundir la táctica con un simple sacrificio sin calcular la continuación.',
   difficulty: 'avanzado',
-  hints: ['', '', ''],
+  hints: ['busca la captura táctica sobre el punto f7.', 'El caballo de g5 puede tomar f7 y atacar la torre h8, creando una secuencia forzada.', 'La jugada correcta es Cxf7.'],
 };
 
 const italianGiuocoPianoLeaf: VariantNode = {
