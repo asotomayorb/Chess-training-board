@@ -226,7 +226,3 @@ export class StockfishEngine {
   }
 }
 
-export function sideFromUciMove(move: string): Side | null {
-  if (!/^[a-h][1-8][a-h][1-8]/.test(move)) return null;
-  return null;
-}
