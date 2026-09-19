@@ -31,7 +31,7 @@ import {
   type Square,
 } from '@/engine/chess-engine';
 
-type PracticeMode = 'free' | 'opening';
+type PracticeMode = 'free' | 'opening' | 'complete';
 type TrainingSideChoice = OpeningColor | 'random';
 type DifficultMove = {
   nodeId: string;
@@ -93,7 +93,7 @@ function Home() {
   const [unexpectedPlayEnabled, setUnexpectedPlayEnabled] = useState(true);
   const [unexpectedDifficulty, setUnexpectedDifficulty] = useState<'fundamentos' | 'intermedio' | 'avanzado'>('intermedio');
   const [unexpectedEvent, setUnexpectedEvent] = useState<UnexpectedEvent | null>(null);
-  const [unexpectedChallenge, setUnexpectedChallenge] = useState<{ event: UnexpectedEvent; resumeNodeId: string } | null>(null);
+  const [unexpectedChallenge, setUnexpectedChallenge] = useState<{ event: UnexpectedEvent; resumeNodeId: string; resumeBoard: Board; resumeHistory: string[]; resumeTurn: OpeningColor } | null>(null);
 
   const legalMoves = useMemo(
     () => (selected ? getLegalMoves(board, selected) : []),
@@ -121,9 +121,10 @@ function Home() {
     }
     return [...counts.entries()].sort((a, b) => b[1] - a[1]);
   }, [difficultMoves]);
-  const freeGameStatus = mode === 'free' ? getGameStatus(board, turn) : null;
+  const freeGameStatus = (mode === 'free' || mode === 'complete') ? getGameStatus(board, turn) : null;
   const freeGameOver = freeGameStatus === 'checkmate' || freeGameStatus === 'stalemate';
   const freeTurnoLabel = turn === 'white' ? 'blancas' : 'negras';
+  const isBoardGameMode = mode === 'free' || mode === 'complete';
   const freeWinnerLabel = turn === 'white' ? 'negras' : 'blancas';
 
   const resetFreePractice = () => {
@@ -197,11 +198,25 @@ function Home() {
         setBoard(challengeBoard);
         setLastMove([event.from ?? squareName(challengeMove.from), event.to ?? squareName(challengeMove.to)]);
         setMoveHistory((history) => [...history, `Inesperado: ${event.from ?? squareName(challengeMove.from)}–${event.to ?? squareName(challengeMove.to)}`]);
-        setUnexpectedChallenge({ event, resumeNodeId: initialAutomaticMoves.length ? initialTurn.automaticNodes[initialTurn.automaticNodes.length - 1].id : selection.variant.startNodeId });
+        setUnexpectedChallenge({ event, resumeNodeId: initialAutomaticMoves.length ? initialTurn.automaticNodes[initialTurn.automaticNodes.length - 1].id : selection.variant.startNodeId, resumeBoard: trainingBoard, resumeHistory: initialAutomaticMoves.map((move) => move.notation), resumeTurn: playerColor });
         setUnexpectedEvent(event);
         setTurn(playerColor);
       }
     }
+  };
+
+  const startCompleteGame = () => {
+    setBoard(makeInitialBoard());
+    setMode('complete');
+    setTurn('white');
+    setSelected(null);
+    setLastMove(null);
+    setMoveHistory([]);
+    setFocusCue('Modo completo: juega la partida y aplica las ideas aprendidas durante la apertura.');
+    setTrainingSelection(null);
+    setOpeningNodeId(null);
+    setUnexpectedEvent(null);
+    setUnexpectedChallenge(null);
   };
 
   const resetTraining = () => {
@@ -215,6 +230,10 @@ function Home() {
   const resetGame = () => {
     if (mode === 'opening') {
       resetTraining();
+      return;
+    }
+    if (mode === 'complete') {
+      startCompleteGame();
       return;
     }
     resetFreePractice();
@@ -236,10 +255,12 @@ function Home() {
         ? 'Respuesta válida: calculaste la posición después del sacrificio antes de continuar.'
         : 'Respuesta válida: reaccionaste a la desviación y volviste a evaluar la posición.';
 
-    setBoard(nextBoard);
-    setLastMove([squareName(from), squareName(to)]);
-    setMoveHistory((history) => [...history, `Respuesta: ${responseText}`]);
+    setBoard(challenge.resumeBoard);
+    setLastMove(null);
+    setMoveHistory(challenge.resumeHistory);
+    setTurn(challenge.resumeTurn);
     setSelected(null);
+    setOpeningNodeId(challenge.resumeNodeId);
     setUnexpectedChallenge(null);
     setUnexpectedEvent(null);
     setTrainingStatus('correct');
@@ -320,7 +341,7 @@ function Home() {
       setBoard(challengeBoard);
       setLastMove([nextUnexpectedEvent.from ?? squareName(challengeMove.from), nextUnexpectedEvent.to ?? squareName(challengeMove.to)]);
       setMoveHistory((history) => [...history, `Inesperado: ${nextUnexpectedEvent.from ?? squareName(challengeMove.from)}–${nextUnexpectedEvent.to ?? squareName(challengeMove.to)}`]);
-      setUnexpectedChallenge({ event: nextUnexpectedEvent, resumeNodeId: nextNodeId });
+      setUnexpectedChallenge({ event: nextUnexpectedEvent, resumeNodeId: nextNodeId, resumeBoard: nextBoard, resumeHistory: [...moveHistory, expectedMove.notation, ...automaticMoves.map((move) => move.notation)], resumeTurn: trainingPlayerColor });
       setUnexpectedEvent(nextUnexpectedEvent);
     } else {
       setUnexpectedEvent(null);
@@ -410,6 +431,15 @@ function Home() {
                 <Target size={16} className="text-[#1f5b49]" />
                 <span className="text-[12px] font-bold text-[#2c4039]">Entrenamiento de aperturas</span>
                 {mode === 'opening' && <span className="ml-auto size-1.5 rounded-full bg-[#c38a3d]" />}
+              </button>
+              <button
+                type="button"
+                onClick={startCompleteGame}
+                className={`flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left transition-colors ${mode === 'complete' ? 'bg-[#f3eee3] shadow-sm' : 'hover:bg-[#e5ddce]'}`}
+              >
+                <Crown size={16} className="text-[#c38a3d]" />
+                <span className="text-[12px] font-bold text-[#2c4039]">Modo completo</span>
+                {mode === 'complete' && <span className="ml-auto size-1.5 rounded-full bg-[#c38a3d]" />}
               </button>
               <button
                 type="button"
@@ -583,7 +613,7 @@ function Home() {
                               : `Turno de ${freeTurnoLabel}`}
                     </span>
                   </div>
-                  <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-[#879389]">{mode === 'opening' ? 'entrenamiento de aperturas' : 'práctica libre'}</span>
+                  <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-[#879389]">{mode === 'opening' ? 'entrenamiento de aperturas' : mode === 'complete' ? 'modo completo' : 'práctica libre'}</span>
                 </div>
 
                 <div className="board-frame overflow-hidden rounded-[5px] border-[10px] border-[#263f35] bg-[#263f35] sm:border-[14px]">
@@ -776,7 +806,7 @@ function Home() {
                  )}
                  <div className="mt-5 flex items-center gap-2 px-1 text-[10px] leading-relaxed text-[#879389]">
                    <ArrowUpRight size={13} className="shrink-0 text-[#c38a3d]" />
-                   <span>{mode === 'opening' ? 'Las jugadas del rival se realizan automáticamente.' : 'La práctica contra la computadora estará disponible próximamente.'}</span>
+                   <span>{mode === 'opening' ? 'Las jugadas del rival se realizan automáticamente.' : mode === 'complete' ? 'Modo completo: la partida termina con mate o ahogado.' : 'Práctica libre: juega sin una variante obligatoria.'}</span>
                  </div>
               </aside>
             </div>
