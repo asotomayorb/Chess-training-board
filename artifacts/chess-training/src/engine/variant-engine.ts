@@ -208,6 +208,17 @@ export function getVariantNodePath(tree: VariantTree, variant: OpeningVariant): 
   return path;
 }
 
+export function getActiveOpeningLabel(tree: VariantTree, nodeId: string): string | null {
+  if (nodeId === tree.root.id) return null;
+  const matching = tree.branches.filter((branch) => {
+    const path = getVariantNodePath(tree, branch);
+    return path.some((node) => node.id === nodeId);
+  });
+  if (!matching.length) return null;
+  if (matching.length === 1) return matching[0].name;
+  return tree.opening;
+}
+
 export function getVariantSequence(tree: VariantTree, variant: OpeningVariant): OpeningMove[] {
   return getVariantNodePath(tree, variant)
     .map((node) => node.move)
