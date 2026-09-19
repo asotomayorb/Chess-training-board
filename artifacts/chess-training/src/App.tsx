@@ -217,7 +217,9 @@ function Home() {
       } else {
         setCompleteUnexpectedChallenge(null);
         setUnexpectedEvent(null);
-        setFocusCue('El rival movió. Antes de responder, comprueba amenazas, capturas y jugadas forzadas.');
+        setFocusCue(nextEndgamePrompt
+          ? 'Final detectado. Cambia el plan: actividad del rey, peones pasados y técnica del final.'
+          : 'El rival movió. Antes de responder, comprueba amenazas, capturas y jugadas forzadas.');
       }
     }, 350);
     return () => window.clearTimeout(timer);
