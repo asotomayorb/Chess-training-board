@@ -53,7 +53,7 @@ test('complete move evaluation does not use the player side as the opponent', ()
       ['e1', piece('white', 'king')],
       ['d1', piece('white', 'queen')],
       ['e8', piece('black', 'king')],
-      ['d8', piece('black', 'queen')],
+      ['c8', piece('black', 'queen')],
     ]),
     turn: 'white' as Side,
   };
