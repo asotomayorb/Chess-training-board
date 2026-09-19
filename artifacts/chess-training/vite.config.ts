@@ -14,7 +14,7 @@ function stockfishAssets(): Plugin {
   return {
     name: 'stockfish-assets',
     buildStart() {
-      const packageRoot = path.dirname(require.resolve('stockfish/package.json'));
+      const packageRoot = path.dirname(require.resolve('stockfish'));
       const sourceDir = path.join(packageRoot, 'bin');
       const publicDir = path.resolve(import.meta.dirname, 'public', 'stockfish');
       fs.mkdirSync(publicDir, { recursive: true });
