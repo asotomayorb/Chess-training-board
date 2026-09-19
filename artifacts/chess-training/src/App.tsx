@@ -227,10 +227,10 @@ function Home() {
   );
 
   const openingVariant = trainingSelection?.variant ?? null;
+  const openingTree = trainingSelection?.tree ?? null;
   const activeOpeningLabel = mode === 'opening' && openingTree && openingVariant && openingNodeId
     ? getActiveOpeningLabel(openingTree, openingNodeId)
     : null;
-  const openingTree = trainingSelection?.tree ?? null;
   const trainingTurno = mode === 'opening' && openingTree && openingVariant && openingNodeId
     ? getTrainingTurn(openingTree, openingVariant, openingNodeId, trainingPlayerColor)
     : null;
