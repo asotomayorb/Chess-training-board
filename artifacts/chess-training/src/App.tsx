@@ -122,7 +122,7 @@ function Home() {
   const [unexpectedPlayEnabled, setUnexpectedPlayEnabled] = useState(true);
   const [unexpectedDifficulty, setUnexpectedDifficulty] = useState<'fundamentos' | 'intermedio' | 'avanzado'>('intermedio');
   const [unexpectedEvent, setUnexpectedEvent] = useState<UnexpectedEvent | null>(null);
-  const [unexpectedChallenge, setUnexpectedChallenge] = useState<{ event: UnexpectedEvent; resumeNodeId: string; resumeBoard: Board; resumeHistory: string[]; resumeTurn: OpeningColor } | null>(null);
+  const [unexpectedChallenge, setUnexpectedChallenge] = useState<{ event: UnexpectedEvent; resumeNodeId: string; resumeBoard: Board; resumeHistory: string[]; resumeTurn: OpeningColor } | null>(null);\n  const [completeUnexpectedChallenge, setCompleteUnexpectedChallenge] = useState<{ event: UnexpectedEvent; triggeringMove: ChessGameMove } | null>(null);
 
   const legalMoves = useMemo(
     () => {
@@ -185,7 +185,10 @@ function Home() {
         if (target || move.special === 'en-passant') captures.push(move);
       }
       const pool = checks.length ? checks : captures.length ? captures : candidates;
-      const move = pool[Math.floor(Math.random() * pool.length)];
+      const unexpected = unexpectedPlayEnabled
+        ? chooseUnexpectedSituation(completeGame, 'black', { enabled: true, difficulty: unexpectedDifficulty })
+        : null;
+      const move = unexpected?.move ?? pool[Math.floor(Math.random() * pool.length)];
       const nextGame = applyChessMove(completeGame, move);
       setCompleteGame(nextGame);
       setBoard(nextGame.board);
@@ -194,7 +197,15 @@ function Home() {
       setTurn(nextGame.turn);
       setSelected(null);
       setPromotionPending(null);
-      setFocusCue('El rival movió. Antes de responder, comprueba amenazas, capturas y jugadas forzadas.');
+      if (unexpected?.move) {
+        setCompleteUnexpectedChallenge({ event: unexpected, triggeringMove: move });
+        setUnexpectedEvent(unexpected);
+        setFocusCue('Juego inesperado: antes de continuar tu plan, responde a la situación creada por el rival.');
+      } else {
+        setCompleteUnexpectedChallenge(null);
+        setUnexpectedEvent(null);
+        setFocusCue('El rival movió. Antes de responder, comprueba amenazas, capturas y jugadas forzadas.');
+      }
     }, 350);
     return () => window.clearTimeout(timer);
   }, [mode, completeGame, completeGameOver]);
@@ -455,6 +466,44 @@ function Home() {
   };
 
   const handleSquareClick = (row: number, col: number) => {
+    if (mode === 'complete' && completeUnexpectedChallenge) {
+      const clickedPiece = board[row][col];
+      const clickedIsLegal = legalKeySet.has(`${row}-${col}`);
+      if (selected && clickedIsLegal) {
+        const moveCandidates = getLegalChessMoves(completeGame).filter(
+          (candidate) =>
+            candidate.from.row === selected.row &&
+            candidate.from.col === selected.col &&
+            candidate.to.row === row &&
+            candidate.to.col === col,
+        );
+        if (!moveCandidates.length) return;
+        if (moveCandidates.some((move) => move.promotion)) {
+          setPromotionPending({ from: selected, to: { row, col } });
+          return;
+        }
+        const move = moveCandidates[0];
+        const nextGame = applyChessMove(completeGame, move);
+        setCompleteGame(nextGame);
+        setBoard(nextGame.board);
+        setLastMove([squareName(move.from), squareName(move.to)]);
+        setMoveHistory((history) => [...history, `${squareName(move.from)}–${squareName(move.to)}${move.promotion ? '=' + move.promotion[0].toUpperCase() : ''}`]);
+        setTurn(nextGame.turn);
+        setSelected(null);
+        setCompleteUnexpectedChallenge(null);
+        setUnexpectedEvent(null);
+        setCompleteFeedback('Respuesta registrada. La situación inesperada fue integrada en la partida; ahora vuelve a comprobar jaques, capturas y amenazas.');
+        setFocusCue('Respuesta realizada. Vuelve a evaluar la posición desde cero antes de continuar.');
+        return;
+      }
+      if (clickedPiece?.color === 'white') {
+        setSelected({ row, col });
+        setFocusCue('Situación inesperada: identifica primero la amenaza y luego elige tu respuesta.');
+        return;
+      }
+      setSelected(null);
+      return;
+    }
     if (mode === 'opening' && unexpectedChallenge) {
       const clickedPiece = board[row][col];
       const clickedIsLegal = legalKeySet.has(`${row}-${col}`);
@@ -886,7 +935,7 @@ function Home() {
                            ⚠️ {completeThreatMessage}
                          </p>
                        )}
-                       {mode === 'complete' && completeFeedback && !freeGameOver && (
+                       {mode === 'complete' && completeUnexpectedChallenge && !freeGameOver && (\n                         <p className="mt-3 rounded-lg bg-[#eee4cc] px-3 py-2.5 text-[11px] font-semibold leading-relaxed text-[#665b42]" data-testid="text-complete-unexpected">\n                           ⚠️ Juego inesperado: responde a la situación antes de continuar tu plan.\n                         </p>\n                       )}\n                       {mode === 'complete' && completeFeedback && !freeGameOver && (
                          <p className="mt-3 rounded-lg bg-[#e3e8dc] px-3 py-2.5 text-[11px] leading-relaxed text-[#486257]" data-testid="text-complete-feedback">
                            {completeFeedback}
                          </p>
