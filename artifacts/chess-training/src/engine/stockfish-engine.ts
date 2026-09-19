@@ -82,10 +82,10 @@ function boardToFen(state: ChessGameState): string {
 }
 
 function parseScore(line: string): StockfishScore | null {
-  const mate = line.match(/\\bscore mate (-?\\d+)/);
+  const mate = line.match(/\bscore mate (-?\\d+)/);
   if (mate) return { type: 'mate', value: Number(mate[1]) };
 
-  const cp = line.match(/\\bscore cp (-?\\d+)/);
+  const cp = line.match(/\bscore cp (-?\\d+)/);
   if (cp) return { type: 'cp', value: Number(cp[1]) };
 
   return null;
@@ -94,7 +94,7 @@ function parseScore(line: string): StockfishScore | null {
 function parseInfo(line: string): { score: StockfishScore | null; depth: number | null; pv: string[] } | null {
   if (!line.startsWith('info ')) return null;
 
-  const depthMatch = line.match(/\\bdepth (\\d+)/);
+  const depthMatch = line.match(/\bdepth (\\d+)/);
   const pvIndex = line.indexOf(' pv ');
   const pv = pvIndex >= 0 ? line.slice(pvIndex + 4).trim().split(/\\s+/).filter(Boolean) : [];
 
