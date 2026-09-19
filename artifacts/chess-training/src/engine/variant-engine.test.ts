@@ -7,6 +7,7 @@ import {
   chooseRandomVariant,
   getProgressiveHintLevel,
   getTrainingTurn,
+  getActiveOpeningLabel,
   getVariantNodePath,
   getVariantSequence,
   isExpectedMove,
@@ -28,6 +29,33 @@ test('represents the Italian Game as a shared tree with stable node and move IDs
   assert.deepEqual(giuocoPath.slice(0, -1).map((node) => node.id), twoKnightsPath.slice(0, -1).map((node) => node.id));
   assert.equal(new Set(getVariantSequence(italianGameTrainingTree, giuocoPiano).map((move) => move.id)).size, 6);
   assert.equal(new Set(getVariantSequence(italianGameTrainingTree, twoKnights).map((move) => move.id)).size, 6);
+});
+
+
+test('activates the opening name first and the specific variant only after the branch is unique', () => {
+  assert.ok(giuocoPiano);
+  const labels = [
+    ['italian-root', null],
+    ['italian-node-e4', 'Apertura Italiana'],
+    ['italian-node-e5', 'Apertura Italiana'],
+    ['italian-node-nf3', 'Apertura Italiana'],
+    ['italian-node-nc6', 'Apertura Italiana'],
+    ['italian-node-bc4', 'Apertura Italiana'],
+    ['italian-node-bc5', 'Apertura Italiana'],
+    ['italian-node-b4', 'Gambito Evans'],
+  ] as const;
+  for (const [nodeId, expected] of labels) {
+    assert.equal(getActiveOpeningLabel(italianGameTrainingTree, nodeId), expected);
+  }
+});
+
+test('all black opening decisions expose three progressive hints', () => {
+  const blackMoves = getVariantSequence(italianGameTrainingTree, giuocoPiano)
+    .concat(getVariantSequence(italianGameTrainingTree, twoKnights))
+    .filter((move) => move.color === 'black');
+  for (const move of blackMoves) {
+    assert.ok(move.hints.every((hint) => hint.trim().length > 0), `missing hint for ${move.notation}`);
+  }
 });
 
 test('selects both current variants and supports future selection criteria', () => {
