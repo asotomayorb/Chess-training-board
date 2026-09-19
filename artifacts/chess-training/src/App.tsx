@@ -178,6 +178,7 @@ function Home() {
   const [trainingCorrectMoves, setTrainingCorrectMoves] = useState(0);
   const [difficultMoves, setDifficultMoves] = useState<DifficultMove[]>([]);
   const [trainingStatus, setTrainingStatus] = useState<'idle' | 'incorrect' | 'correct' | 'complete'>('idle');
+  const [openingOpponentPending, setOpeningOpponentPending] = useState(false);
   const [trainingExplanation, setTrainingExplanation] = useState('');
   const [unexpectedPlayEnabled, setUnexpectedPlayEnabled] = useState(true);
   const [unexpectedDifficulty, setUnexpectedDifficulty] = useState<'fundamentos' | 'intermedio' | 'avanzado'>('intermedio');
@@ -335,6 +336,7 @@ function Home() {
     setTrainingCorrectMoves(0);
     setDifficultMoves([]);
     setTrainingStatus('idle');
+    setOpeningOpponentPending(false);
     setTrainingExplanation('');
     setUnexpectedEvent(null);
     setUnexpectedChallenge(null);
@@ -544,45 +546,64 @@ function Home() {
 
     const automaticMoves = trainingTurno.automaticNodes
       .flatMap((node) => (node.move ? [node.move] : []));
-    const nextBoard = [expectedMove, ...automaticMoves].reduce(
-      (currentBoard, move) => applyOpeningMove(currentBoard, move),
-      board,
-    );
+    const playerBoard = applyOpeningMove(board, expectedMove);
+    const playerHistory = [...moveHistory, expectedMove.notation];
     const lastAutomaticNode = trainingTurno.automaticNodes[trainingTurno.automaticNodes.length - 1];
     const nextNodeId = lastAutomaticNode?.id ?? expectedNode.id;
     const nextTrainingTurno = getTrainingTurn(openingTree, openingVariant, nextNodeId, trainingPlayerColor);
     const isLastPlayerMove = nextTrainingTurno.playerNode === null;
-    const lastAppliedMove = automaticMoves[automaticMoves.length - 1] ?? expectedMove;
+    const nextBoard = automaticMoves.reduce(
+      (currentBoard, move) => applyOpeningMove(currentBoard, move),
+      playerBoard,
+    );
+    const nextHistory = [...playerHistory, ...automaticMoves.map((move) => move.notation)];
 
-    const nextHistory = [
-      ...moveHistory,
-      expectedMove.notation,
-      ...automaticMoves.map((move) => move.notation),
-    ];
-    setBoard(nextBoard);
-    setLastMove([lastAppliedMove.from, lastAppliedMove.to]);
-    setMoveHistory(nextHistory);
+    // Primero mostramos la jugada del jugador; el rival responde después de un pequeño intervalo.
+    setBoard(playerBoard);
+    setLastMove([expectedMove.from, expectedMove.to]);
+    setMoveHistory(playerHistory);
     setSelected(null);
-    setOpeningNodeId(nextNodeId);
+    setOpeningNodeId(expectedNode.id);
     setMoveErrors(0);
     setHintLevel(0);
     setTrainingAttempts((attempts) => attempts + 1);
     setTrainingCorrectMoves((moves) => moves + 1);
-    const nextUnexpectedEvent = unexpectedPlayEnabled ? chooseUnexpectedSituation(nextBoard, getOpponentSide(trainingPlayerColor), { enabled: true, difficulty: unexpectedDifficulty }) : null;
-    if (nextUnexpectedEvent?.move) {
-      const challengeMove = nextUnexpectedEvent.move;
-      const challengeBoard = applyBoardMove(nextBoard, challengeMove);
-      setBoard(challengeBoard);
-      setLastMove([nextUnexpectedEvent.from ?? squareName(challengeMove.from), nextUnexpectedEvent.to ?? squareName(challengeMove.to)]);
-      setMoveHistory((history) => [...history, `Inesperado: ${nextUnexpectedEvent.from ?? squareName(challengeMove.from)}–${nextUnexpectedEvent.to ?? squareName(challengeMove.to)}`]);
-      setUnexpectedChallenge({ event: nextUnexpectedEvent, resumeNodeId: nextNodeId, resumeBoard: nextBoard, resumeHistory: nextHistory, resumeTurn: trainingPlayerColor });
-      setUnexpectedEvent(nextUnexpectedEvent);
-    } else {
-      setUnexpectedEvent(null);
-      setUnexpectedChallenge(null);
+    setTrainingExplanation([`Idea: ${expectedMove.concept}`, `Objetivo: ${expectedMove.objective}`, `Amenaza/clave: ${expectedMove.threat}`, `Error típico: ${expectedMove.typicalError}`, `Nivel: ${expectedMove.difficulty}`, expectedMove.explanation].join('\\n'));
+    setTrainingStatus('correct');
+
+    if (!automaticMoves.length) {
+      setOpeningOpponentPending(false);
+      setOpeningNodeId(nextNodeId);
+      setTrainingStatus(isLastPlayerMove ? 'complete' : 'correct');
+      return;
     }
-    setTrainingExplanation([`Idea: ${expectedMove.concept}`, `Objetivo: ${expectedMove.objective}`, `Amenaza/clave: ${expectedMove.threat}`, `Error típico: ${expectedMove.typicalError}`, `Nivel: ${expectedMove.difficulty}`, expectedMove.explanation].join('\n'));
-    setTrainingStatus(isLastPlayerMove ? 'complete' : 'correct');
+
+    setOpeningOpponentPending(true);
+    window.setTimeout(() => {
+      setBoard(nextBoard);
+      const lastAppliedMove = automaticMoves[automaticMoves.length - 1] ?? expectedMove;
+      setLastMove([lastAppliedMove.from, lastAppliedMove.to]);
+      setMoveHistory(nextHistory);
+      setOpeningNodeId(nextNodeId);
+      setOpeningOpponentPending(false);
+
+      const nextUnexpectedEvent = unexpectedPlayEnabled
+        ? chooseUnexpectedSituation(nextBoard, getOpponentSide(trainingPlayerColor), { enabled: true, difficulty: unexpectedDifficulty })
+        : null;
+      if (nextUnexpectedEvent?.move) {
+        const challengeMove = nextUnexpectedEvent.move;
+        const challengeBoard = applyBoardMove(nextBoard, challengeMove);
+        setBoard(challengeBoard);
+        setLastMove([nextUnexpectedEvent.from ?? squareName(challengeMove.from), nextUnexpectedEvent.to ?? squareName(challengeMove.to)]);
+        setMoveHistory((history) => [...history, `Inesperado: ${nextUnexpectedEvent.from ?? squareName(challengeMove.from)}–${nextUnexpectedEvent.to ?? squareName(challengeMove.to)}`]);
+        setUnexpectedChallenge({ event: nextUnexpectedEvent, resumeNodeId: nextNodeId, resumeBoard: nextBoard, resumeHistory: nextHistory, resumeTurn: trainingPlayerColor });
+        setUnexpectedEvent(nextUnexpectedEvent);
+      } else {
+        setUnexpectedEvent(null);
+        setUnexpectedChallenge(null);
+      }
+      setTrainingStatus(isLastPlayerMove ? 'complete' : 'correct');
+    }, 900);
   };
 
   const applyCompleteMove = (move: ChessGameMove) => {
@@ -721,6 +742,10 @@ function Home() {
         setFocusCue('Situación inesperada: calcula primero la respuesta antes de continuar la variante.');
         return;
       }
+      setSelected(null);
+      return;
+    }
+    if (mode === 'opening' && openingOpponentPending) {
       setSelected(null);
       return;
     }
@@ -1153,7 +1178,7 @@ function Home() {
 
                 <div className="mt-4 flex items-center justify-between">
                   <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#819087]">
-                    {selected ? `${squareName(selected)} seleccionada · elige una casilla` : 'selecciona una pieza para comenzar'}
+                    {openingOpponentPending ? 'el rival está respondiendo…' : selected ? `${squareName(selected)} seleccionada · elige una casilla` : 'selecciona una pieza para comenzar'}
                   </p>
                   <div className="flex items-center gap-2">
                     <span className="size-2 rounded-full bg-[#5f8073]" />
