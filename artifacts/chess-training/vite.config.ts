@@ -1,9 +1,29 @@
 import path from 'path';
+import fs from 'fs';
+import { createRequire } from 'module';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 
 import runtimeErrorOverlay from '@replit/vite-plugin-runtime-error-modal';
+
+
+const require = createRequire(import.meta.url);
+
+function stockfishAssets(): Plugin {
+  return {
+    name: 'stockfish-assets',
+    buildStart() {
+      const packageRoot = path.dirname(require.resolve('stockfish/package.json'));
+      const sourceDir = path.join(packageRoot, 'bin');
+      const publicDir = path.resolve(import.meta.dirname, 'public', 'stockfish');
+      fs.mkdirSync(publicDir, { recursive: true });
+      for (const file of ['stockfish-19-lite-single.js', 'stockfish-19-lite-single.wasm']) {
+        fs.copyFileSync(path.join(sourceDir, file), path.join(publicDir, file));
+      }
+    },
+  };
+}
 
 const rawPort = process.env.PORT;
 
@@ -33,6 +53,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
     runtimeErrorOverlay(),
+    stockfishAssets(),
     ...(process.env.NODE_ENV !== 'production' &&
     process.env.REPL_ID !== undefined
       ? [
