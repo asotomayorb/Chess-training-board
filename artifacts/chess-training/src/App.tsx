@@ -14,9 +14,7 @@ import {
   getTrainingTurn,
   getActiveOpeningLabel,
   classifyTrainingError,
-  chooseUnexpectedSituation,
   isExpectedMove,
-  type UnexpectedEvent,
   type VariantSelection,
 } from '@/engine/variant-engine';
 import { chooseMiddlegameTrainingPrompt, type MiddlegameTrainingPrompt } from '@/engine/middlegame-training';
@@ -24,7 +22,7 @@ import { evaluateMiddlegameMove } from '@/engine/middlegame-evaluation';
 import { chooseEndgameTrainingPrompt, type EndgameTrainingPrompt } from '@/engine/endgame-training';
 import { evaluateEndgameMove } from '@/engine/endgame-evaluation';
 import { evaluateCompleteMove } from '@/engine/complete-training';
-import { StockfishEngine, type StockfishAnalysis, type StockfishMoveQuality } from '@/engine/stockfish-engine';
+import { StockfishEngine, chessMoveToUci, type StockfishAnalysis, type StockfishMoveQuality } from '@/engine/stockfish-engine';
 import { classifyStockfishMove, type StockfishCoachResult } from '@/engine/stockfish-coach';
 import {
   applyBoardMove,
@@ -48,6 +46,8 @@ import {
 
 type PracticeMode = 'free' | 'opening' | 'complete';
 type TrainingFocus = 'opening' | 'middlegame' | 'endgame' | 'complete';
+type PuzzleFocus = 'middlegame' | 'endgame' | 'random';
+type TrainingDifficulty = 'fundamentos' | 'intermedio' | 'avanzado';
 type TrainingSideChoice = OpeningColor | 'random';
 type DifficultMove = {
   nodeId: string;
@@ -156,12 +156,16 @@ function Home() {
   const stockfishRef = useRef<StockfishEngine | null>(null);
   const stockfishAnalysisRequestRef = useRef(0);
   const stockfishMoveBusyRef = useRef(false);
+  const stockfishOpponentBusyRef = useRef(false);
   const [stockfishAnalysis, setStockfishAnalysis] = useState<StockfishAnalysis | null>(null);
   const [stockfishLoading, setStockfishLoading] = useState(false);
   const [stockfishError, setStockfishError] = useState('');
   const [stockfishMoveQuality, setStockfishMoveQuality] = useState<StockfishMoveQuality | null>(null);
   const [stockfishCoachResult, setStockfishCoachResult] = useState<StockfishCoachResult | null>(null);
   const [stockfishMoveLoading, setStockfishMoveLoading] = useState(false);
+  const [stockfishReady, setStockfishReady] = useState(false);
+  const [puzzleFocus, setPuzzleFocus] = useState<PuzzleFocus>('random');
+  const [trainingDifficulty, setTrainingDifficulty] = useState<TrainingDifficulty>('intermedio');
   const [completeErrors, setCompleteErrors] = useState(0);
   const [middlegameErrors, setMiddlegameErrors] = useState(0);
   const [endgameErrors, setEndgameErrors] = useState(0);
@@ -182,7 +186,7 @@ function Home() {
   const [trainingStatus, setTrainingStatus] = useState<'idle' | 'incorrect' | 'correct' | 'complete'>('idle');
   const [openingOpponentPending, setOpeningOpponentPending] = useState(false);
   const [trainingExplanation, setTrainingExplanation] = useState('');
-  const [unexpectedPlayEnabled, setUnexpectedPlayEnabled] = useState(true);
+  const [unexpectedPlayEnabled, setUnexpectedPlayEnabled] = useState(false);
   const [unexpectedDifficulty, setUnexpectedDifficulty] = useState<'fundamentos' | 'intermedio' | 'avanzado'>('intermedio');
   const [unexpectedEvent, setUnexpectedEvent] = useState<UnexpectedEvent | null>(null);
   const [unexpectedChallenge, setUnexpectedChallenge] = useState<{ event: UnexpectedEvent; resumeNodeId: string; resumeBoard: Board; resumeHistory: string[]; resumeTurn: OpeningColor; pendingAutomaticMoves: OpeningMove[]; pendingNextNodeId: string } | null>(null);
@@ -193,6 +197,26 @@ function Home() {
     stockfishRef.current?.dispose();
     stockfishRef.current = null;
   }, []);
+
+  useEffect(() => {
+    const shouldLoad = mode === 'complete';
+    if (!shouldLoad) {
+      setStockfishReady(false);
+      return;
+    }
+    let cancelled = false;
+    const engine = stockfishRef.current ?? new StockfishEngine();
+    stockfishRef.current = engine;
+    void engine.init()
+      .then(() => { if (!cancelled) setStockfishReady(true); })
+      .catch((error) => {
+        if (!cancelled) {
+          setStockfishReady(false);
+          setStockfishError(error instanceof Error ? error.message : 'No se pudo activar Stockfish.');
+        }
+      });
+    return () => { cancelled = true; };
+  }, [mode]);
 
   const analyzeWithStockfish = async () => {
     if (mode !== 'complete' || stockfishLoading) return;
@@ -260,49 +284,58 @@ function Home() {
   const freeWinnerLabel = turn === 'white' ? 'negras' : 'blancas';
 
   useEffect(() => {
-    if (mode !== 'complete' || completeGame.turn !== 'black' || completeGameOver) return;
+    if (mode !== 'complete' || completeGame.turn !== 'black' || completeGameOver || stockfishOpponentBusyRef.current) return;
     const timer = window.setTimeout(() => {
-      const candidates = getLegalChessMoves(completeGame);
-      if (!candidates.length) return;
-      const checks: ChessGameMove[] = [];
-      const captures: ChessGameMove[] = [];
-      for (const move of candidates) {
-        const target = completeGame.board[move.to.row][move.to.col];
-        const next = applyChessMove(completeGame, move);
-        const status = getChessGameStatus(next);
-        if (status === 'check' || status === 'checkmate') checks.push(move);
-        if (target || move.special === 'en-passant') captures.push(move);
-      }
-      const pool = checks.length ? checks : captures.length ? captures : candidates;
-      const unexpected = unexpectedPlayEnabled
-        ? chooseUnexpectedSituation(completeGame.board, 'black', { enabled: true, difficulty: unexpectedDifficulty })
-        : null;
-      const move = unexpected?.move ?? pool[Math.floor(Math.random() * pool.length)];
-      const nextGame = applyChessMove(completeGame, move);
-      setCompleteGame(nextGame);
-      setBoard(nextGame.board);
-      const nextEndgamePrompt = chooseEndgameTrainingPrompt(nextGame);
-      setEndgamePrompt(nextEndgamePrompt);
-      setMiddlegamePrompt(nextEndgamePrompt ? null : chooseMiddlegameTrainingPrompt(nextGame, { difficulty: unexpectedDifficulty }));
-      setLastMove([squareName(move.from), squareName(move.to)]);
-      setMoveHistory((history) => [...history, "Rival: " + squareName(move.from) + "–" + squareName(move.to)]);
-      setTurn(nextGame.turn);
-      setSelected(null);
-      setPromotionPending(null);
-      if (unexpected?.move) {
-        setCompleteUnexpectedChallenge({ event: unexpected, triggeringMove: move });
-        setUnexpectedEvent(unexpected);
-        setFocusCue('Juego inesperado: antes de continuar tu plan, responde a la situación creada por el rival.');
-      } else {
-        setCompleteUnexpectedChallenge(null);
-        setUnexpectedEvent(null);
-        setFocusCue(nextEndgamePrompt
-          ? 'Final detectado. Cambia el plan: actividad del rey, peones pasados y técnica del final.'
-          : 'El rival movió. Antes de responder, comprueba amenazas, capturas y jugadas forzadas.');
-      }
-    }, 1000);
+      if (stockfishOpponentBusyRef.current) return;
+      stockfishOpponentBusyRef.current = true;
+      const engine = stockfishRef.current ?? new StockfishEngine();
+      stockfishRef.current = engine;
+      const skillByDifficulty: Record<TrainingDifficulty, { depth: number; elo?: number; skillLevel?: number }> = {
+        fundamentos: { depth: 8, elo: 1400 },
+        intermedio: { depth: 11, elo: 1900 },
+        avanzado: { depth: 14, skillLevel: 20 },
+      };
+      const level = skillByDifficulty[trainingDifficulty];
+      void engine.analyze(completeGame, level)
+        .then((analysis) => {
+          const candidate = getLegalChessMoves(completeGame).find((move) => chessMoveToUci(move) === analysis.bestMove);
+          const fallback = getLegalChessMoves(completeGame)[0];
+          const move = candidate ?? fallback;
+          if (!move) return;
+          const nextGame = applyChessMove(completeGame, move);
+          setCompleteGame(nextGame);
+          setBoard(nextGame.board);
+          const nextEndgamePrompt = chooseEndgameTrainingPrompt(nextGame);
+          setEndgamePrompt(nextEndgamePrompt);
+          setMiddlegamePrompt(nextEndgamePrompt ? null : chooseMiddlegameTrainingPrompt(nextGame, { difficulty: trainingDifficulty }));
+          setLastMove([squareName(move.from), squareName(move.to)]);
+          setMoveHistory((history) => [...history, "Rival: " + squareName(move.from) + "–" + squareName(move.to)]);
+          setTurn(nextGame.turn);
+          setSelected(null);
+          setPromotionPending(null);
+          setUnexpectedEvent(null);
+          setCompleteUnexpectedChallenge(null);
+          setFocusCue('El rival respondió con Stockfish. Vuelve a evaluar amenazas, capturas y el objetivo del ejercicio.');
+        })
+        .catch((error) => {
+          setStockfishReady(false);
+          setStockfishError(error instanceof Error ? error.message : 'Stockfish no pudo elegir la jugada rival.');
+          const candidates = getLegalChessMoves(completeGame);
+          if (candidates.length) {
+            const move = candidates[Math.floor(Math.random() * candidates.length)];
+            const nextGame = applyChessMove(completeGame, move);
+            setCompleteGame(nextGame);
+            setBoard(nextGame.board);
+            setLastMove([squareName(move.from), squareName(move.to)]);
+            setMoveHistory((history) => [...history, "Rival: " + squareName(move.from) + "–" + squareName(move.to)]);
+            setTurn(nextGame.turn);
+            setSelected(null);
+          }
+        })
+        .finally(() => { stockfishOpponentBusyRef.current = false; });
+    }, 250);
     return () => window.clearTimeout(timer);
-  }, [mode, completeGame, completeGameOver, unexpectedPlayEnabled, unexpectedDifficulty]);
+  }, [mode, completeGame, completeGameOver, trainingDifficulty]);
 
   const resetFreePractice = () => {
     const freshCompleteGame = createChessGameState();
@@ -421,11 +454,19 @@ function Home() {
     setEndgameErrors(0);
     const endgame = chooseEndgameTrainingPrompt(freshGame);
     setEndgamePrompt(endgame);
-    setMiddlegamePrompt(focus === 'middlegame' ? chooseMiddlegameTrainingPrompt(freshGame, { difficulty: 'intermedio' }) : null);
+    setMiddlegamePrompt(focus === 'middlegame' ? chooseMiddlegameTrainingPrompt(freshGame, { difficulty: trainingDifficulty }) : null);
     setTrainingSelection(null);
     setOpeningNodeId(null);
     setUnexpectedEvent(null);
     setUnexpectedChallenge(null);
+  };
+
+  const startPuzzleTraining = (selection: PuzzleFocus = puzzleFocus) => {
+    const focus = selection === 'random'
+      ? (Math.random() < 0.5 ? 'middlegame' : 'endgame')
+      : selection;
+    setPuzzleFocus(selection);
+    startFocusedTraining(focus);
   };
 
   const startCompleteGame = () => {
@@ -452,7 +493,7 @@ function Home() {
     setMiddlegameErrors(0);
     setEndgameErrors(0);
     setEndgamePrompt(chooseEndgameTrainingPrompt(freshCompleteGame));
-    setMiddlegamePrompt(chooseMiddlegameTrainingPrompt(freshCompleteGame, { difficulty: 'intermedio' }));
+    setMiddlegamePrompt(chooseMiddlegameTrainingPrompt(freshCompleteGame, { difficulty: trainingDifficulty }));
     setTrainingSelection(null);
     setOpeningNodeId(null);
     setUnexpectedEvent(null);
@@ -479,70 +520,7 @@ function Home() {
     resetFreePractice();
   };
 
-  const handleUnexpectedMove = (from: Square, to: Square) => {
-    if (!unexpectedChallenge) return false;
-    const move = { from, to };
-    const legalResponse = getLegalMoves(board, from).some((square) => square.row === to.row && square.col === to.col);
-    if (!legalResponse) return true;
-
-    const challenge = unexpectedChallenge;
-    const event = challenge.event;
-    const explanation = event.type === 'amenaza'
-      ? 'Respuesta válida: primero neutralizaste la amenaza y evitaste continuar de memoria.'
-      : event.type === 'sacrificio'
-        ? 'Respuesta válida: calculaste la posición después del sacrificio antes de continuar.'
-        : 'Respuesta válida: reaccionaste a la desviación y volviste a evaluar la posición.';
-
-    // La respuesta del jugador a la desviación debe quedar realmente en la posición.
-    // Después intentamos continuar la línea teórica solo con respuestas legales;
-    // así evitamos "hacer desaparecer" la respuesta del alumno o encadenar jugadas
-    // rivales que ya no son legales tras el juego inesperado.
-    let resumedBoard = applyBoardMove(challenge.resumeBoard, move);
-    const resumedHistory = [
-      ...challenge.resumeHistory,
-      `Respuesta: ${squareName(from)}–${squareName(to)}`,
-    ];
-    const appliedAutomaticMoves: OpeningMove[] = [];
-
-    for (const automaticMove of challenge.pendingAutomaticMoves) {
-      const legal = getLegalMoves(resumedBoard, squareFromName(automaticMove.from)).some(
-        (target) => target.row === squareFromName(automaticMove.to).row && target.col === squareFromName(automaticMove.to).col,
-      );
-      if (!legal) break;
-      resumedBoard = applyOpeningMove(resumedBoard, automaticMove);
-      appliedAutomaticMoves.push(automaticMove);
-    }
-
-    const finalHistory = [
-      ...resumedHistory,
-      ...appliedAutomaticMoves.map((automaticMove) => automaticMove.notation),
-    ];
-
-    setBoard(resumedBoard);
-    setLastMove(
-      appliedAutomaticMoves.length
-        ? [
-            appliedAutomaticMoves[appliedAutomaticMoves.length - 1].from,
-            appliedAutomaticMoves[appliedAutomaticMoves.length - 1].to,
-          ]
-        : [squareName(from), squareName(to)],
-    );
-    setMoveHistory(finalHistory);
-    setTurn(challenge.resumeTurn);
-    setSelected(null);
-    setOpeningNodeId(challenge.pendingNextNodeId);
-    setUnexpectedChallenge(null);
-    setUnexpectedEvent(null);
-    setTrainingStatus('correct');
-    setTrainingExplanation(`Juego inesperado superado. ${explanation}`);
-    return true;
-  };
-
   const handleOpeningMove = (from: Square, to: Square) => {
-    if (unexpectedChallenge) {
-      handleUnexpectedMove(from, to);
-      return;
-    }
     if (!expectedMove || !expectedNode || !openingVariant || !openingTree || !trainingTurno) return;
 
     const fromName = squareName(from);
@@ -616,36 +594,7 @@ function Home() {
 
     setOpeningOpponentPending(true);
     window.setTimeout(() => {
-      const nextUnexpectedEvent = unexpectedPlayEnabled
-        ? chooseUnexpectedSituation(playerBoard, getOpponentSide(trainingPlayerColor), { enabled: true, difficulty: unexpectedDifficulty })
-        : null;
-
-      // Juego inesperado sustituye la respuesta teórica inmediata: nunca hacemos dos jugadas consecutivas del rival.
-      if (nextUnexpectedEvent?.move) {
-        const challengeMove = nextUnexpectedEvent.move;
-        const challengeBoard = applyBoardMove(playerBoard, challengeMove);
-        setBoard(challengeBoard);
-        setLastMove([
-          nextUnexpectedEvent.from ?? squareName(challengeMove.from),
-          nextUnexpectedEvent.to ?? squareName(challengeMove.to),
-        ]);
-        setMoveHistory([...playerHistory, `Inesperado: ${nextUnexpectedEvent.from ?? squareName(challengeMove.from)}–${nextUnexpectedEvent.to ?? squareName(challengeMove.to)}`]);
-        setOpeningNodeId(expectedNode.id);
-        setOpeningOpponentPending(false);
-        setUnexpectedChallenge({
-          event: nextUnexpectedEvent,
-          resumeNodeId: expectedNode.id,
-          resumeBoard: challengeBoard,
-          resumeHistory: [...playerHistory, `Inesperado: ${nextUnexpectedEvent.from ?? squareName(challengeMove.from)}–${nextUnexpectedEvent.to ?? squareName(challengeMove.to)}`],
-          resumeTurn: trainingPlayerColor,
-          pendingAutomaticMoves: automaticMoves,
-          pendingNextNodeId: nextNodeId,
-        });
-        setUnexpectedEvent(nextUnexpectedEvent);
-        setTrainingStatus('correct');
-        return;
-      }
-
+      // La apertura sigue exclusivamente la línea teórica seleccionada; no hay juego inesperado.
       setBoard(nextBoard);
       const lastAppliedMove = automaticMoves[automaticMoves.length - 1] ?? expectedMove;
       setLastMove([lastAppliedMove.from, lastAppliedMove.to]);
@@ -687,10 +636,10 @@ function Home() {
     if (trainingFocus === 'endgame') {
       setEndgamePrompt(chooseEndgameTrainingPrompt(nextGame));
     } else if (trainingFocus === 'middlegame') {
-      setMiddlegamePrompt(chooseMiddlegameTrainingPrompt(nextGame, { difficulty: 'intermedio' }));
+      setMiddlegamePrompt(chooseMiddlegameTrainingPrompt(nextGame, { difficulty: trainingDifficulty }));
     } else {
       setEndgamePrompt(chooseEndgameTrainingPrompt(nextGame));
-      setMiddlegamePrompt(chooseMiddlegameTrainingPrompt(nextGame, { difficulty: 'intermedio' }));
+      setMiddlegamePrompt(chooseMiddlegameTrainingPrompt(nextGame, { difficulty: trainingDifficulty }));
     }
 
     const nextStatus = getChessGameStatus(nextGame);
@@ -706,7 +655,7 @@ function Home() {
     );
     const periodicPosition = previousGame.positionHistory.length % 4 === 0;
     const focusedTraining = trainingFocus === 'middlegame' || trainingFocus === 'endgame';
-    const shouldAutoAnalyze = previousGame.turn === 'white' && (focusedTraining || tacticalPosition || periodicPosition);
+    const shouldAutoAnalyze = previousGame.turn === 'white';
 
     if (shouldAutoAnalyze && !stockfishMoveBusyRef.current) {
       const requestId = ++stockfishAnalysisRequestRef.current;
@@ -749,12 +698,12 @@ function Home() {
     if (trainingFocus === 'endgame') {
       if (endgameEvaluation?.fulfilled) setEndgamePrompt(chooseEndgameTrainingPrompt(nextGame));
     } else if (trainingFocus === 'middlegame') {
-      if (middlegameEvaluation?.fulfilled) setMiddlegamePrompt(chooseMiddlegameTrainingPrompt(nextGame, { difficulty: 'intermedio' }));
+      if (middlegameEvaluation?.fulfilled) setMiddlegamePrompt(chooseMiddlegameTrainingPrompt(nextGame, { difficulty: trainingDifficulty }));
       setEndgamePrompt(null);
     } else {
       const reachedEndgame = chooseEndgameTrainingPrompt(nextGame);
       setEndgamePrompt(reachedEndgame);
-      setMiddlegamePrompt(reachedEndgame ? null : chooseMiddlegameTrainingPrompt(nextGame, { difficulty: 'intermedio' }));
+      setMiddlegamePrompt(reachedEndgame ? null : chooseMiddlegameTrainingPrompt(nextGame, { difficulty: trainingDifficulty }));
     }
     setLastMove([squareName(move.from), squareName(move.to)]);
     setMoveHistory((history) => [...history, `${squareName(move.from)}–${squareName(move.to)}${move.promotion ? '=' + move.promotion[0].toUpperCase() : ''}`]);
@@ -775,44 +724,6 @@ function Home() {
   };
 
   const handleSquareClick = (row: number, col: number) => {
-    if (mode === 'complete' && completeUnexpectedChallenge) {
-      const clickedPiece = board[row][col];
-      const clickedIsLegal = legalKeySet.has(`${row}-${col}`);
-      if (selected && clickedIsLegal) {
-        const moveCandidates = getLegalChessMoves(completeGame).filter(
-          (candidate) =>
-            candidate.from.row === selected.row &&
-            candidate.from.col === selected.col &&
-            candidate.to.row === row &&
-            candidate.to.col === col,
-        );
-        if (!moveCandidates.length) return;
-        if (moveCandidates.some((move) => move.promotion)) {
-          setPromotionPending({ from: selected, to: { row, col } });
-          return;
-        }
-        const move = moveCandidates[0];
-        const nextGame = applyChessMove(completeGame, move);
-        setCompleteGame(nextGame);
-        setBoard(nextGame.board);
-        setLastMove([squareName(move.from), squareName(move.to)]);
-        setMoveHistory((history) => [...history, `${squareName(move.from)}–${squareName(move.to)}${move.promotion ? '=' + move.promotion[0].toUpperCase() : ''}`]);
-        setTurn(nextGame.turn);
-        setSelected(null);
-        setCompleteUnexpectedChallenge(null);
-        setUnexpectedEvent(null);
-        setCompleteFeedback('Respuesta registrada. La situación inesperada fue integrada en la partida; ahora vuelve a comprobar jaques, capturas y amenazas.');
-        setFocusCue('Respuesta realizada. Vuelve a evaluar la posición desde cero antes de continuar.');
-        return;
-      }
-      if (clickedPiece?.color === 'white') {
-        setSelected({ row, col });
-        setFocusCue('Situación inesperada: identifica primero la amenaza y luego elige tu respuesta.');
-        return;
-      }
-      setSelected(null);
-      return;
-    }
     if (mode === 'opening' && unexpectedChallenge) {
       const clickedPiece = board[row][col];
       const clickedIsLegal = legalKeySet.has(`${row}-${col}`);
@@ -929,11 +840,8 @@ function Home() {
                 <span className="text-[12px] font-bold text-[#2c4039]">Modo completo</span>
                 {mode === 'complete' && <span className="ml-auto size-1.5 rounded-full bg-[#c38a3d]" />}
               </button>
-              <button type="button" onClick={() => startFocusedTraining('middlegame')} className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left transition-colors hover:bg-[#e5ddce]">
-                <BookOpen size={16} className="text-[#1f5b49]" /><span className="text-[12px] font-bold text-[#2c4039]">Entrenamiento de medio juego</span>
-              </button>
-              <button type="button" onClick={() => startFocusedTraining('endgame')} className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left transition-colors hover:bg-[#e5ddce]">
-                <Crown size={16} className="text-[#c38a3d]" /><span className="text-[12px] font-bold text-[#2c4039]">Entrenamiento de finales</span>
+              <button type="button" onClick={() => startPuzzleTraining()} className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left transition-colors hover:bg-[#e5ddce]">
+                <Target size={16} className="text-[#1f5b49]" /><span className="text-[12px] font-bold text-[#2c4039]">Puzzles</span>
               </button>
               <button
                 type="button"
@@ -992,8 +900,7 @@ function Home() {
             <div className="flex items-center gap-2 sm:gap-4">
               <div className="flex max-w-[190px] items-center gap-1 overflow-x-auto rounded-lg border border-[#cfc5b3] bg-[#e5dece] p-1 lg:hidden" data-testid="mobile-training-modes">
                 <button type="button" onClick={() => startOpeningTraining()} className={`shrink-0 rounded-md px-2 py-1.5 text-[9px] font-bold ${trainingFocus === 'opening' ? 'bg-[#1f5b49] text-[#f5efdf]' : 'text-[#5f7067]'}`}>Apertura</button>
-                <button type="button" onClick={() => startFocusedTraining('middlegame')} className={`shrink-0 rounded-md px-2 py-1.5 text-[9px] font-bold ${trainingFocus === 'middlegame' ? 'bg-[#1f5b49] text-[#f5efdf]' : 'text-[#5f7067]'}`}>Medio juego</button>
-                <button type="button" onClick={() => startFocusedTraining('endgame')} className={`shrink-0 rounded-md px-2 py-1.5 text-[9px] font-bold ${trainingFocus === 'endgame' ? 'bg-[#1f5b49] text-[#f5efdf]' : 'text-[#5f7067]'}`}>Final</button>
+                <button type="button" onClick={() => startPuzzleTraining()} className={`shrink-0 rounded-md px-2 py-1.5 text-[9px] font-bold ${trainingFocus === 'middlegame' || trainingFocus === 'endgame' ? 'bg-[#1f5b49] text-[#f5efdf]' : 'text-[#5f7067]'}`}>Puzzles</button>
                 <button type="button" onClick={startCompleteGame} className={`shrink-0 rounded-md px-2 py-1.5 text-[9px] font-bold ${trainingFocus === 'complete' && mode === 'complete' ? 'bg-[#1f5b49] text-[#f5efdf]' : 'text-[#5f7067]'}`}>Completa</button>
               </div>
               <div className="hidden items-center gap-2 rounded-full border border-[#cfc5b3] bg-[#e5dece] px-3 py-1.5 sm:flex">
@@ -1031,6 +938,21 @@ function Home() {
                 </div>
                  {mode === 'opening' ? (
                    <>
+                     {mode !== 'opening' && (
+                       <div className="mb-3 flex flex-wrap items-center gap-2">
+                         <span className="rounded-full bg-[#e3e8dc] px-3 py-1.5 text-[10px] font-extrabold text-[#30473e]">Puzzles</span>
+                         <select value={puzzleFocus} onChange={(event) => { const value = event.target.value as PuzzleFocus; setPuzzleFocus(value); startPuzzleTraining(value); }} className="rounded-full border border-[#c8c0b0] bg-[#eee8dc] px-3 py-1.5 text-[10px] font-bold text-[#5f7067]" aria-label="Tipo de puzzle">
+                           <option value="random">Aleatorio</option>
+                           <option value="middlegame">Medio juego</option>
+                           <option value="endgame">Finales</option>
+                         </select>
+                         <select value={trainingDifficulty} onChange={(event) => setTrainingDifficulty(event.target.value as TrainingDifficulty)} className="rounded-full border border-[#c8c0b0] bg-[#eee8dc] px-3 py-1.5 text-[10px] font-bold text-[#5f7067]" aria-label="Dificultad">
+                           <option value="fundamentos">Fundamentos</option>
+                           <option value="intermedio">Intermedio</option>
+                           <option value="avanzado">Avanzado</option>
+                         </select>
+                       </div>
+                     )}
                      <h2 className="max-w-[580px] text-[clamp(2rem,4vw,3.5rem)] font-extrabold leading-[0.98] tracking-[-0.075em] text-[#20362e]">
                        Entrenamiento de<br className="hidden sm:block" /> Aperturas
                      </h2>
@@ -1061,35 +983,7 @@ function Home() {
                        <p className="text-[13px] font-semibold text-[#5f7067]" data-testid="text-new-variant">
                          Nueva variante: <span className="text-[#1f5b49]">{openingVariant?.name ?? 'seleccionando...'}</span>
                        </p>
-                       <button
-                         type="button"
-                         onClick={() => setUnexpectedPlayEnabled((enabled) => !enabled)}
-                         className={`rounded-full border px-3 py-1.5 text-[10px] font-bold transition-colors ${unexpectedPlayEnabled ? 'border-[#1f5b49] bg-[#1f5b49] text-[#f5efdf]' : 'border-[#c8c0b0] bg-[#eee8dc] text-[#5f7067]'}`}
-                         data-testid="toggle-unexpected-play"
-                       >
-                         {unexpectedPlayEnabled ? 'Juego inesperado: activo' : 'Juego inesperado: apagado'}
-                       </button>
-                       {unexpectedPlayEnabled && (
-                         <select
-                           value={unexpectedDifficulty}
-                           onChange={(event) => setUnexpectedDifficulty(event.target.value as typeof unexpectedDifficulty)}
-                           className="rounded-full border border-[#c8c0b0] bg-[#eee8dc] px-3 py-1.5 text-[10px] font-bold text-[#5f7067]"
-                           aria-label="Dificultad del juego inesperado"
-                         >
-                           <option value="fundamentos">Inesperado: fundamentos</option>
-                           <option value="intermedio">Inesperado: intermedio</option>
-                           <option value="avanzado">Inesperado: avanzado</option>
-                         </select>
-                       )}
                      </div>
-                     {unexpectedEvent && unexpectedPlayEnabled && (
-                       <div className="mt-3 rounded-xl border border-[#c9b98f] bg-[#eee4cc] px-3 py-2.5" data-testid="unexpected-event">
-                         <p className="text-[11px] font-extrabold text-[#5f563f]">{unexpectedEvent.title}</p>
-                         <p className="mt-1 text-[11px] leading-relaxed text-[#6c634d]">{unexpectedEvent.message}</p>
-                         {unexpectedEvent.concrete && unexpectedEvent.from && unexpectedEvent.to && <p className="mt-2 font-mono text-[10px] font-bold text-[#5f563f]">Situación concreta: {unexpectedEvent.from}–{unexpectedEvent.to}</p>}
-                         {unexpectedChallenge && <p className="mt-2 text-[11px] font-extrabold text-[#5f563f]">Responde a esta situación para continuar el entrenamiento.</p>}
-                       </div>
-                     )}
                    </>
                  ) : (
                    <>
@@ -1098,6 +992,15 @@ function Home() {
                      </h2>
                      {mode === 'complete' && (
                        <div className="mt-4 flex flex-wrap items-center gap-2">
+                         <label className="text-[10px] font-bold text-[#5f7067]">Dificultad rival</label>
+                         <select value={trainingDifficulty} onChange={(event) => setTrainingDifficulty(event.target.value as TrainingDifficulty)} className="rounded-full border border-[#c8c0b0] bg-[#eee8dc] px-3 py-1.5 text-[10px] font-bold text-[#5f7067]" aria-label="Dificultad del rival">
+                           <option value="fundamentos">Fundamentos</option>
+                           <option value="intermedio">Intermedio</option>
+                           <option value="avanzado">Avanzado</option>
+                         </select>
+                         <span className={`rounded-full border px-3 py-1.5 text-[10px] font-bold ${stockfishReady ? 'border-[#1f5b49] bg-[#e4eee8] text-[#1f5b49]' : 'border-[#c9b98f] bg-[#eee4cc] text-[#6c634d]'}`} data-testid="stockfish-status">
+                           {stockfishReady ? 'Stockfish activo' : 'Activando Stockfish…'}
+                         </span>
                          <button
                            type="button"
                            onClick={analyzeWithStockfish}
@@ -1150,26 +1053,7 @@ function Home() {
                              )}
                            </div>
                          )}
-                         <button
-                           type="button"
-                           onClick={() => setUnexpectedPlayEnabled((enabled) => !enabled)}
-                           className={`rounded-full border px-3 py-1.5 text-[10px] font-bold transition-colors ${unexpectedPlayEnabled ? 'border-[#1f5b49] bg-[#1f5b49] text-[#f5efdf]' : 'border-[#c8c0b0] bg-[#eee8dc] text-[#5f7067]'}`}
-                           data-testid="toggle-complete-unexpected"
-                         >
-                           {unexpectedPlayEnabled ? 'Juego inesperado: activo' : 'Juego inesperado: apagado'}
-                         </button>
-                         {unexpectedPlayEnabled && (
-                           <select
-                             value={unexpectedDifficulty}
-                             onChange={(event) => setUnexpectedDifficulty(event.target.value as typeof unexpectedDifficulty)}
-                             className="rounded-full border border-[#c8c0b0] bg-[#eee8dc] px-3 py-1.5 text-[10px] font-bold text-[#5f7067]"
-                             aria-label="Dificultad del juego inesperado en modo completo"
-                           >
-                             <option value="fundamentos">Inesperado: fundamentos</option>
-                             <option value="intermedio">Inesperado: intermedio</option>
-                             <option value="avanzado">Inesperado: avanzado</option>
-                           </select>
-                         )}
+
                        </div>
                      )}
                    </>
@@ -1239,6 +1123,8 @@ function Home() {
                         const isSelected = selected?.row === rowIndex && selected?.col === colIndex;
                         const isLegal = legalKeySet.has(key);
                         const isLastMove = lastMove?.includes(squareName({ row: rowIndex, col: colIndex })) ?? false;
+                        const isHintFrom = mode === 'opening' && trainingStatus === 'incorrect' && hintLevel >= 2 && expectedMove?.from === squareName({ row: rowIndex, col: colIndex });
+                        const isHintTo = mode === 'opening' && trainingStatus === 'incorrect' && hintLevel >= 3 && expectedMove?.to === squareName({ row: rowIndex, col: colIndex });
                         const isLight = (rowIndex + colIndex) % 2 === 0;
                         return (
                           <button
@@ -1247,7 +1133,7 @@ function Home() {
                             onClick={() => handleSquareClick(rowIndex, colIndex)}
                             data-testid={`square-${squareName({ row: rowIndex, col: colIndex })}`}
                             aria-label={`${squareName({ row: rowIndex, col: colIndex })}${piece ? ` ${piece.color} ${piece.type}` : ''}`}
-                            className={`chess-square ${isLight ? 'board-light text-[#527062]' : 'board-dark text-[#e5ddc8]'} ${isSelected ? 'selected' : ''} ${isLegal ? (piece ? 'legal capture' : 'legal') : ''} ${isLastMove ? 'last-move' : ''}`}
+                            className={`chess-square ${isLight ? 'board-light text-[#527062]' : 'board-dark text-[#e5ddc8]'} ${isSelected ? 'selected' : ''} ${isLegal ? (piece ? 'legal capture' : 'legal') : ''} ${isLastMove ? 'last-move' : ''} ${isHintFrom ? 'hint-from' : ''} ${isHintTo ? 'hint-to' : ''}`}
                           >
                             {displayColIndex === 0 && <span className="board-coord board-rank">{8 - rowIndex}</span>}
                             {displayRowIndex === 7 && <span className="board-coord board-file">{files[colIndex]}</span>}
@@ -1266,7 +1152,7 @@ function Home() {
 
                 <div className="mt-4 xl:hidden rounded-xl border border-[#d1c8b7] bg-[#f2ece0] p-3.5" data-testid="mobile-training-summary">
                   <div className="flex items-center justify-between gap-3">
-                    <p className="text-[13px] font-extrabold text-[#30473e]">{mode === 'opening' ? (unexpectedChallenge ? '⚠️ Responde a la situación inesperada' : trainingStatus === 'incorrect' ? 'Movimiento incorrecto' : trainingStatus === 'complete' ? '✅ Variante completada' : trainingStatus === 'correct' ? 'Movimiento correcto' : `Tu turno · ${trainingPlayerColor === 'white' ? 'blancas' : 'negras'}`) : trainingFocus === 'middlegame' ? '🎯 Medio juego' : trainingFocus === 'endgame' ? '♔ Final' : trainingFocus === 'complete' ? '♟ Partida completa' : 'Práctica libre'}</p>
+                    <p className="text-[13px] font-extrabold text-[#30473e]">{mode === 'opening' ? (trainingStatus === 'incorrect' ? 'Movimiento incorrecto' : trainingStatus === 'complete' ? '✅ Variante completada' : trainingStatus === 'correct' ? 'Movimiento correcto' : `Tu turno · ${trainingPlayerColor === 'white' ? 'blancas' : 'negras'}`) : trainingFocus === 'middlegame' ? '🎯 Medio juego' : trainingFocus === 'endgame' ? '♔ Final' : trainingFocus === 'complete' ? '♟ Partida completa' : 'Práctica libre'}</p>
                     <span className="font-mono text-[10px] font-bold text-[#7b897f]">{moveHistory.length} jug.</span>
                   </div>
                   {mode === 'opening' && trainingStatus === 'incorrect' && expectedMove && hintLevel > 0 && <p className="mt-2 rounded-lg bg-[#e8dfcf] px-3 py-2 text-[11px] font-semibold leading-relaxed text-[#5b6c62]">💡 Pista {Math.min(hintLevel, 3)}: {expectedMove.hints[Math.min(hintLevel, 3) - 1]}</p>}
@@ -1291,7 +1177,7 @@ function Home() {
               <aside className="hidden fade-up fade-up-delay-2 xl:block xl:pt-7">
                 <div className="rounded-2xl border border-[#d1c8b7] bg-[#f2ece0] p-5 shadow-[0_12px_30px_rgba(65,70,58,.06)] sm:p-6">
                   <div className="flex items-center justify-between">
-                     <p className="font-mono text-[9px] font-medium uppercase tracking-[0.2em] text-[#7b897f]">{mode === 'opening' ? 'Entrenador de aperturas' : trainingFocus === 'middlegame' ? 'Entrenador de medio juego' : trainingFocus === 'endgame' ? 'Entrenador de finales' : 'Estado de la partida'}</p>
+                     <p className="font-mono text-[9px] font-medium uppercase tracking-[0.2em] text-[#7b897f]">{mode === 'opening' ? 'Entrenador de aperturas' : trainingFocus === 'middlegame' ? 'Entrenador de puzzles' : trainingFocus === 'endgame' ? 'Entrenador de puzzles' : 'Estado de la partida'}</p>
                      {mode === 'opening' ? <Lightbulb size={15} className="text-[#c38a3d]" /> : <BookOpen size={15} className="text-[#1f5b49]" />}
                   </div>
                    {mode === 'opening' ? (
@@ -1304,7 +1190,7 @@ function Home() {
                          </p>
                        )}
                        <p className={`text-[16px] font-bold leading-snug tracking-[-0.03em] ${trainingStatus === 'incorrect' ? 'text-[#9e4138]' : 'text-[#30473e]'}`} data-testid="text-training-status">
-                           {unexpectedChallenge ? '⚠️ Responde a la situación inesperada' : trainingStatus === 'incorrect' ? 'Movimiento incorrecto' : trainingStatus === 'complete' ? '✅ Variante completada' : trainingStatus === 'correct' ? 'Movimiento correcto' : trainingComplete ? '✅ Variante completada' : `Encuentra la siguiente jugada de ${trainingPlayerColor === 'white' ? 'blancas' : 'negras'}.`}
+                           {trainingStatus === 'incorrect' ? 'Movimiento incorrecto' : trainingStatus === 'complete' ? '✅ Variante completada' : trainingStatus === 'correct' ? 'Movimiento correcto' : trainingComplete ? '✅ Variante completada' : `Encuentra la siguiente jugada de ${trainingPlayerColor === 'white' ? 'blancas' : 'negras'}.`}
                          </p>
                        </div>
                        {trainingStatus === 'incorrect' && expectedMove && hintLevel > 0 && (
@@ -1376,19 +1262,19 @@ function Home() {
                            ⚠️ Juego inesperado: responde a la situación antes de continuar tu plan.
                          </p>
                        )}
-                       {mode === 'complete' && endgamePrompt && !freeGameOver && !completeUnexpectedChallenge && (
+                       {mode === 'complete' && endgamePrompt && !freeGameOver && (
                        <div className="mt-3 rounded-lg bg-[#e8dfcf] px-3 py-2.5" data-testid="text-endgame-objective">
                          <p className="text-[11px] font-extrabold text-[#30473e]">♔ Final: {endgamePrompt.title}</p>
                          <p className="mt-1 text-[11px] leading-relaxed text-[#486257]">{endgamePrompt.instruction}</p>
                          <p className="mt-1 text-[10px] leading-relaxed text-[#718078]">{endgamePrompt.rationale}</p>
                        </div>
                      )}
-                     {mode === 'complete' && middlegamePrompt && !freeGameOver && !completeUnexpectedChallenge && !endgamePrompt && (
+                     {mode === 'complete' && middlegamePrompt && !freeGameOver && !endgamePrompt && (
                        <div className="mt-3 rounded-lg bg-[#e3e8dc] px-3 py-2.5" data-testid="text-middlegame-objective">
                          <p className="text-[11px] font-extrabold text-[#30473e]">🎯 Objetivo: {middlegamePrompt.title}</p>
                          <p className="mt-1 text-[11px] leading-relaxed text-[#486257]">{middlegamePrompt.instruction}</p>
                          <p className="mt-1 text-[10px] leading-relaxed text-[#718078]">{middlegamePrompt.rationale}</p>
-                         <button type="button" onClick={() => setMiddlegamePrompt(chooseMiddlegameTrainingPrompt(completeGame, { difficulty: 'intermedio' }))} className="mt-2 rounded-full border border-[#c8c0b0] bg-[#f1ebdf] px-2.5 py-1 text-[9px] font-bold text-[#5f7067] hover:border-[#1f5b49] hover:text-[#1f5b49]">Nuevo objetivo</button>
+                         <button type="button" onClick={() => setMiddlegamePrompt(chooseMiddlegameTrainingPrompt(completeGame, { difficulty: trainingDifficulty }))} className="mt-2 rounded-full border border-[#c8c0b0] bg-[#f1ebdf] px-2.5 py-1 text-[9px] font-bold text-[#5f7067] hover:border-[#1f5b49] hover:text-[#1f5b49]">Nuevo objetivo</button>
                        </div>
                      )}
                      {mode === 'complete' && completeFeedback && !freeGameOver && (
