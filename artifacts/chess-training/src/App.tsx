@@ -279,7 +279,7 @@ function Home() {
   const freeWinnerLabel = turn === 'white' ? 'negras' : 'blancas';
 
   useEffect(() => {
-    if (mode !== 'complete' || completeGame.turn !== 'black' || completeGameOver || stockfishOpponentBusyRef.current) return;
+    if (mode !== 'complete' || completeGame.turn !== 'black' || completeGameOver || stockfishOpponentBusyRef.current || stockfishMoveLoading) return;
     const timer = window.setTimeout(() => {
       if (stockfishOpponentBusyRef.current) return;
       stockfishOpponentBusyRef.current = true;
@@ -328,7 +328,7 @@ function Home() {
         .finally(() => { stockfishOpponentBusyRef.current = false; });
     }, 250);
     return () => window.clearTimeout(timer);
-  }, [mode, completeGame, completeGameOver, trainingDifficulty]);
+  }, [mode, completeGame, completeGameOver, trainingDifficulty, stockfishMoveLoading]);
 
   const resetFreePractice = () => {
     const freshCompleteGame = createChessGameState();
