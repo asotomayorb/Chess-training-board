@@ -1048,7 +1048,7 @@ function Home() {
                               : `Turno de ${freeTurnoLabel}`}
                     </span>
                   </div>
-                  <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-[#879389]">{mode === 'opening' ? 'apertura' : trainingFocus === 'middlegame' ? 'medio juego' : trainingFocus === 'endgame' ? 'final' : trainingFocus === 'complete' ? 'partida completa' : 'práctica libre'}</span>
+                  <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-[#879389]">{mode === 'opening' ? 'apertura' : (trainingFocus === 'middlegame' || trainingFocus === 'endgame') ? 'puzzles' : trainingFocus === 'complete' ? 'partida completa' : 'práctica libre'}</span>
                 </div>
 
                 {promotionPending && mode === 'complete' && (
@@ -1119,7 +1119,7 @@ function Home() {
 
                 <div className="mt-4 xl:hidden rounded-xl border border-[#d1c8b7] bg-[#f2ece0] p-3.5" data-testid="mobile-training-summary">
                   <div className="flex items-center justify-between gap-3">
-                    <p className="text-[13px] font-extrabold text-[#30473e]">{mode === 'opening' ? (trainingStatus === 'incorrect' ? 'Movimiento incorrecto' : trainingStatus === 'complete' ? '✅ Variante completada' : trainingStatus === 'correct' ? 'Movimiento correcto' : `Tu turno · ${trainingPlayerColor === 'white' ? 'blancas' : 'negras'}`) : trainingFocus === 'middlegame' ? '🎯 Medio juego' : trainingFocus === 'endgame' ? '♔ Final' : trainingFocus === 'complete' ? '♟ Partida completa' : 'Práctica libre'}</p>
+                    <p className="text-[13px] font-extrabold text-[#30473e]">{mode === 'opening' ? (trainingStatus === 'incorrect' ? 'Movimiento incorrecto' : trainingStatus === 'complete' ? '✅ Variante completada' : trainingStatus === 'correct' ? 'Movimiento correcto' : `Tu turno · ${trainingPlayerColor === 'white' ? 'blancas' : 'negras'}`) : (trainingFocus === 'middlegame' || trainingFocus === 'endgame') ? '🧩 Puzzles' : trainingFocus === 'complete' ? '♟ Partida completa' : 'Práctica libre'}</p>
                     <span className="font-mono text-[10px] font-bold text-[#7b897f]">{moveHistory.length} jug.</span>
                   </div>
                   {mode === 'opening' && trainingStatus === 'incorrect' && expectedMove && hintLevel > 0 && <p className="mt-2 rounded-lg bg-[#e8dfcf] px-3 py-2 text-[11px] font-semibold leading-relaxed text-[#5b6c62]">💡 Pista {Math.min(hintLevel, 3)}: {expectedMove.hints[Math.min(hintLevel, 3) - 1]}</p>}
