@@ -194,11 +194,6 @@ function Home() {
   }, []);
 
   useEffect(() => {
-    const shouldLoad = mode === 'complete';
-    if (!shouldLoad) {
-      setStockfishReady(false);
-      return;
-    }
     let cancelled = false;
     const engine = stockfishRef.current ?? new StockfishEngine();
     stockfishRef.current = engine;
@@ -211,7 +206,7 @@ function Home() {
         }
       });
     return () => { cancelled = true; };
-  }, [mode]);
+  }, []);
 
   const analyzeWithStockfish = async () => {
     if (mode !== 'complete' || stockfishLoading) return;
