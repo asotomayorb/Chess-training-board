@@ -359,3 +359,10 @@ body {
   overflow-wrap: anywhere;
   word-break: normal;
 }
+
+.chess-square.puzzle-error-from {
+  box-shadow: inset 0 0 0 4px rgba(210, 171, 55, .95);
+}
+.chess-square.puzzle-error-to {
+  box-shadow: inset 0 0 0 5px rgba(42, 124, 91, .98);
+}
