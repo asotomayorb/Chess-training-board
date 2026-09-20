@@ -111,3 +111,15 @@ test('explica cuando la jugada deja un recurso táctico inmediato al rival', () 
   );
   assert.match(result.positionInsight, /captura de dama en d3/i);
 });
+
+
+test('no confunde un mate negativo con una oportunidad de mate propia', () => {
+  const result = classifyStockfishMove(quality({
+    bestMove: 'e2e3',
+    isBestMove: false,
+    bestScore: { type: 'mate', value: -2 },
+    playedScore: { type: 'mate', value: -1 },
+    centipawnLoss: null,
+  }));
+  assert.equal(result.quality, 'losing');
+});
