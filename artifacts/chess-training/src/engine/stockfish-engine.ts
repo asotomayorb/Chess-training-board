@@ -25,6 +25,8 @@ export type StockfishMoveQuality = {
 export type StockfishEngineOptions = {
   depth?: number;
   workerUrl?: string;
+  skillLevel?: number;
+  uciElo?: number;
 };
 
 const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
@@ -211,6 +213,15 @@ export class StockfishEngine {
       try {
         this.worker?.postMessage('stop');
         this.worker?.postMessage('ucinewgame');
+        if (options.skillLevel !== undefined) {
+          this.worker?.postMessage('setoption name UCI_LimitStrength value false');
+          this.worker?.postMessage('setoption name Skill Level value ' + Math.max(0, Math.min(20, Math.round(options.skillLevel))));
+        }
+        if (options.uciElo !== undefined) {
+          this.worker?.postMessage('setoption name UCI_LimitStrength value true');
+          this.worker?.postMessage('setoption name UCI_Elo value ' + Math.round(options.uciElo));
+        }
+        this.worker?.postMessage('isready');
         this.worker?.postMessage('position fen ' + fen);
         this.worker?.postMessage('go depth ' + depth);
       } catch (error) {
