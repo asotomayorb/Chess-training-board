@@ -341,7 +341,9 @@ function Home() {
     setBoard(freshCompleteGame.board);
     setMode('free');
     setTrainingFocus('complete');
-    setTurn('white');
+    setTurn(playerColor);
+    setTrainingPlayerColor(playerColor);
+    setTrainingSideChoice(sideChoice);
     setSelected(null);
     setLastMove(null);
     setMoveHistory([]);
@@ -420,14 +422,15 @@ function Home() {
     // El juego inesperado se activa después de la primera decisión del jugador, no al arrancar.
   };
 
-  const startFocusedTraining = (focus: Exclude<TrainingFocus, 'opening' | 'complete'>) => {
+  const startFocusedTraining = (focus: Exclude<TrainingFocus, 'opening' | 'complete'>, sideChoice: TrainingSideChoice = trainingSideChoice) => {
     setShowMainMenu(false);
     setSummaryDismissed(false);
     setUndoStack([]);
     const kind = focus === 'middlegame'
       ? 'middlegame' as const
       : (['opposition', 'rooks', 'queen'] as const)[Math.floor(Math.random() * 3)];
-    const freshGame = createFocusedGameState(makeTrainingBoard(kind), 'white');
+    const playerColor: OpeningColor = sideChoice === 'random' ? (Math.random() < 0.5 ? 'white' : 'black') : sideChoice;
+    const freshGame = createFocusedGameState(makeTrainingBoard(kind), playerColor);
     setCompleteGame(freshGame);
     setPromotionPending(null);
     setBoard(freshGame.board);
@@ -458,12 +461,12 @@ function Home() {
     setOpeningNodeId(null);
   };
 
-  const startPuzzleTraining = (selection: PuzzleFocus = puzzleFocus) => {
+  const startPuzzleTraining = (selection: PuzzleFocus = puzzleFocus, sideChoice: TrainingSideChoice = trainingSideChoice) => {
     const focus = selection === 'random'
       ? (Math.random() < 0.5 ? 'middlegame' : 'endgame')
       : selection;
     setPuzzleFocus(selection);
-    startFocusedTraining(focus);
+    startFocusedTraining(focus, sideChoice);
   };
 
   const startCompleteGame = (sideChoice: TrainingSideChoice = trainingSideChoice) => {
@@ -848,7 +851,7 @@ function Home() {
   return (
     <div className="app-grain min-h-[100dvh] overflow-x-hidden bg-[#e9e3d5]">
       <div className="relative mx-auto flex min-h-[100dvh] max-w-[1600px]">
-        <aside className="hidden w-[238px] shrink-0 flex-col border-r border-[#d3cbb9] bg-[#ded6c6] px-5 py-7 lg:flex">
+        <aside className="hidden">
           <div className="flex items-center gap-3">
             <div className="flex size-10 items-center justify-center rounded-xl bg-[#1f5b49] text-[#f4ecd9] shadow-[0_8px_18px_rgba(31,91,73,.18)]">
               <Crown size={20} strokeWidth={1.8} />
@@ -931,9 +934,10 @@ function Home() {
             <select value={mode === 'opening' ? 'opening' : mode === 'complete' && (trainingFocus === 'middlegame' || trainingFocus === 'endgame') ? 'puzzles' : 'free'} onChange={(event) => {
               if (event.target.value === 'opening') startOpeningTraining();
               else if (event.target.value === 'puzzles') startPuzzleTraining();
+              else if (event.target.value === 'config') { setShowMainMenu(true); setSummaryDismissed(true); }
               else startFreeGame('bot');
-            }} className="max-w-[150px] rounded-lg border border-[#c6bdac] bg-[#f1ebdf] px-3 py-2 text-[11px] font-bold text-[#40564b]">
-              <option value="opening">Aperturas</option><option value="puzzles">Puzzles</option><option value="free">Juego libre</option>
+            }} className="max-w-[170px] rounded-lg border border-[#c6bdac] bg-[#f1ebdf] px-3 py-2 text-[11px] font-bold text-[#40564b]">
+              <option value="opening">Aperturas</option><option value="puzzles">Puzzles</option><option value="free">Juego libre</option><option value="config">Configuraciones</option>
             </select>
           </header>
 
@@ -1044,7 +1048,15 @@ function Home() {
 
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#d1c8b7] bg-[#f2ece0] p-3">
                   <div className="flex gap-2"><button type="button" onClick={undoLastMove} disabled={!undoStack.length} className="rounded-lg border border-[#c8c0b0] bg-[#f6f0e4] px-3 py-2 text-[11px] font-bold text-[#40564b] disabled:opacity-40">Deshacer</button><button type="button" onClick={resetGame} className="rounded-lg border border-[#c8c0b0] bg-[#f6f0e4] px-3 py-2 text-[11px] font-bold text-[#40564b]">Reiniciar</button></div>
-                  <div className="flex gap-2">{([['white','Blancas'],['black','Negras'],['random','Aleatorio']] as const).map(([value,label])=><button key={value} type="button" onClick={()=>mode==='opening'?startOpeningTraining(trainingSelection??chooseVariant(),value):startFreeGame(localOpponent, value)} className={`rounded-lg border px-2.5 py-2 text-[10px] font-bold ${trainingSideChoice===value?'border-[#1f5b49] bg-[#1f5b49] text-[#f5efdf]':'border-[#c8c0b0] bg-[#f6f0e4] text-[#40564b]'}`}>{label}</button>)}</div>
+                  <label className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.08em] text-[#718078]">Bando<select value={trainingSideChoice} onChange={(event) => {
+                    const value = event.target.value as TrainingSideChoice;
+                    if (mode === 'opening') startOpeningTraining(trainingSelection ?? chooseVariant(), value);
+                    else if (mode === 'complete' && (trainingFocus === 'middlegame' || trainingFocus === 'endgame')) startPuzzleTraining(puzzleFocus, value);
+                    else if (mode === 'complete') startCompleteGame(value);
+                    else startFreeGame(localOpponent, value);
+                  }} className="rounded-lg border border-[#c8c0b0] bg-[#f6f0e4] px-3 py-2 text-[10px] font-bold text-[#40564b]">
+                    <option value="white">Blancas</option><option value="black">Negras</option><option value="random">Aleatorio</option>
+                  </select></label>
                 </div>
 
                 <div className="mt-4 xl:hidden rounded-xl border border-[#d1c8b7] bg-[#f2ece0] p-3.5" data-testid="mobile-training-summary">
