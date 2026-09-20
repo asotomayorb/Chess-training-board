@@ -238,7 +238,7 @@ button,
 }
 
 .app-grain {
-  background: #f0f0f0 !important;
+  background: var(--ui-bg) !important;
 }
 
 /* La pantalla completa debe poder desplazarse en móviles cuando el contenido
@@ -256,11 +256,11 @@ body {
 }
 
 .board-light {
-  background: #f0d9b5 !important;
+  background: #f1d9a5 !important;
 }
 
 .board-dark {
-  background: #b58863 !important;
+  background: #6b8fbd !important;
 }
 
 .piece-white {
@@ -274,8 +274,8 @@ body {
 }
 
 .board-frame {
-  border-color: #3a3836 !important;
-  box-shadow: 0 14px 32px rgba(0,0,0,.18), 0 0 0 1px rgba(0,0,0,.18);
+  border-color: var(--ui-board-frame) !important;
+  box-shadow: 0 14px 32px rgba(30,55,90,.16), 0 0 0 1px rgba(30,55,90,.12);
 }
 
 .piece-moved {
@@ -360,3 +360,87 @@ body {
   word-break: normal;
 }
 
+
+
+/* Appearance system: Minimalista B is the default; Premium B is an optional theme. */
+:root {
+  --ui-bg: #f6f9fd;
+  --ui-border-strong: #dbe5f2;
+  --ui-border: #cbd8e8;
+  --ui-surface: #ffffff;
+  --ui-text: #18324d;
+  --ui-primary: #2563eb;
+  --ui-heading: #163a68;
+  --ui-muted: #6b7d95;
+  --ui-piece-light: #fffaf0;
+  --ui-piece-ring: #9aa8ba;
+  --ui-piece-dark: #26354a;
+  --ui-text-secondary: #46627e;
+  --ui-hover: #edf4ff;
+  --ui-text-tertiary: #5e7187;
+  --ui-accent-border: #b9cbe7;
+  --ui-accent-bg: #eef5ff;
+  --ui-accent-text: #36527a;
+  --ui-control-border: #d5e0ef;
+  --ui-control-bg: #f9fbfe;
+  --ui-board-frame: #d7e3f2;
+  --ui-board-light-text: #365b8a;
+  --ui-board-dark-text: #eef5ff;
+  --ui-card-border: #dbe5f0;
+  --ui-card-bg: #f7faff;
+  --ui-details-border: #cfe0ef;
+  --ui-details-bg: #edf6ff;
+  --ui-strong: #234c78;
+  --ui-accent: #7c5ce3;
+  --ui-label: #71839a;
+  --ui-body: #536b84;
+  --ui-modal: #ffffff;
+  --ui-muted-2: #6c7e94;
+}
+
+.theme-premium-b {
+  --ui-bg: #071b18;
+  --ui-border-strong: #27423c;
+  --ui-border: #38564e;
+  --ui-surface: #0d2621;
+  --ui-text: #eef5ef;
+  --ui-primary: #2f8f72;
+  --ui-heading: #f5e7bf;
+  --ui-muted: #9db1aa;
+  --ui-piece-light: #fff5d8;
+  --ui-piece-ring: #a99c7a;
+  --ui-piece-dark: #10231f;
+  --ui-text-secondary: #c4d0ca;
+  --ui-hover: #16342c;
+  --ui-text-tertiary: #9bb0a8;
+  --ui-accent-border: #665535;
+  --ui-accent-bg: #2a2619;
+  --ui-accent-text: #ead9a9;
+  --ui-control-border: #38564e;
+  --ui-control-bg: #102a24;
+  --ui-board-frame: #071b18;
+  --ui-board-light-text: #e8d7a9;
+  --ui-board-dark-text: #f2eee3;
+  --ui-card-border: #29473f;
+  --ui-card-bg: #0e2923;
+  --ui-details-border: #3b5a50;
+  --ui-details-bg: #132f28;
+  --ui-strong: #e6d6aa;
+  --ui-accent: #d7a84b;
+  --ui-label: #a7b8b1;
+  --ui-body: #b8c8c1;
+  --ui-modal: #0c2420;
+  --ui-muted-2: #91a69e;
+}
+
+.app-grain { background: var(--ui-bg) !important; }
+.board-frame { border-color: var(--ui-board-frame) !important; }
+.board-light { background: #f1d9a5 !important; }
+.board-dark { background: #6b8fbd !important; }
+.piece-white { color: var(--ui-piece-light) !important; text-shadow: 0 1px 1px rgba(0,0,0,.42), 0 3px 6px rgba(0,0,0,.22); }
+.piece-black { color: var(--ui-piece-dark) !important; text-shadow: 0 1px 1px rgba(255,255,255,.12), 0 3px 6px rgba(0,0,0,.3); }
+.chess-square.hint-from, .chess-square.hint-to, .chess-square.puzzle-error-from, .chess-square.puzzle-error-to { box-shadow: inset 0 0 0 4px var(--ui-accent) !important; }
+.theme-premium-b .board-light { background: #c7b88a !important; }
+.theme-premium-b .board-dark { background: #31584d !important; }
+.theme-premium-b .board-frame { box-shadow: 0 22px 55px rgba(0,0,0,.38), 0 0 0 1px rgba(216,176,79,.18); }
+.theme-premium-b .app-grain { color-scheme: dark; }
