@@ -172,6 +172,12 @@ function Home() {
   const [endgamePrompt, setEndgamePrompt] = useState<EndgameTrainingPrompt | null>(null);
   const [middlegamePrompt, setMiddlegamePrompt] = useState<MiddlegameTrainingPrompt | null>(null);
   const [showGuide, setShowGuide] = useState(false);
+  const [showMainMenu, setShowMainMenu] = useState(true);
+  const [autoAdvance, setAutoAdvance] = useState(false);
+  const [summaryDismissed, setSummaryDismissed] = useState(false);
+  const [localOpponent, setLocalOpponent] = useState<'bot' | 'local'>('bot');
+  type UndoSnapshot = { board: Board; completeGame: ChessGameState; turn: Side; lastMove: [string,string] | null; moveHistory: string[]; openingNodeId: string | null };
+  const [undoStack, setUndoStack] = useState<UndoSnapshot[]>([]);
   const [trainingSelection, setTrainingSelection] = useState<VariantSelection | null>(null);
   const [trainingPlayerColor, setTrainingPlayerColor] = useState<OpeningColor>('white');
   const [trainingSideChoice, setTrainingSideChoice] = useState<TrainingSideChoice>('random');
@@ -326,6 +332,9 @@ function Home() {
   }, [mode, completeGame, completeGameOver, trainingDifficulty, stockfishMoveLoading]);
 
   const resetFreePractice = () => {
+    setShowMainMenu(false);
+    setSummaryDismissed(false);
+    setUndoStack([]);
     const freshCompleteGame = createChessGameState();
     setCompleteGame(freshCompleteGame);
     setPromotionPending(null);
@@ -370,6 +379,9 @@ function Home() {
     selection = chooseVariant(),
     sideChoice: TrainingSideChoice = 'random',
   ) => {
+    setShowMainMenu(false);
+    setSummaryDismissed(false);
+    setUndoStack([]);
     const playerColor: OpeningColor = sideChoice === 'random'
       ? (Math.random() < 0.5 ? 'white' : 'black')
       : sideChoice;
@@ -409,6 +421,9 @@ function Home() {
   };
 
   const startFocusedTraining = (focus: Exclude<TrainingFocus, 'opening' | 'complete'>) => {
+    setShowMainMenu(false);
+    setSummaryDismissed(false);
+    setUndoStack([]);
     const kind = focus === 'middlegame'
       ? 'middlegame' as const
       : (['opposition', 'rooks', 'queen'] as const)[Math.floor(Math.random() * 3)];
@@ -452,6 +467,9 @@ function Home() {
   };
 
   const startCompleteGame = () => {
+    setShowMainMenu(false);
+    setSummaryDismissed(false);
+    setUndoStack([]);
     const freshCompleteGame = createChessGameState();
     setCompleteGame(freshCompleteGame);
     setPromotionPending(null);
@@ -487,6 +505,48 @@ function Home() {
   const exitTraining = () => {
     resetFreePractice();
   };
+  const startFreeGame = (opponent: 'bot' | 'local') => {
+    setLocalOpponent(opponent);
+    if (opponent === 'local') resetFreePractice();
+    else startCompleteGame();
+  };
+
+  const pushUndoSnapshot = () => {
+    setUndoStack((stack) => [...stack.slice(-19), { board: cloneBoard(board), completeGame, turn, lastMove, moveHistory: [...moveHistory], openingNodeId }]);
+  };
+
+  const undoLastMove = () => {
+    setUndoStack((stack) => {
+      const snapshot = stack[stack.length - 1];
+      if (!snapshot) return stack;
+      setBoard(cloneBoard(snapshot.board));
+      setCompleteGame(snapshot.completeGame);
+      setTurn(snapshot.turn);
+      setLastMove(snapshot.lastMove);
+      setMoveHistory(snapshot.moveHistory);
+      setOpeningNodeId(snapshot.openingNodeId);
+      setSelected(null);
+      setTrainingStatus('idle');
+      setHintLevel(0);
+      setTrainingExplanation('');
+      return stack.slice(0, -1);
+    });
+  };
+
+  const goHome = () => {
+    stockfishAnalysisRequestRef.current += 1;
+    setShowMainMenu(true);
+    setSummaryDismissed(true);
+    setSelected(null);
+  };
+
+  const continueSession = () => {
+    if (trainingFocus === 'opening') startOpeningTraining(undefined, trainingSideChoice);
+    else if (trainingFocus === 'middlegame' || trainingFocus === 'endgame') startPuzzleTraining(puzzleFocus);
+    else if (mode === 'complete') startCompleteGame();
+    else resetFreePractice();
+  };
+
 
   const resetGame = () => {
     if (mode === 'opening') {
@@ -536,6 +596,7 @@ function Home() {
       return;
     }
 
+    pushUndoSnapshot();
     const playerBoard = applyOpeningMove(board, expectedMove);
     const playerHistory = [...moveHistory, expectedMove.notation];
     const nextTurnPreview = getTrainingTurn(openingTree, openingVariant, expectedNode.id, trainingPlayerColor);
@@ -585,6 +646,7 @@ function Home() {
   };
 
   const applyCompleteMove = (move: ChessGameMove) => {
+    pushUndoSnapshot();
     const previousGame = completeGame;
     const nextGame = applyChessMove(previousGame, move);
     setStockfishAnalysis(null);
@@ -738,6 +800,7 @@ function Home() {
 
       const from = squareName(selected);
       const to = squareName({ row, col });
+      pushUndoSnapshot();
       const nextBoard = applyBoardMove(board, { from: selected, to: { row, col } });
       setBoard(nextBoard);
       setLastMove([from, to]);
@@ -845,185 +908,37 @@ function Home() {
         </aside>
 
         <main className="min-w-0 flex-1">
-          <header className="flex min-h-[76px] items-center justify-between border-b border-[#d6cebd] px-5 py-5 sm:px-8 lg:px-12">
-            <div className="flex items-center gap-3 lg:hidden">
-              <div className="flex size-9 items-center justify-center rounded-lg bg-[#1f5b49] text-[#f4ecd9]">
-                <Crown size={18} />
-              </div>
-              <div>
-                <p className="text-[13px] font-extrabold tracking-[-0.03em] text-[#243630]">The Quiet Board</p>
-                <p className="font-mono text-[8px] uppercase tracking-[0.18em] text-[#718076]">sala de práctica</p>
-              </div>
-            </div>
-            <div className="hidden lg:block">
-              <p className="font-mono text-[9px] uppercase tracking-[0.24em] text-[#7d887b]">Sala de entrenamiento</p>
-              <h1 className="mt-1 text-[18px] font-extrabold tracking-[-0.04em] text-[#263a33]">Una posición que merece tu atención.</h1>
-            </div>
-            <div className="flex items-center gap-2 sm:gap-4">
-              <div className="flex max-w-[190px] items-center gap-1 overflow-x-auto rounded-lg border border-[#cfc5b3] bg-[#e5dece] p-1 lg:hidden" data-testid="mobile-training-modes">
-                <button type="button" onClick={() => startOpeningTraining()} className={`shrink-0 rounded-md px-2 py-1.5 text-[9px] font-bold ${trainingFocus === 'opening' ? 'bg-[#1f5b49] text-[#f5efdf]' : 'text-[#5f7067]'}`}>Apertura</button>
-                <button type="button" onClick={() => startPuzzleTraining()} className={`shrink-0 rounded-md px-2 py-1.5 text-[9px] font-bold ${trainingFocus === 'middlegame' || trainingFocus === 'endgame' ? 'bg-[#1f5b49] text-[#f5efdf]' : 'text-[#5f7067]'}`}>Puzzles</button>
-                <button type="button" onClick={startCompleteGame} className={`shrink-0 rounded-md px-2 py-1.5 text-[9px] font-bold ${trainingFocus === 'complete' && mode === 'complete' ? 'bg-[#1f5b49] text-[#f5efdf]' : 'text-[#5f7067]'}`}>Completa</button>
-              </div>
-              <div className="hidden items-center gap-2 rounded-full border border-[#cfc5b3] bg-[#e5dece] px-3 py-1.5 sm:flex">
-                <span className="size-1.5 rounded-full bg-[#c38a3d]" />
-                <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-[#64766c]">tablero local</span>
-              </div>
-               <button
-                 type="button"
-                 onClick={() => (mode === 'opening' ? exitTraining() : startOpeningTraining())}
-                 data-testid="button-toggle-training"
-                 className="group flex items-center gap-2 rounded-lg border border-[#c6bdac] bg-[#f1ebdf] px-3 py-2 text-[11px] font-bold text-[#40564b] transition-all hover:-translate-y-0.5 hover:border-[#1f5b49] hover:text-[#1f5b49] active:translate-y-0"
-               >
-                 {mode === 'opening' ? <LogOut size={14} /> : <Target size={14} />}
-                 <span className="hidden sm:inline">{mode === 'opening' ? 'Salir del entrenamiento' : 'Entrenamiento de aperturas'}</span>
-               </button>
-              <button
-                type="button"
-                onClick={resetGame}
-                data-testid="button-reset-header"
-                className="group flex items-center gap-2 rounded-lg border border-[#c6bdac] bg-[#f1ebdf] px-3 py-2 text-[11px] font-bold text-[#40564b] transition-all hover:-translate-y-0.5 hover:border-[#1f5b49] hover:text-[#1f5b49] active:translate-y-0"
-              >
-                <RotateCcw size={14} className="transition-transform group-hover:-rotate-45" />
-                 <span className="hidden sm:inline">{mode === 'opening' ? 'Reiniciar entrenamiento' : 'Nueva partida'}</span>
-              </button>
-            </div>
+          <header className="flex min-h-[76px] items-center justify-between border-b border-[#d6cebd] px-5 py-4 sm:px-8 lg:px-12">
+            <button type="button" onClick={goHome} className="rounded-lg border border-[#c6bdac] bg-[#f1ebdf] px-3 py-2 text-[11px] font-bold text-[#40564b] hover:border-[#1f5b49]">← Atrás</button>
+            <h1 className="text-[clamp(1.45rem,3vw,2.2rem)] font-extrabold tracking-[-0.05em] text-[#20362e]">
+              {mode === 'opening' ? 'Aperturas' : mode === 'complete' && (trainingFocus === 'middlegame' || trainingFocus === 'endgame') ? 'Puzzles' : 'Juego libre'}
+            </h1>
+            <select value={mode === 'opening' ? 'opening' : mode === 'complete' && (trainingFocus === 'middlegame' || trainingFocus === 'endgame') ? 'puzzles' : 'free'} onChange={(event) => {
+              if (event.target.value === 'opening') startOpeningTraining();
+              else if (event.target.value === 'puzzles') startPuzzleTraining();
+              else startFreeGame('bot');
+            }} className="max-w-[150px] rounded-lg border border-[#c6bdac] bg-[#f1ebdf] px-3 py-2 text-[11px] font-bold text-[#40564b]">
+              <option value="opening">Aperturas</option><option value="puzzles">Puzzles</option><option value="free">Juego libre</option>
+            </select>
           </header>
 
           <div className="training-shell mx-auto max-w-[1260px] px-5 pb-4 pt-4 sm:px-8 sm:pt-6 lg:px-12 lg:pt-6">
-            <div className="training-intro mb-5 flex items-end justify-between gap-5 fade-up">
-              <div>
-                <div className="mb-3 flex items-center gap-2">
-                   <span className="rounded-full bg-[#c38a3d] px-2.5 py-1 font-mono text-[9px] font-medium uppercase tracking-[0.17em] text-[#2d3a31]">{mode === 'opening' ? 'entrenamiento 01' : 'estudio 01'}</span>
-                  <span className="font-mono text-[10px] uppercase tracking-[0.17em] text-[#829087]">/</span>
-                   <span className="font-mono text-[10px] uppercase tracking-[0.17em] text-[#829087]">{mode === 'opening' ? 'apertura italiana' : 'la primera decisión'}</span>
+            <div className="training-intro mb-4 fade-up">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  {mode === 'opening' && <p className="text-[18px] font-extrabold text-[#1f5b49]" data-testid="text-active-opening">{activeOpeningLabel ?? openingVariant?.name ?? 'Nueva variante'}</p>}
+                  {mode === 'complete' && trainingFocus === 'middlegame' && middlegamePrompt && <p className="text-[16px] font-bold text-[#30473e]">Objetivo: {middlegamePrompt.title}</p>}
+                  {mode === 'complete' && trainingFocus === 'endgame' && endgamePrompt && <p className="text-[16px] font-bold text-[#30473e]">Final: {endgamePrompt.title}</p>}
                 </div>
-                 {mode === 'opening' ? (
-                   <>
-                     {mode !== 'opening' && (
-                       <div className="mb-3 flex flex-wrap items-center gap-2">
-                         <span className="rounded-full bg-[#e3e8dc] px-3 py-1.5 text-[10px] font-extrabold text-[#30473e]">Puzzles</span>
-                         <select value={puzzleFocus} onChange={(event) => { const value = event.target.value as PuzzleFocus; setPuzzleFocus(value); startPuzzleTraining(value); }} className="rounded-full border border-[#c8c0b0] bg-[#eee8dc] px-3 py-1.5 text-[10px] font-bold text-[#5f7067]" aria-label="Tipo de puzzle">
-                           <option value="random">Aleatorio</option>
-                           <option value="middlegame">Medio juego</option>
-                           <option value="endgame">Finales</option>
-                         </select>
-                         <select value={trainingDifficulty} onChange={(event) => setTrainingDifficulty(event.target.value as TrainingDifficulty)} className="rounded-full border border-[#c8c0b0] bg-[#eee8dc] px-3 py-1.5 text-[10px] font-bold text-[#5f7067]" aria-label="Dificultad">
-                           <option value="fundamentos">Fundamentos</option>
-                           <option value="intermedio">Intermedio</option>
-                           <option value="avanzado">Avanzado</option>
-                         </select>
-                       </div>
-                     )}
-                     <h2 className="max-w-[580px] text-[clamp(2rem,4vw,3.5rem)] font-extrabold leading-[0.98] tracking-[-0.075em] text-[#20362e]">
-                       Entrenamiento de<br className="hidden sm:block" /> Aperturas
-                     </h2>
-                     {activeOpeningLabel && (
-                       <div className="mb-3 rounded-lg border border-[#c9c0ae] bg-white/70 px-3 py-2 text-[11px] font-bold text-[#2c4039]" data-testid="text-active-opening">
-                         ♟ {activeOpeningLabel}
-                         {activeOpeningLabel !== openingTree?.opening && openingTree?.opening ? <span className="ml-1 font-normal text-[#718078]">· {openingTree.opening}</span> : null}
-                       </div>
-                     )}
-                     <div className="mt-4 flex flex-wrap items-center gap-2" data-testid="training-side-selector">
-                       <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#7b897f]">Jugar con</span>
-                       {([
-                         ['white', 'Blancas'],
-                         ['black', 'Negras'],
-                         ['random', 'Aleatorio'],
-                       ] as const).map(([value, label]) => (
-                         <button
-                           key={value}
-                           type="button"
-                           onClick={() => startOpeningTraining(trainingSelection ?? chooseVariant(), value)}
-                           className={`rounded-full border px-3 py-1.5 text-[10px] font-bold transition-colors ${(trainingSideChoice === value) ? 'border-[#1f5b49] bg-[#1f5b49] text-[#f5efdf]' : 'border-[#c8c0b0] bg-[#eee8dc] text-[#5f7067] hover:border-[#1f5b49] hover:text-[#1f5b49]'}`}
-                         >
-                           {label}
-                         </button>
-                       ))}
-                     </div>
-                     <div className="mt-4 flex flex-wrap items-center gap-2">
-                       <p className="text-[13px] font-semibold text-[#5f7067]" data-testid="text-new-variant">
-                         Nueva variante: <span className="text-[#1f5b49]">{openingVariant?.name ?? 'seleccionando...'}</span>
-                       </p>
-                     </div>
-                   </>
-                 ) : (
-                   <>
-                     <h2 className="max-w-[580px] text-[clamp(2rem,4vw,3.5rem)] font-extrabold leading-[0.98] tracking-[-0.075em] text-[#20362e]">
-                       Observa la<br className="hidden sm:block" /> posición.
-                     </h2>
-                     {mode === 'complete' && (
-                       <div className="mt-4 flex flex-wrap items-center gap-2">
-                         <label className="text-[10px] font-bold text-[#5f7067]">Dificultad rival</label>
-                         <select value={trainingDifficulty} onChange={(event) => setTrainingDifficulty(event.target.value as TrainingDifficulty)} className="rounded-full border border-[#c8c0b0] bg-[#eee8dc] px-3 py-1.5 text-[10px] font-bold text-[#5f7067]" aria-label="Dificultad del rival">
-                           <option value="fundamentos">Fundamentos</option>
-                           <option value="intermedio">Intermedio</option>
-                           <option value="avanzado">Avanzado</option>
-                         </select>
-                         <span className={`rounded-full border px-3 py-1.5 text-[10px] font-bold ${stockfishReady ? 'border-[#1f5b49] bg-[#e4eee8] text-[#1f5b49]' : 'border-[#c9b98f] bg-[#eee4cc] text-[#6c634d]'}`} data-testid="stockfish-status">
-                           {stockfishReady ? 'Stockfish activo' : 'Activando Stockfish…'}
-                         </span>
-                         <button
-                           type="button"
-                           onClick={analyzeWithStockfish}
-                           disabled={stockfishLoading}
-                           className="rounded-full border border-[#c8c0b0] bg-[#eee8dc] px-3 py-1.5 text-[10px] font-bold text-[#5f7067] transition-colors hover:border-[#1f5b49] hover:text-[#1f5b49] disabled:cursor-not-allowed disabled:opacity-50"
-                           data-testid="button-stockfish-analysis"
-                         >
-                           {stockfishLoading ? 'Analizando...' : completeGameOver ? 'Analizar posición final' : 'Analizar con Stockfish'}
-                         </button>
-                         {stockfishAnalysis && (
-                           <div className="mt-2 w-full rounded-xl border border-[#c9b98f] bg-[#eee4cc] px-3 py-2.5">
-                             <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#5f563f]">Análisis del motor</p>
-                             <p className="mt-1 text-[11px] text-[#6c634d]">
-                               Mejor jugada: <span className="font-mono font-bold">{stockfishAnalysis.bestMove}</span>
-                               {stockfishAnalysis.score && (
-                                 <> · Evaluación: <span className="font-mono font-bold">
-                                   {stockfishAnalysis.score.type === 'mate' ? `mate en ${stockfishAnalysis.score.value}` : `${(stockfishAnalysis.score.value / 100).toFixed(2)}`}
-                                 </span></>
-                               )}
-                             </p>
-                             {stockfishAnalysis.principalVariation.length > 0 && (
-                               <p className="mt-1 font-mono text-[10px] text-[#6c634d]">PV: {stockfishAnalysis.principalVariation.slice(0, 8).join(' ')}</p>
-                             )}
-                           </div>
-                         )}
-                         {stockfishError && (
-                           <p className="mt-2 w-full text-[10px] font-semibold text-[#8a4b3f]">{stockfishError}</p>
-                         )}
-                         {stockfishMoveLoading && (
-                           <p className="mt-2 w-full text-[10px] font-semibold text-[#6c634d]">Stockfish está comprobando la precisión de tu última jugada...</p>
-                         )}
-                         {stockfishMoveQuality && stockfishCoachResult && (
-                           <div className="mt-2 w-full rounded-xl border border-[#c9b98f] bg-[#f1ead9] px-3 py-2.5">
-                             <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#5f563f]">Coach de Stockfish</p>
-                             <p className="mt-1 text-[11px] text-[#6c634d]">
-                               <span className="font-bold">{stockfishCoachResult.label}</span> · Tu jugada <span className="font-mono font-bold">{stockfishMoveQuality.playedMove}</span> · principal <span className="font-mono font-bold">{stockfishMoveQuality.bestMove}</span>
-                             </p>
-                             <p className="mt-1 text-[10px] leading-relaxed text-[#6c634d]">{stockfishCoachResult.message}</p>
-                             <p className="mt-1 text-[10px] leading-relaxed text-[#6c634d]">Idea estratégica: {stockfishCoachResult.strategicReason}</p>
-                             <p className="mt-1 text-[10px] leading-relaxed text-[#6c634d]" data-testid="text-stockfish-position-insight">
-                               En esta posición: {stockfishCoachResult.positionInsight}
-                             </p>
-                             {stockfishCoachResult.centipawnLoss !== null && (
-                               <p className="mt-1 text-[10px] text-[#6c634d]">Pérdida estimada: <span className="font-mono font-bold">{stockfishCoachResult.centipawnLoss} cp</span>.</p>
-                             )}
-                             {stockfishMoveQuality.principalVariation.length > 0 && (
-                               <p className="mt-1 font-mono text-[10px] leading-relaxed text-[#6c634d]" data-testid="text-stockfish-coach-pv">
-                                 Línea que explica la recomendación: {stockfishMoveQuality.principalVariation.slice(0, 6).join(' ')}
-                               </p>
-                             )}
-                           </div>
-                         )}
-
-                       </div>
-                     )}
-                   </>
-                 )}
+                <div className="flex flex-wrap gap-2">
+                  {mode === 'opening' && <span className="rounded-full bg-[#e3e8dc] px-3 py-1.5 text-[10px] font-bold text-[#40564b]">{trainingPlayerColor === 'white' ? 'Juegas blancas' : 'Juegas negras'}</span>}
+                  {mode !== 'opening' && <select value={trainingDifficulty} onChange={(event) => setTrainingDifficulty(event.target.value as TrainingDifficulty)} className="rounded-full border border-[#c8c0b0] bg-[#eee8dc] px-3 py-1.5 text-[10px] font-bold text-[#5f7067]}><option value="fundamentos">Fundamentos</option><option value="intermedio">Intermedio</option><option value="avanzado">Avanzado</option></select>}
+                  {(trainingFocus === 'middlegame' || trainingFocus === 'endgame') && <select value={puzzleFocus} onChange={(event) => { const value = event.target.value as PuzzleFocus; setPuzzleFocus(value); startPuzzleTraining(value); }} className="rounded-full border border-[#c8c0b0] bg-[#eee8dc] px-3 py-1.5 text-[10px] font-bold text-[#5f7067]}><option value="random">Aleatorio</option><option value="middlegame">Medio juego</option><option value="endgame">Finales</option></select>}
+                </div>
               </div>
-              <div className="hidden max-w-[210px] pb-1 text-right sm:block">
-                 <p className="text-[12px] leading-relaxed text-[#6d7c73]">{mode === 'opening' ? 'Aprende la idea detrás de cada jugada, una decisión a la vez.' : 'Sin reloj que perseguir. Sin distracciones. Solo el tablero y la próxima jugada.'}</p>
-              </div>
+              {mode === 'opening' && trainingExplanation && <div className="mt-2 max-w-[760px] rounded-xl bg-[#e3e8dc] px-3 py-2.5 text-[11px] leading-relaxed text-[#486257]" data-testid="text-training-explanation-top">{trainingExplanation.split('\n').map((line,index)=><p key={index} className={index ? 'mt-1' : 'font-semibold text-[#30473e]'}>{line}</p>)}</div>}
+              {mode === 'opening' && trainingStatus === 'incorrect' && expectedMove && hintLevel > 0 && <div className="mt-2 max-w-[760px] rounded-xl bg-[#e8dfcf] px-3 py-2.5 text-[11px] font-semibold leading-relaxed text-[#5b6c62]" data-testid="text-training-hint-top">💡 Pista {Math.min(hintLevel,3)}: {expectedMove.hints[Math.min(hintLevel,3)-1]}</div>}
+              {mode !== 'opening' && <p className="mt-2 max-w-[760px] text-[11px] leading-relaxed text-[#5f7067]">{focusCue}</p>}
             </div>
 
             <div className="grid items-start gap-8 xl:grid-cols-[minmax(560px,700px)_300px] xl:gap-14">
@@ -1110,6 +1025,11 @@ function Home() {
                     )}
                   </div>
                 </div>
+                </div>
+
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#d1c8b7] bg-[#f2ece0] p-3">
+                  <div className="flex gap-2"><button type="button" onClick={undoLastMove} disabled={!undoStack.length} className="rounded-lg border border-[#c8c0b0] bg-[#f6f0e4] px-3 py-2 text-[11px] font-bold text-[#40564b] disabled:opacity-40">Deshacer</button><button type="button" onClick={resetGame} className="rounded-lg border border-[#c8c0b0] bg-[#f6f0e4] px-3 py-2 text-[11px] font-bold text-[#40564b]">Reiniciar</button></div>
+                  <div className="flex gap-2">{([['white','Blancas'],['black','Negras'],['random','Aleatorio']] as const).map(([value,label])=><button key={value} type="button" onClick={()=>mode==='opening'?startOpeningTraining(trainingSelection??chooseVariant(),value):startFreeGame(localOpponent)} className={`rounded-lg border px-2.5 py-2 text-[10px] font-bold ${trainingSideChoice===value?'border-[#1f5b49] bg-[#1f5b49] text-[#f5efdf]':'border-[#c8c0b0] bg-[#f6f0e4] text-[#40564b]'}`}>{label}</button>)}</div>
                 </div>
 
                 <div className="mt-4 xl:hidden rounded-xl border border-[#d1c8b7] bg-[#f2ece0] p-3.5" data-testid="mobile-training-summary">
@@ -1330,6 +1250,13 @@ function Home() {
             </div>
           </div>
         </main>
+      {showMainMenu && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#e9e3d5] p-5"><div className="w-full max-w-[720px]"><div className="mb-10 text-center"><div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-2xl bg-[#1f5b49] text-[#f4ecd9]"><Crown size={32}/></div><h1 className="text-[clamp(2.2rem,7vw,4.5rem)] font-extrabold tracking-[-0.07em] text-[#20362e]">The Quiet Board</h1><p className="mt-2 text-sm text-[#6d7c73]">Entrenamiento de ajedrez</p></div><div className="grid gap-3 sm:grid-cols-2">
+        <button type="button" onClick={()=>startOpeningTraining()} className="rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] p-6 text-left hover:border-[#1f5b49]"><BookOpen className="text-[#1f5b49]"/><p className="mt-4 text-xl font-extrabold text-[#30473e]">Aperturas</p><p className="mt-1 text-xs text-[#718078]">Variantes, pistas y explicación estratégica.</p></button>
+        <button type="button" onClick={()=>startPuzzleTraining()} className="rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] p-6 text-left hover:border-[#1f5b49]"><Lightbulb className="text-[#1f5b49]"/><p className="mt-4 text-xl font-extrabold text-[#30473e]">Puzzles</p><p className="mt-1 text-xs text-[#718078]">Medio juego, finales o aleatorio.</p></button>
+        <div className="rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] p-6"><Target className="text-[#1f5b49]"/><p className="mt-4 text-xl font-extrabold text-[#30473e]">Juego libre</p><div className="mt-4 flex gap-2"><button type="button" onClick={()=>startFreeGame('bot')} className="flex-1 rounded-lg bg-[#1f5b49] px-3 py-2 text-xs font-bold text-white">Vs bot</button><button type="button" onClick={()=>startFreeGame('local')} className="flex-1 rounded-lg border border-[#c8c0b0] px-3 py-2 text-xs font-bold text-[#40564b]">Jugador local</button></div></div>
+        <div className="rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] p-6"><CircleHelp className="text-[#1f5b49]"/><p className="mt-4 text-xl font-extrabold text-[#30473e]">Configuraciones</p><p className="mt-1 text-xs text-[#718078]">Avance: {autoAdvance?'automático':'normal'}.</p><div className="mt-3 flex gap-2"><button type="button" onClick={()=>setAutoAdvance(false)} className={`rounded-lg px-3 py-2 text-xs font-bold ${!autoAdvance?'bg-[#1f5b49] text-white':'bg-[#e8dfcf] text-[#40564b]'}`}>Normal</button><button type="button" onClick={()=>setAutoAdvance(true)} className={`rounded-lg px-3 py-2 text-xs font-bold ${autoAdvance?'bg-[#1f5b49] text-white':'bg-[#e8dfcf] text-[#40564b]'}`}>Automático</button></div></div>
+      </div></div></div>}
+      {((trainingComplete || freeGameOver) && !summaryDismissed && !showMainMenu) && <div className="fixed inset-0 z-[90] flex items-center justify-center bg-[#20362e]/35 p-5"><div className="relative w-full max-w-[620px] rounded-3xl border border-[#c8c0b0] bg-[#f5efe3] p-7 shadow-2xl"><button type="button" onClick={()=>setSummaryDismissed(true)} className="absolute right-4 top-4 rounded-full p-2 text-[#6d7c73] hover:bg-[#e8dfcf]" aria-label="Cerrar resumen"><XCircle size={20}/></button><p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#7b897f]">Sesión finalizada</p><h2 className="mt-2 text-3xl font-extrabold text-[#20362e]">Resumen</h2>{mode==='opening'?<div className="mt-5 grid gap-2 text-sm text-[#486257]"><p>Variante: <b>{openingVariant?.name}</b></p><p>Errores: <b>{trainingErrors}</b></p><p>Aciertos: <b>{trainingCorrectMoves}</b></p><p>Precisión: <b>{trainingAccuracy}%</b></p><p>Pistas: <b>{trainingHintsUsed}</b></p></div>:<div className="mt-5 grid gap-2 text-sm text-[#486257]"><p>Jugadas: <b>{moveHistory.length}</b></p><p>Alertas tácticas: <b>{completeErrors}</b></p><p>Alertas medio juego: <b>{middlegameErrors}</b></p><p>Alertas finales: <b>{endgameErrors}</b></p></div>}<div className="mt-7 flex justify-end gap-2"><button type="button" onClick={goHome} className="rounded-lg border border-[#c8c0b0] px-4 py-2 text-xs font-bold text-[#40564b]">Inicio</button><button type="button" onClick={continueSession} className="rounded-lg bg-[#1f5b49] px-4 py-2 text-xs font-bold text-white">Continuar</button></div></div></div>}
       </div>
     </div>
   );
