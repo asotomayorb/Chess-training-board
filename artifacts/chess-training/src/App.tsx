@@ -341,9 +341,7 @@ function Home() {
     setBoard(freshCompleteGame.board);
     setMode('free');
     setTrainingFocus('complete');
-    setTurn(playerColor);
-    setTrainingPlayerColor(playerColor);
-    setTrainingSideChoice(sideChoice);
+    setTurn('white');
     setSelected(null);
     setLastMove(null);
     setMoveHistory([]);
@@ -436,7 +434,9 @@ function Home() {
     setBoard(freshGame.board);
     setMode('complete');
     setTrainingFocus(focus);
-    setTurn('white');
+    setTurn(playerColor);
+    setTrainingPlayerColor(playerColor);
+    setTrainingSideChoice(sideChoice);
     setSelected(null);
     setLastMove(null);
     setMoveHistory([]);
