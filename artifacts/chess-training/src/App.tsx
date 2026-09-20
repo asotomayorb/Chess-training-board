@@ -310,9 +310,9 @@ function Home() {
       // por lo que usamos Skill Level 0/8/14 y calibramos las etiquetas para que
       // representen progresión de juego, evitando afirmar una equivalencia exacta.
       const skillByDifficulty: Record<TrainingDifficulty, { depth: number; skillLevel: number }> = {
-        fundamentos: { depth: 8, skillLevel: 0 },
-        intermedio: { depth: 11, skillLevel: 8 },
-        avanzado: { depth: 14, skillLevel: 14 },
+        fundamentos: { depth: 12, skillLevel: 12 },
+        intermedio: { depth: 15, skillLevel: 18 },
+        avanzado: { depth: 18, skillLevel: 20 },
       };
       const level = skillByDifficulty[trainingDifficulty];
       void engine.analyze(completeGame, level)
@@ -339,7 +339,13 @@ function Home() {
           setStockfishError(error instanceof Error ? error.message : 'Stockfish no pudo elegir la jugada rival.');
           const candidates = getLegalChessMoves(completeGame);
           if (candidates.length) {
-            const move = candidates[Math.floor(Math.random() * candidates.length)];
+            const captures = candidates.filter((candidate) => Boolean(completeGame.board[candidate.to.row][candidate.to.col]) || candidate.special === 'en-passant');
+            const checks = candidates.filter((candidate) => {
+              const next = applyChessMove(completeGame, candidate);
+              const status = getChessGameStatus(next);
+              return status === 'check' || status === 'checkmate';
+            });
+            const move = checks[0] ?? captures[0] ?? candidates[0];
             const nextGame = applyChessMove(completeGame, move);
             setCompleteGame(nextGame);
             setBoard(nextGame.board);
@@ -1188,5 +1194,7 @@ function App() {
 }
 
 export default App;
+
+
 
 
