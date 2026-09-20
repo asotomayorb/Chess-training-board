@@ -844,6 +844,7 @@ function Home() {
               expectedPuzzleMove.to.col !== col) {
             setCompleteErrors((errors) => errors + 1);
             setCompleteFeedback('Movimiento incorrecto. En este puzzle solo hay una jugada correcta en este turno. Busca la idea indicada antes de mover.');
+            setLastMove([squareName(selected), squareName({ row, col })]);
             setSelected(null);
             return;
           }
@@ -1039,6 +1040,17 @@ function Home() {
                     <option value="white">Blancas</option><option value="black">Negras</option><option value="random">Aleatorio</option>
                   </select></label>
                 </div>
+
+                {mode === 'opening' && trainingExplanation && (
+                  <details className="mt-4 rounded-xl border border-[#cbd8c8] bg-[#e3e8dc]" data-testid="details-opening-strategy">
+                    <summary className="cursor-pointer list-none px-3 py-2.5 text-[10px] font-extrabold uppercase tracking-[0.1em] text-[#40564b]">Información estratégica</summary>
+                    <div className="border-t border-[#cbd8c8] px-3 py-3 text-[11px] leading-relaxed text-[#486257]">
+                      {trainingExplanation.split('\n').map((line, index) => (
+                        <p key={index} className={index === 0 ? 'font-semibold text-[#30473e]' : 'mt-1'}>{line}</p>
+                      ))}
+                    </div>
+                  </details>
+                )}
 
               </section>
 
