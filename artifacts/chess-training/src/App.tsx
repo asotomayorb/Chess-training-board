@@ -369,7 +369,6 @@ function Home() {
     setTrainingStatus('idle');
     setOpeningOpponentPending(false);
     setTrainingExplanation('');
-    setUnexpectedEvent(null);
   };
 
   const startOpeningTraining = (
@@ -411,8 +410,6 @@ function Home() {
     setDifficultMoves([]);
     setTrainingStatus('idle');
     setTrainingExplanation('');
-    setUnexpectedEvent(null);
-    setUnexpectedChallenge(null);
     // El juego inesperado se activa después de la primera decisión del jugador, no al arrancar.
   };
 
@@ -449,8 +446,6 @@ function Home() {
     setMiddlegamePrompt(focus === 'middlegame' ? chooseMiddlegameTrainingPrompt(freshGame, { difficulty: trainingDifficulty }) : null);
     setTrainingSelection(null);
     setOpeningNodeId(null);
-    setUnexpectedEvent(null);
-    setUnexpectedChallenge(null);
   };
 
   const startPuzzleTraining = (selection: PuzzleFocus = puzzleFocus) => {
@@ -488,8 +483,6 @@ function Home() {
     setMiddlegamePrompt(chooseMiddlegameTrainingPrompt(freshCompleteGame, { difficulty: trainingDifficulty }));
     setTrainingSelection(null);
     setOpeningNodeId(null);
-    setUnexpectedEvent(null);
-    setUnexpectedChallenge(null);
   };
 
   const resetTraining = () => {
@@ -592,9 +585,7 @@ function Home() {
       setMoveHistory(nextHistory);
       setOpeningNodeId(nextNodeId);
       setOpeningOpponentPending(false);
-      setUnexpectedEvent(null);
-      setUnexpectedChallenge(null);
-      setTrainingStatus(isLastPlayerMove ? 'complete' : 'correct');
+          setTrainingStatus(isLastPlayerMove ? 'complete' : 'correct');
     }, 900);
   };
 
