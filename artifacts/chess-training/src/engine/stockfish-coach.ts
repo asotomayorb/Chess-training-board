@@ -112,6 +112,12 @@ function buildPositionInsight(
   const materialText = bestCaptured && bestPiece && materialValue(bestCaptured.type) >= materialValue(bestPiece.type)
     ? ' La ganancia material o el cambio favorable es una parte importante de la idea.'
     : '';
+  if (playedMove) {
+    const opponentResponse = playedNext ? findImmediateTacticalResponse(playedNext) : null;
+    if (opponentResponse) {
+      return `La diferencia práctica aparece después de tu jugada: el rival dispone de ${opponentResponse}. La línea principal evita o reduce este recurso.`;
+    }
+  }
   if (bestCaptureText || bestGivesCheck) {
     return `La línea empieza con ${bestSquareText}${bestCaptureText}${bestCheckText}.${materialText}`;
   }
@@ -120,12 +126,6 @@ function buildPositionInsight(
   }
   if (playedMove && playedGivesCheck && !bestGivesCheck) {
     return 'Tu jaque obliga al rival a responder, pero el motor prioriza otra necesidad de la posición.';
-  }
-  if (playedMove) {
-    const opponentResponse = playedNext ? findImmediateTacticalResponse(playedNext) : null;
-    if (opponentResponse) {
-      return `La diferencia práctica aparece después de tu jugada: el rival dispone de ${opponentResponse}. La línea principal evita o reduce este recurso.`;
-    }
   }
   return `La jugada principal coloca el ${describePiece(bestPiece?.type ?? 'pawn')} en ${squareName(bestMove.to)}. La continuación del motor muestra qué mejora concreta obtiene.`;
 }
