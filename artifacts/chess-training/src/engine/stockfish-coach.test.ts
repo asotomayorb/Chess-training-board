@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { classifyStockfishMove } from './stockfish-coach';
 import type { StockfishMoveQuality } from './stockfish-engine';
-import { createChessGameState } from './chess-engine';
+import { createChessGameState, type ChessGameState } from './chess-engine';
 
 function quality(overrides: Partial<StockfishMoveQuality> = {}): StockfishMoveQuality {
   return {
@@ -88,4 +88,26 @@ test('explica una característica concreta de la posición real', () => {
     { state: createChessGameState() },
   );
   assert.match(result.positionInsight, /d4|pieza|posición/i);
+});
+
+
+test('explica cuando la jugada deja un recurso táctico inmediato al rival', () => {
+  const board = Array.from({ length: 8 }, () => Array(8).fill(null));
+  board[7][4] = { type: 'king', color: 'white' };
+  board[7][3] = { type: 'queen', color: 'white' };
+  board[0][4] = { type: 'king', color: 'black' };
+  board[0][3] = { type: 'rook', color: 'black' };
+  const state: ChessGameState = {
+    board,
+    turn: 'white',
+    castlingRights: { whiteKingSide: false, whiteQueenSide: false, blackKingSide: false, blackQueenSide: false },
+    enPassantTarget: null,
+    halfmoveClock: 0,
+    positionHistory: [],
+  };
+  const result = classifyStockfishMove(
+    quality({ bestMove: 'e1f1', playedMove: 'd1d3', isBestMove: false, centipawnLoss: 120 }),
+    { state },
+  );
+  assert.match(result.positionInsight, /captura de dama en d3/i);
 });
