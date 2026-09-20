@@ -857,6 +857,11 @@ function Home() {
       return;
     }
 
+    if (mode === 'complete' && (trainingFocus === 'middlegame' || trainingFocus === 'endgame') && !puzzleExpectedMoveUci) {
+      setSelected(null);
+      return;
+    }
+
     const clickedPiece = board[row][col];
     const clickedIsLegal = legalKeySet.has(`${row}-${col}`);
 
@@ -893,6 +898,7 @@ function Home() {
         setPuzzleErrorMove(null);
         setPuzzleErrorCount(0);
         applyCompleteMove(moveCandidates[0]);
+        setPuzzleExpectedMoveUci(null);
         return;
       }
 
@@ -1194,6 +1200,8 @@ function App() {
 }
 
 export default App;
+
+
 
 
 
