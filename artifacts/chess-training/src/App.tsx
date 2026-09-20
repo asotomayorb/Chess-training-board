@@ -873,7 +873,7 @@ function Home() {
               </button>
               <button
                 type="button"
-                onClick={() => startCompleteGame()}
+                onClick={() => startCompleteGame(trainingSideChoice)}
                 className={`flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left transition-colors ${mode === 'complete' ? 'bg-[#f3eee3] shadow-sm' : 'hover:bg-[#e5ddce]'}`}
               >
                 <Crown size={16} className="text-[#c38a3d]" />
