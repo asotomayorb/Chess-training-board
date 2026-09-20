@@ -194,6 +194,51 @@ const italianBe7: OpeningMove = {
   hints: ['busca una respuesta sólida que desarrolle el alfil sin entrar en la línea de Ac5.', 'El alfil de f8 puede retirarse a e7, preparando un desarrollo compacto.', 'La jugada correcta es Ae7.'],
 };
 
+const hungarianD4: OpeningMove = {
+  id: 'italian-move-hungarian-d4',
+  color: 'white',
+  from: 'd2',
+  to: 'd4',
+  notation: 'd4',
+  explanation: 'Las blancas abren el centro mientras las negras aún completan su desarrollo.',
+  concept: 'Ruptura central',
+  objective: 'Abrir líneas y aprovechar la ventaja de espacio sin retrasar el desarrollo.',
+  threat: 'La presión central puede obligar a las negras a definir la estructura.',
+  typicalError: 'Abrir el centro sin comprobar qué capturas quedan disponibles.',
+  difficulty: 'intermedio',
+  hints: ['busca la ruptura de peón que desafía directamente el centro negro.', 'El peón de d2 puede avanzar dos casillas hasta d4.', 'La jugada correcta es d4.'],
+};
+
+const hungarianExd4: OpeningMove = {
+  id: 'italian-move-hungarian-exd4',
+  color: 'black',
+  from: 'e5',
+  to: 'd4',
+  notation: 'exd4',
+  explanation: 'Las negras aceptan la ruptura y cambian la estructura central antes de completar el desarrollo.',
+  concept: 'Respuesta central',
+  objective: 'Resolver la tensión del centro y evitar quedar pasivas.',
+  threat: 'El peón negro ocupa d4 y condiciona la recaptura blanca.',
+  typicalError: 'Ignorar la tensión central y perder la oportunidad de simplificarla.',
+  difficulty: 'intermedio',
+  hints: ['responde a la ruptura central capturando el peón que acaba de entrar en d4.', 'El peón de e5 puede capturar en d4.', 'La jugada correcta es exd4.'],
+};
+
+const hungarianNxd4: OpeningMove = {
+  id: 'italian-move-hungarian-nxd4',
+  color: 'white',
+  from: 'f3',
+  to: 'd4',
+  notation: 'Cxd4',
+  explanation: 'El caballo recaptura en d4 y queda centralizado después de la ruptura.',
+  concept: 'Recaptura con desarrollo',
+  objective: 'Recuperar el peón manteniendo una pieza activa en el centro.',
+  threat: 'El caballo centralizado aumenta la presión sobre las casillas centrales.',
+  typicalError: 'Recapturar automáticamente sin comprobar las piezas que pueden atacar al caballo.',
+  difficulty: 'intermedio',
+  hints: ['recaptura con una pieza desarrollada y centraliza el caballo.', 'El caballo de f3 puede capturar en d4.', 'La jugada correcta es Cxd4.'],
+};
+
 const italianB4: OpeningMove = {
   id: 'italian-move-b4',
   color: 'white',
@@ -369,10 +414,28 @@ const italianEvansB4Node: VariantNode = {
 
 italianGiuocoPianoLeaf.children.push(italianEvansB4Node);
 
+const italianHungarianNxd4Leaf: VariantNode = {
+  id: 'italian-node-hungarian-nxd4',
+  move: hungarianNxd4,
+  children: [],
+};
+
+const italianHungarianExd4Node: VariantNode = {
+  id: 'italian-node-hungarian-exd4',
+  move: hungarianExd4,
+  children: [italianHungarianNxd4Leaf],
+};
+
+const italianHungarianD4Node: VariantNode = {
+  id: 'italian-node-hungarian-d4',
+  move: hungarianD4,
+  children: [italianHungarianExd4Node],
+};
+
 const italianHungarianLeaf: VariantNode = {
   id: 'italian-node-be7',
   move: italianBe7,
-  children: [],
+  children: [italianHungarianD4Node],
 };
 
 const italianFriedLiverLeaf: VariantNode = {
@@ -521,7 +584,7 @@ export const italianGameTrainingTree: VariantTree = {
         'No adaptar el plan cuando las negras renuncian a ...Ac5.',
       ],
       startNodeId: 'italian-root',
-      leafNodeId: 'italian-node-be7',
+      leafNodeId: 'italian-node-hungarian-nxd4',
     },
   ],
 };
