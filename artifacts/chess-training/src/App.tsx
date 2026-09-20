@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ArrowUpRight, BookOpen, CheckCircle2, ChevronDown, CircleHelp, Clock3, Crown, Lightbulb, LogOut, RotateCcw, Target, XCircle } from 'lucide-react';
+import { ArrowUpRight, BookOpen, CheckCircle2, ChevronDown, CircleHelp, Clock3, Crown, Lightbulb, LogOut, RotateCcw, Target, Undo2, RefreshCw, XCircle } from 'lucide-react';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -176,6 +176,7 @@ function Home() {
   const [autoAdvance, setAutoAdvance] = useState(false);
   const [summaryDismissed, setSummaryDismissed] = useState(false);
   const [localOpponent, setLocalOpponent] = useState<'bot' | 'local'>('bot');
+  const [showFreeChoice, setShowFreeChoice] = useState(false);
   type UndoSnapshot = { board: Board; completeGame: ChessGameState; turn: Side; lastMove: [string,string] | null; moveHistory: string[]; openingNodeId: string | null };
   const [undoStack, setUndoStack] = useState<UndoSnapshot[]>([]);
   const [trainingSelection, setTrainingSelection] = useState<VariantSelection | null>(null);
@@ -248,8 +249,8 @@ function Home() {
 
   const openingVariant = trainingSelection?.variant ?? null;
   const openingTree = trainingSelection?.tree ?? null;
-  const activeOpeningLabel = mode === 'opening' && openingTree && openingVariant && openingNodeId
-    ? getActiveOpeningLabel(openingTree, openingNodeId)
+  const activeOpeningLabel = mode === 'opening' && openingVariant
+    ? getActiveOpeningLabel(openingTree!, openingNodeId ?? openingVariant.startNodeId) ?? openingVariant.name
     : null;
   const trainingTurno = mode === 'opening' && openingTree && openingVariant && openingNodeId
     ? getTrainingTurn(openingTree, openingVariant, openingNodeId, trainingPlayerColor)
@@ -286,10 +287,14 @@ function Home() {
       stockfishOpponentBusyRef.current = true;
       const engine = stockfishRef.current ?? new StockfishEngine();
       stockfishRef.current = engine;
-      const skillByDifficulty: Record<TrainingDifficulty, { depth: number; elo?: number; skillLevel?: number }> = {
-        fundamentos: { depth: 8, elo: 1400 },
-        intermedio: { depth: 11, elo: 1900 },
-        avanzado: { depth: 14, skillLevel: 20 },
+      // La dificultad se expresa como comportamiento del bot, no como un Elo FIDE exacto.
+      // Stockfish limita su escala UCI_Elo inferior a la de un principiante humano,
+      // por lo que usamos Skill Level 0/8/14 y calibramos las etiquetas para que
+      // representen progresión de juego, evitando afirmar una equivalencia exacta.
+      const skillByDifficulty: Record<TrainingDifficulty, { depth: number; skillLevel: number }> = {
+        fundamentos: { depth: 8, skillLevel: 0 },
+        intermedio: { depth: 11, skillLevel: 8 },
+        avanzado: { depth: 14, skillLevel: 14 },
       };
       const level = skillByDifficulty[trainingDifficulty];
       void engine.analyze(completeGame, level)
@@ -506,13 +511,15 @@ function Home() {
   };
 
   const resetTraining = () => {
-    startOpeningTraining(trainingSelection ?? chooseVariant(), trainingSideChoice);
+    // Reiniciar en aperturas significa un ejercicio nuevo, no repetir la misma variante.
+    startOpeningTraining(chooseVariant(), trainingSideChoice);
   };
 
   const exitTraining = () => {
     resetFreePractice();
   };
   const startFreeGame = (opponent: 'bot' | 'local', sideChoice: TrainingSideChoice = trainingSideChoice) => {
+    setShowFreeChoice(false);
     setLocalOpponent(opponent);
     setTrainingSideChoice(sideChoice);
     if (opponent === 'local') {
@@ -571,7 +578,13 @@ function Home() {
       resetTraining();
       return;
     }
+    if (mode === 'complete' && (trainingFocus === 'middlegame' || trainingFocus === 'endgame')) {
+      // En puzzles, reiniciar selecciona un ejercicio nuevo.
+      startPuzzleTraining(puzzleFocus, trainingSideChoice);
+      return;
+    }
     if (mode === 'complete') {
+      // En juego libre vs bot, reiniciar sí conserva el modo y solo reinicia la partida.
       startCompleteGame(trainingSideChoice);
       return;
     }
@@ -808,6 +821,25 @@ function Home() {
           (move) => move.from.row === selected.row && move.from.col === selected.col && move.to.row === row && move.to.col === col,
         );
         if (!moveCandidates.length) return;
+
+        // En puzzles se permite exactamente una respuesta correcta por turno.
+        // La capa pedagógica ya selecciona el candidato correcto para la posición.
+        if (trainingFocus === 'middlegame' || trainingFocus === 'endgame') {
+          const expectedPuzzleMove = (trainingFocus === 'endgame'
+            ? endgamePrompt?.candidateMoves[0]
+            : middlegamePrompt?.candidateMoves[0]) ?? null;
+          if (!expectedPuzzleMove ||
+              expectedPuzzleMove.from.row !== selected.row ||
+              expectedPuzzleMove.from.col !== selected.col ||
+              expectedPuzzleMove.to.row !== row ||
+              expectedPuzzleMove.to.col !== col) {
+            setCompleteErrors((errors) => errors + 1);
+            setCompleteFeedback('Movimiento incorrecto. En este puzzle solo hay una jugada correcta en este turno. Busca la idea indicada antes de mover.');
+            setSelected(null);
+            return;
+          }
+        }
+
         if (moveCandidates.some((move) => move.promotion)) {
           setPromotionPending({ from: selected, to: { row, col } });
           return;
@@ -843,7 +875,7 @@ function Home() {
     setSelected(null);
   };
 
-  const shouldRotateBoard = mode === 'opening' && trainingPlayerColor === 'black';
+  const shouldRotateBoard = (mode === 'opening' || (mode === 'complete' && (trainingFocus === 'middlegame' || trainingFocus === 'endgame'))) && trainingPlayerColor === 'black';
   const displayedBoard = shouldRotateBoard
     ? board.slice().reverse().map((row) => row.slice().reverse())
     : board;
@@ -879,7 +911,7 @@ function Home() {
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {mode === 'opening' && <span className="rounded-full bg-[#e3e8dc] px-3 py-1.5 text-[10px] font-bold text-[#40564b]">{trainingPlayerColor === 'white' ? 'Juegas blancas' : 'Juegas negras'}</span>}
-                  {mode !== 'opening' && <select value={trainingDifficulty} onChange={(event) => setTrainingDifficulty(event.target.value as TrainingDifficulty)} className="rounded-full border border-[#c8c0b0] bg-[#eee8dc] px-3 py-1.5 text-[10px] font-bold text-[#5f7067]"><option value="fundamentos">Fundamentos</option><option value="intermedio">Intermedio</option><option value="avanzado">Avanzado</option></select>}
+                  {mode === 'complete' && trainingFocus === 'complete' && localOpponent === 'bot' && <select value={trainingDifficulty} onChange={(event) => setTrainingDifficulty(event.target.value as TrainingDifficulty)} className="rounded-full border border-[#c8c0b0] bg-[#eee8dc] px-3 py-1.5 text-[10px] font-bold text-[#5f7067]"><option value="fundamentos">Fundamentos · inicial</option><option value="intermedio">Intermedio · medio</option><option value="avanzado">Avanzado · fuerte</option></select>}
                   {(trainingFocus === 'middlegame' || trainingFocus === 'endgame') && <select value={puzzleFocus} onChange={(event) => { const value = event.target.value as PuzzleFocus; setPuzzleFocus(value); startPuzzleTraining(value); }} className="rounded-full border border-[#c8c0b0] bg-[#eee8dc] px-3 py-1.5 text-[10px] font-bold text-[#5f7067]"><option value="random">Aleatorio</option><option value="middlegame">Medio juego</option><option value="endgame">Finales</option></select>}
                 </div>
               </div>
@@ -975,7 +1007,16 @@ function Home() {
                 </div>
 
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#d1c8b7] bg-[#f2ece0] p-3">
-                  <div className="flex gap-2"><button type="button" onClick={undoLastMove} disabled={!undoStack.length} className="rounded-lg border border-[#c8c0b0] bg-[#f6f0e4] px-3 py-2 text-[11px] font-bold text-[#40564b] disabled:opacity-40">Deshacer</button><button type="button" onClick={resetGame} className="rounded-lg border border-[#c8c0b0] bg-[#f6f0e4] px-3 py-2 text-[11px] font-bold text-[#40564b]">Reiniciar</button></div>
+                  <div className="flex gap-3">
+                    <button type="button" onClick={undoLastMove} disabled={!undoStack.length} className="flex min-w-[54px] flex-col items-center gap-0.5 rounded-lg border border-[#c8c0b0] bg-[#f6f0e4] px-2.5 py-1.5 text-[#40564b] disabled:opacity-40" aria-label="Deshacer">
+                      <Undo2 size={17}/>
+                      <span className="text-[8px] font-bold uppercase tracking-[0.06em]">Deshacer</span>
+                    </button>
+                    <button type="button" onClick={resetGame} className="flex min-w-[54px] flex-col items-center gap-0.5 rounded-lg border border-[#c8c0b0] bg-[#f6f0e4] px-2.5 py-1.5 text-[#40564b]" aria-label="Reiniciar">
+                      <RefreshCw size={17}/>
+                      <span className="text-[8px] font-bold uppercase tracking-[0.06em]">Reiniciar</span>
+                    </button>
+                  </div>
                   <label className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.08em] text-[#718078]">Bando<select value={trainingSideChoice} onChange={(event) => {
                     const value = event.target.value as TrainingSideChoice;
                     if (mode === 'opening') startOpeningTraining(trainingSelection ?? chooseVariant(), value);
@@ -1205,12 +1246,24 @@ function Home() {
             </div>
           </div>
         </main>
-      {showMainMenu && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#e9e3d5] p-5"><div className="w-full max-w-[720px]"><div className="mb-10 text-center"><div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-2xl bg-[#1f5b49] text-[#f4ecd9]"><Crown size={32}/></div><h1 className="text-[clamp(2.2rem,7vw,4.5rem)] font-extrabold tracking-[-0.07em] text-[#20362e]">The Quiet Board</h1><p className="mt-2 text-sm text-[#6d7c73]">Entrenamiento de ajedrez</p></div><div className="grid gap-3 sm:grid-cols-2">
-        <button type="button" onClick={()=>startOpeningTraining()} className="rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] p-6 text-left hover:border-[#1f5b49]"><BookOpen className="text-[#1f5b49]"/><p className="mt-4 text-xl font-extrabold text-[#30473e]">Aperturas</p><p className="mt-1 text-xs text-[#718078]">Variantes, pistas y explicación estratégica.</p></button>
-        <button type="button" onClick={()=>startPuzzleTraining()} className="rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] p-6 text-left hover:border-[#1f5b49]"><Lightbulb className="text-[#1f5b49]"/><p className="mt-4 text-xl font-extrabold text-[#30473e]">Puzzles</p><p className="mt-1 text-xs text-[#718078]">Medio juego, finales o aleatorio.</p></button>
-        <div className="rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] p-6"><Target className="text-[#1f5b49]"/><p className="mt-4 text-xl font-extrabold text-[#30473e]">Juego libre</p><div className="mt-4 flex gap-2"><button type="button" onClick={()=>startFreeGame('bot')} className="flex-1 rounded-lg bg-[#1f5b49] px-3 py-2 text-xs font-bold text-white">Vs bot</button><button type="button" onClick={()=>startFreeGame('local')} className="flex-1 rounded-lg border border-[#c8c0b0] px-3 py-2 text-xs font-bold text-[#40564b]">Jugador local</button></div></div>
-        <div className="rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] p-6"><CircleHelp className="text-[#1f5b49]"/><p className="mt-4 text-xl font-extrabold text-[#30473e]">Configuraciones</p><p className="mt-1 text-xs text-[#718078]">Avance: {autoAdvance?'automático':'normal'}.</p><div className="mt-3 flex gap-2"><button type="button" onClick={()=>setAutoAdvance(false)} className={`rounded-lg px-3 py-2 text-xs font-bold ${!autoAdvance?'bg-[#1f5b49] text-white':'bg-[#e8dfcf] text-[#40564b]'}`}>Normal</button><button type="button" onClick={()=>setAutoAdvance(true)} className={`rounded-lg px-3 py-2 text-xs font-bold ${autoAdvance?'bg-[#1f5b49] text-white':'bg-[#e8dfcf] text-[#40564b]'}`}>Automático</button></div></div>
+      {showMainMenu && <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-[#e9e3d5] p-5 pt-[8vh] pb-12"><div className="w-full max-w-[720px]"><div className="mb-7 text-center"><div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-2xl bg-[#1f5b49] text-[#f4ecd9]"><Crown size={32}/></div><h1 className="text-[clamp(2.2rem,7vw,4.5rem)] font-extrabold tracking-[-0.07em] text-[#20362e]">The Quiet Board</h1><p className="mt-2 text-sm text-[#6d7c73]">Entrenamiento de ajedrez</p></div><div className="grid gap-3 sm:grid-cols-2">
+        <button type="button" onClick={()=>startOpeningTraining()} className="rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] p-4 sm:p-5 text-left hover:border-[#1f5b49]"><BookOpen className="text-[#1f5b49]"/><p className="mt-4 text-xl font-extrabold text-[#30473e]">Aperturas</p><p className="mt-1 text-xs text-[#718078]">Variantes, pistas y explicación estratégica.</p></button>
+        <button type="button" onClick={()=>startPuzzleTraining()} className="rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] p-4 sm:p-5 text-left hover:border-[#1f5b49]"><Lightbulb className="text-[#1f5b49]"/><p className="mt-4 text-xl font-extrabold text-[#30473e]">Puzzles</p><p className="mt-1 text-xs text-[#718078]">Medio juego, finales o aleatorio.</p></button>
+        <button type="button" onClick={()=>setShowFreeChoice(true)} className="rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] p-4 sm:p-5 text-left hover:border-[#1f5b49]"><Target className="text-[#1f5b49]"/><p className="mt-4 text-xl font-extrabold text-[#30473e]">Juego libre</p><p className="mt-1 text-xs text-[#718078]">Elige si juegas contra el bot o contra otro jugador local.</p></button>
+        <div className="rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] p-4 sm:p-5"><CircleHelp className="text-[#1f5b49]"/><p className="mt-4 text-xl font-extrabold text-[#30473e]">Configuraciones</p><p className="mt-1 text-xs text-[#718078]">Avance: {autoAdvance?'automático':'normal'}.</p><div className="mt-3 flex gap-2"><button type="button" onClick={()=>setAutoAdvance(false)} className={`rounded-lg px-3 py-2 text-xs font-bold ${!autoAdvance?'bg-[#1f5b49] text-white':'bg-[#e8dfcf] text-[#40564b]'}`}>Normal</button><button type="button" onClick={()=>setAutoAdvance(true)} className={`rounded-lg px-3 py-2 text-xs font-bold ${autoAdvance?'bg-[#1f5b49] text-white':'bg-[#e8dfcf] text-[#40564b]'}`}>Automático</button></div></div>
       </div></div></div>}
+      {showFreeChoice && !showMainMenu && <div className="fixed inset-0 z-[110] flex items-center justify-center bg-[#20362e]/35 p-5">
+        <div className="w-full max-w-[520px] rounded-3xl border border-[#c8c0b0] bg-[#f5efe3] p-6 shadow-2xl">
+          <div className="flex items-start justify-between gap-4">
+            <div><p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#7b897f]">Juego libre</p><h2 className="mt-1 text-2xl font-extrabold text-[#20362e]">¿Contra quién quieres jugar?</h2></div>
+            <button type="button" onClick={()=>setShowFreeChoice(false)} className="rounded-full p-2 text-[#6d7c73] hover:bg-[#e8dfcf]" aria-label="Cerrar"><XCircle size={20}/></button>
+          </div>
+          <div className="mt-6 grid gap-3 sm:grid-cols-2">
+            <button type="button" onClick={()=>startFreeGame('bot')} className="rounded-2xl bg-[#1f5b49] p-5 text-left text-white"><Target size={22}/><p className="mt-3 text-lg font-extrabold">Vs bot</p><p className="mt-1 text-xs text-white/75">Elige tu bando y la fuerza del rival.</p></button>
+            <button type="button" onClick={()=>startFreeGame('local')} className="rounded-2xl border border-[#c8c0b0] bg-[#f6f0e4] p-5 text-left text-[#40564b]"><Target size={22}/><p className="mt-3 text-lg font-extrabold">Jugador local</p><p className="mt-1 text-xs text-[#718078]">Sin dificultad: dos personas comparten el dispositivo.</p></button>
+          </div>
+        </div>
+      </div>}
       {((trainingComplete || freeGameOver) && !summaryDismissed && !showMainMenu) && <div className="fixed inset-0 z-[90] flex items-center justify-center bg-[#20362e]/35 p-5"><div className="relative w-full max-w-[620px] rounded-3xl border border-[#c8c0b0] bg-[#f5efe3] p-7 shadow-2xl"><button type="button" onClick={()=>setSummaryDismissed(true)} className="absolute right-4 top-4 rounded-full p-2 text-[#6d7c73] hover:bg-[#e8dfcf]" aria-label="Cerrar resumen"><XCircle size={20}/></button><p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#7b897f]">Sesión finalizada</p><h2 className="mt-2 text-3xl font-extrabold text-[#20362e]">Resumen</h2>{mode==='opening'?<div className="mt-5 grid gap-2 text-sm text-[#486257]"><p>Variante: <b>{openingVariant?.name}</b></p><p>Errores: <b>{trainingErrors}</b></p><p>Aciertos: <b>{trainingCorrectMoves}</b></p><p>Precisión: <b>{trainingAccuracy}%</b></p><p>Pistas: <b>{trainingHintsUsed}</b></p></div>:<div className="mt-5 grid gap-2 text-sm text-[#486257]"><p>Jugadas: <b>{moveHistory.length}</b></p><p>Alertas tácticas: <b>{completeErrors}</b></p><p>Alertas medio juego: <b>{middlegameErrors}</b></p><p>Alertas finales: <b>{endgameErrors}</b></p></div>}<div className="mt-7 flex justify-end gap-2"><button type="button" onClick={goHome} className="rounded-lg border border-[#c8c0b0] px-4 py-2 text-xs font-bold text-[#40564b]">Inicio</button><button type="button" onClick={continueSession} className="rounded-lg bg-[#1f5b49] px-4 py-2 text-xs font-bold text-white">Continuar</button></div></div></div>}
       </div>
     </div>
