@@ -147,8 +147,8 @@ export function classifyStockfishMove(quality: StockfishMoveQuality, context?: {
     };
   }
 
-  if (bestMate !== null) {
-    if (playedMate !== null && Math.abs(playedMate) <= Math.abs(bestMate)) {
+  if (bestMate !== null && bestMate > 0) {
+    if (playedMate !== null && playedMate > 0 && playedMate <= bestMate) {
       return {
         quality: 'excellent',
         label: 'Mate encontrado',
