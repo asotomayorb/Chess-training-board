@@ -505,13 +505,23 @@ function Home() {
     setEndgamePrompt(endgame);
     setMiddlegamePrompt(middlegame);
     if (focus === 'middlegame' || focus === 'endgame') {
+      // Siempre dejamos una respuesta válida disponible desde el inicio para
+      // evitar que el puzzle quede bloqueado en "calculando…".
+      const fallback = (focus === 'endgame' ? endgame?.candidateMoves[0] : middlegame?.candidateMoves[0]);
+      const fallbackUci = fallback ? chessMoveToUci(fallback) : null;
+      setPuzzleExpectedMoveUci(fallbackUci);
+
       const engine = stockfishRef.current ?? new StockfishEngine();
       stockfishRef.current = engine;
       void engine.analyze(freshGame, { depth: 16 })
-        .then((analysis) => setPuzzleExpectedMoveUci(analysis.bestMove))
+        .then((analysis) => {
+          const legalMove = getLegalChessMoves(freshGame).find(
+            (move) => chessMoveToUci(move) === analysis.bestMove,
+          );
+          if (legalMove) setPuzzleExpectedMoveUci(analysis.bestMove);
+        })
         .catch(() => {
-          const fallback = (focus === 'endgame' ? endgame?.candidateMoves[0] : middlegame?.candidateMoves[0]);
-          setPuzzleExpectedMoveUci(fallback ? chessMoveToUci(fallback) : null);
+          // El candidato pedagógico ya quedó configurado como respaldo.
         });
     }
     setTrainingSelection(null);
