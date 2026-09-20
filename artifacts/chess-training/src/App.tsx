@@ -186,11 +186,6 @@ function Home() {
   const [trainingStatus, setTrainingStatus] = useState<'idle' | 'incorrect' | 'correct' | 'complete'>('idle');
   const [openingOpponentPending, setOpeningOpponentPending] = useState(false);
   const [trainingExplanation, setTrainingExplanation] = useState('');
-  const [unexpectedPlayEnabled, setUnexpectedPlayEnabled] = useState(false);
-  const [unexpectedDifficulty, setUnexpectedDifficulty] = useState<'fundamentos' | 'intermedio' | 'avanzado'>('intermedio');
-  const [unexpectedEvent, setUnexpectedEvent] = useState<UnexpectedEvent | null>(null);
-  const [unexpectedChallenge, setUnexpectedChallenge] = useState<{ event: UnexpectedEvent; resumeNodeId: string; resumeBoard: Board; resumeHistory: string[]; resumeTurn: OpeningColor; pendingAutomaticMoves: OpeningMove[]; pendingNextNodeId: string } | null>(null);
-  const [completeUnexpectedChallenge, setCompleteUnexpectedChallenge] = useState<{ event: UnexpectedEvent; triggeringMove: ChessGameMove } | null>(null);
   useEffect(() => () => {
     stockfishAnalysisRequestRef.current += 1;
     stockfishMoveBusyRef.current = false;
@@ -313,9 +308,7 @@ function Home() {
           setTurn(nextGame.turn);
           setSelected(null);
           setPromotionPending(null);
-          setUnexpectedEvent(null);
-          setCompleteUnexpectedChallenge(null);
-          setFocusCue('El rival respondió con Stockfish. Vuelve a evaluar amenazas, capturas y el objetivo del ejercicio.');
+                      setFocusCue('El rival respondió con Stockfish. Vuelve a evaluar amenazas, capturas y el objetivo del ejercicio.');
         })
         .catch((error) => {
           setStockfishReady(false);
@@ -377,7 +370,6 @@ function Home() {
     setOpeningOpponentPending(false);
     setTrainingExplanation('');
     setUnexpectedEvent(null);
-    setUnexpectedChallenge(null);
   };
 
   const startOpeningTraining = (
@@ -551,7 +543,6 @@ function Home() {
         return [...moves, { nodeId: expectedNode.id, notation: expectedMove.notation, errors: nextMoveErrors, hintsUsed: nextHintLevel, category: errorCategory }];
       });
       setTrainingStatus('incorrect');
-      setUnexpectedEvent(unexpectedPlayEnabled ? chooseUnexpectedSituation(board, getOpponentSide(trainingPlayerColor), { enabled: true, difficulty: unexpectedDifficulty }) : null);
       setTrainingExplanation(`Por qué: ${expectedMove.whyWrong ?? expectedMove.typicalError}\nTipo de error: ${errorCategory}.`);
       setSelected(null);
       return;
@@ -724,21 +715,6 @@ function Home() {
   };
 
   const handleSquareClick = (row: number, col: number) => {
-    if (mode === 'opening' && unexpectedChallenge) {
-      const clickedPiece = board[row][col];
-      const clickedIsLegal = legalKeySet.has(`${row}-${col}`);
-      if (selected && clickedIsLegal) {
-        handleOpeningMove(selected, { row, col });
-        return;
-      }
-      if (clickedPiece?.color === trainingPlayerColor) {
-        setSelected({ row, col });
-        setFocusCue('Situación inesperada: calcula primero la respuesta antes de continuar la variante.');
-        return;
-      }
-      setSelected(null);
-      return;
-    }
     if (mode === 'opening' && openingOpponentPending) {
       setSelected(null);
       return;
@@ -1255,11 +1231,6 @@ function Home() {
                        {mode === 'complete' && completeThreatMessage && !freeGameOver && (
                          <p className="mt-3 rounded-lg bg-[#eee4cc] px-3 py-2.5 text-[11px] font-semibold leading-relaxed text-[#665b42]" data-testid="text-complete-threat">
                            ⚠️ {completeThreatMessage}
-                         </p>
-                       )}
-                       {mode === 'complete' && completeUnexpectedChallenge && !freeGameOver && (
-                         <p className="mt-3 rounded-lg bg-[#eee4cc] px-3 py-2.5 text-[11px] font-semibold leading-relaxed text-[#665b42]" data-testid="text-complete-unexpected">
-                           ⚠️ Juego inesperado: responde a la situación antes de continuar tu plan.
                          </p>
                        )}
                        {mode === 'complete' && endgamePrompt && !freeGameOver && (
