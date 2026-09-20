@@ -8,7 +8,8 @@ export type EndgameTechnique =
   | 'actividad-del-rey'
   | 'torre-activa'
   | 'mate-con-dama'
-  | 'mate-con-torre';
+  | 'mate-con-torre'
+  | 'mate-básico';
 
 export type EndgameMoveEvaluation = {
   fulfilled: boolean;
@@ -137,6 +138,16 @@ export function evaluateEndgameMove(
       return { fulfilled: true, technique: 'torre-activa', feedback: 'Bien: la torre está activa mediante jaque, captura o control directo de la fila o columna del rey rival.' };
     }
     return { fulfilled: false, technique: 'torre-activa', feedback: 'Busca una torre realmente activa: jaque, captura útil, ataque al rey o penetración por una fila o columna.' };
+  }
+
+  if (prompt.type === 'mate-básico') {
+    if (getChessGameStatus(next) === 'checkmate') {
+      return { fulfilled: true, technique: 'mate-básico', feedback: 'Mate conseguido. Has coordinado las piezas y eliminado las casillas de escape.' };
+    }
+    if (givesCheck(previous, move) || isKingApproachingEnemy(previous, next, move)) {
+      return { fulfilled: true, technique: 'mate-básico', feedback: 'Bien: estás restringiendo al rey y acercando el tuyo. Continúa reduciendo sus casillas de escape.' };
+    }
+    return { fulfilled: false, technique: 'mate-básico', feedback: 'Busca coordinación: restringe las casillas del rey rival y acerca tu rey antes de intentar el mate.' };
   }
 
   if (prompt.type === 'dama-contra-rey') {
