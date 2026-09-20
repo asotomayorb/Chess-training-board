@@ -241,6 +241,16 @@ button,
   background: #f0f0f0 !important;
 }
 
+/* La pantalla completa debe poder desplazarse en móviles cuando el contenido
+   supera la altura disponible. */
+html, body, #root {
+  min-height: 100%;
+}
+
+body {
+  overflow-y: auto;
+}
+
 .chess-square {
   transition: filter 120ms ease, background-color 120ms ease;
 }
@@ -314,16 +324,17 @@ button,
 
 @media (max-width: 767px) {
   .training-shell {
-    height: calc(100dvh - 60px);
+    height: auto;
     min-height: 0;
-    overflow: hidden;
+    overflow: visible;
+    padding-bottom: 28px;
   }
 
   .training-intro {
-    max-height: 13dvh;
+    max-height: none;
     min-height: 0;
-    margin-bottom: 6px !important;
-    overflow: hidden;
+    margin-bottom: 10px !important;
+    overflow: visible;
   }
 
   .training-board-wrap {
