@@ -35,3 +35,14 @@ test('detecta dama contra rey', () => {
   state.board[0][4] = { color: 'black', type: 'king' };
   assert.equal(detectEndgameType(state), 'dama-contra-rey');
 });
+
+
+test('detecta material de mate básico con alfil y caballo', () => {
+  const state = emptyPosition();
+  state.board[7][4] = { color: 'white', type: 'king' };
+  state.board[6][2] = { color: 'white', type: 'bishop' };
+  state.board[5][4] = { color: 'white', type: 'knight' };
+  state.board[0][4] = { color: 'black', type: 'king' };
+  assert.equal(detectEndgameType(state), 'mate-básico');
+  assert.ok(chooseEndgameTrainingPrompt(state));
+});
