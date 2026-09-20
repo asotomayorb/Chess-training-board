@@ -916,8 +916,8 @@ function Home() {
               {mode === 'opening' && (
                 <div className="flex items-center justify-between gap-4">
                   <div className="min-w-0">
-                    <p className="text-[17px] font-extrabold leading-tight text-[#1f5b49]" data-testid="text-active-opening">{openingVariant?.name ?? 'Nueva apertura'}</p>
-                    <p className="mt-0.5 text-[11px] font-medium text-[#718078]" data-testid="text-active-opening-variant">{activeOpeningLabel ?? openingVariant?.name ?? 'Variante'}</p>
+                    <p className="text-[17px] font-extrabold leading-tight text-[#1f5b49]" data-testid="text-active-opening">{openingVariant?.opening ?? 'Nueva apertura'}</p>
+                    <p className="mt-0.5 text-[11px] font-medium text-[#718078]" data-testid="text-active-opening-variant">{openingVariant?.name ?? activeOpeningLabel ?? 'Variante'}</p>
                   </div>
                   <div className="flex shrink-0 items-center gap-2 text-[11px] font-bold text-[#40564b]">
                     <span>{trainingPlayerColor === 'white' ? 'Turno: blancas' : 'Turno: negras'}</span>
@@ -929,7 +929,7 @@ function Home() {
                 <div className="flex items-center justify-between gap-4">
                   <div className="min-w-0">
                     <p className="text-[17px] font-extrabold leading-tight text-[#1f5b49]" data-testid="text-puzzle-mode">{puzzleFocus === 'random' ? 'Aleatorio' : trainingFocus === 'middlegame' ? 'Medio juego' : 'Finales'}</p>
-                    <p className="mt-0.5 text-[11px] font-medium text-[#718078]" data-testid="text-puzzle-type">{trainingFocus === 'endgame' ? (endgamePrompt?.title ?? 'Final') : (middlegamePrompt?.title ?? 'Posición de medio juego')}</p>
+                    <p className="mt-0.5 text-[11px] font-medium text-[#718078]" data-testid="text-puzzle-type">{trainingFocus === 'endgame' ? (endgamePrompt?.type ?? 'Final') : (middlegamePrompt?.objective ?? 'Posición de medio juego')}</p>
                   </div>
                   <div className="flex shrink-0 items-center gap-2 text-[11px] font-bold text-[#40564b]">
                     <span>{trainingPlayerColor === 'white' ? 'Turno: blancas' : 'Turno: negras'}</span>
