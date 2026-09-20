@@ -48,6 +48,8 @@ export type OpeningVariant = {
   /** The training line is the path from startNodeId to leafNodeId in the tree. */
   startNodeId: string;
   leafNodeId: string;
+  /** Position where the specific variant name becomes active; defaults to leafNodeId. */
+  activationNodeId?: string;
 };
 
 export type VariantTree = {
@@ -585,6 +587,7 @@ export const italianGameTrainingTree: VariantTree = {
       ],
       startNodeId: 'italian-root',
       leafNodeId: 'italian-node-hungarian-nxd4',
+      activationNodeId: 'italian-node-be7',
     },
   ],
 };
