@@ -111,10 +111,12 @@ function makeTrainingBoard(kind: 'middlegame' | 'opposition' | 'rooks' | 'queen'
     // Posición didáctica: oposición con un tiempo de reserva en el peón.
     put('e5', 'king', 'white'); put('e3', 'pawn', 'white'); put('e7', 'king', 'black');
   } else if (kind === 'rooks') {
+    // Posición con una idea concreta disponible: activar la torre con jaque por la séptima.
     put('e5', 'king', 'white'); put('a5', 'rook', 'white'); put('a6', 'pawn', 'white');
-    put('g7', 'king', 'black'); put('h7', 'rook', 'black'); put('g6', 'pawn', 'black');
+    put('g7', 'king', 'black'); put('h7', 'rook', 'black'); put('h6', 'pawn', 'black');
   } else {
-    put('e5', 'king', 'white'); put('e6', 'queen', 'white'); put('h8', 'king', 'black');
+    // Posición de mate técnico: Qg7+ es una respuesta clara y protegida por el rey.
+    put('f6', 'king', 'white'); put('g6', 'queen', 'white'); put('h8', 'king', 'black');
   }
   return board;
 }
