@@ -262,7 +262,7 @@ export function getActiveOpeningLabel(tree: VariantTree, nodeId: string): string
   // cuando su propio final ya fue alcanzado; por ejemplo, ...Ac5 activa
   // Giuoco Piano aunque el Gambito Evans comparta esa posición como punto
   // de partida de su continuación 4.b4.
-  const completedHere = matching.filter((branch) => branch.leafNodeId === nodeId);
+  const completedHere = matching.filter((branch) => (branch.activationNodeId ?? branch.leafNodeId) === nodeId);
   if (completedHere.length === 1) return completedHere[0].name;
   if (matching.length === 1) return matching[0].name;
   return tree.opening;
