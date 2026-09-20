@@ -119,6 +119,17 @@ function makeTrainingBoard(kind: 'middlegame' | 'opposition' | 'rooks' | 'queen'
   return board;
 }
 
+function mirrorAndSwapPuzzleBoard(board: Board): Board {
+  const mirrored: Board = Array.from({ length: 8 }, () => Array(8).fill(null));
+  for (let row = 0; row < 8; row += 1) {
+    for (let col = 0; col < 8; col += 1) {
+      const piece = board[7 - row][7 - col];
+      mirrored[row][col] = piece ? { ...piece, color: piece.color === 'white' ? 'black' : 'white' } : null;
+    }
+  }
+  return mirrored;
+}
+
 function getOpponentSide(playerColor: OpeningColor): Side {
   return playerColor === 'white' ? 'black' : 'white';
 }
@@ -179,6 +190,8 @@ function Home() {
   const [showFreeChoice, setShowFreeChoice] = useState(false);
   const [showPuzzleChoice, setShowPuzzleChoice] = useState(false);
   const [showConfigChoice, setShowConfigChoice] = useState(false);
+  const [puzzleErrorMove, setPuzzleErrorMove] = useState<[string, string] | null>(null);
+  const [puzzleErrorCount, setPuzzleErrorCount] = useState(0);
   type UndoSnapshot = { board: Board; completeGame: ChessGameState; turn: Side; lastMove: [string,string] | null; moveHistory: string[]; openingNodeId: string | null };
   const [undoStack, setUndoStack] = useState<UndoSnapshot[]>([]);
   const [trainingSelection, setTrainingSelection] = useState<VariantSelection | null>(null);
@@ -351,6 +364,8 @@ function Home() {
     setTurn('white');
     setSelected(null);
     setLastMove(null);
+    setPuzzleErrorMove(null);
+    setPuzzleErrorCount(0);
     setMoveHistory([]);
     setFocusCue('Antes de mover, identifica la tensión de la posición.');
     setCompleteFeedback('');
@@ -435,7 +450,9 @@ function Home() {
       ? 'middlegame' as const
       : (['opposition', 'rooks', 'queen'] as const)[Math.floor(Math.random() * 3)];
     const playerColor: OpeningColor = sideChoice === 'random' ? (Math.random() < 0.5 ? 'white' : 'black') : sideChoice;
-    const freshGame = createFocusedGameState(makeTrainingBoard(kind), playerColor);
+    const basePuzzleBoard = makeTrainingBoard(kind);
+    const puzzleBoard = playerColor === 'black' ? mirrorAndSwapPuzzleBoard(basePuzzleBoard) : basePuzzleBoard;
+    const freshGame = createFocusedGameState(puzzleBoard, playerColor);
     setCompleteGame(freshGame);
     setPromotionPending(null);
     setBoard(freshGame.board);
@@ -843,8 +860,9 @@ function Home() {
               expectedPuzzleMove.to.row !== row ||
               expectedPuzzleMove.to.col !== col) {
             setCompleteErrors((errors) => errors + 1);
-            setCompleteFeedback('Movimiento incorrecto. En este puzzle solo hay una jugada correcta en este turno. Busca la idea indicada antes de mover.');
-            setLastMove([squareName(selected), squareName({ row, col })]);
+            setPuzzleErrorCount((count) => count + 1);
+            setPuzzleErrorMove([squareName(selected), squareName({ row, col })]);
+            setCompleteFeedback('Movimiento incorrecto. Revisa la idea del ejercicio y vuelve a intentarlo.');
             setSelected(null);
             return;
           }
@@ -854,6 +872,8 @@ function Home() {
           setPromotionPending({ from: selected, to: { row, col } });
           return;
         }
+        setPuzzleErrorMove(null);
+        setPuzzleErrorCount(0);
         applyCompleteMove(moveCandidates[0]);
         return;
       }
@@ -905,7 +925,8 @@ function Home() {
               if (event.target.value === 'opening') startOpeningTraining();
               else if (event.target.value === 'puzzles') openPuzzleChoice();
               else if (event.target.value === 'config') { setShowMainMenu(true); setSummaryDismissed(true); }
-              else startFreeGame('bot');
+              else if (event.target.value === 'free') setShowFreeChoice(true);
+              else { setShowMainMenu(true); setSummaryDismissed(true); }
             }} className="max-w-[170px] rounded-lg border border-[#c6bdac] bg-[#f1ebdf] px-3 py-2 text-[11px] font-bold text-[#40564b]">
               <option value="opening">Aperturas</option><option value="puzzles">Puzzles</option><option value="free">Juego libre</option><option value="config">Configuraciones</option>
             </select>
@@ -946,12 +967,14 @@ function Home() {
 
             <div className="grid items-start gap-8 xl:grid-cols-[minmax(560px,700px)_300px] xl:gap-14">
               <section className="training-board-column fade-up fade-up-delay-1">
-                <div className="mb-3 flex items-center justify-end px-1">
-                  <div className="flex items-center gap-2 text-[11px] font-bold text-[#40564b]">
-                    <span>{(mode === 'complete' ? completeGame.turn : turn) === 'white' ? 'Turno: blancas' : 'Turno: negras'}</span>
-                    <span className={`size-3 rounded-full ${(mode === 'complete' ? completeGame.turn : turn) === 'white' ? 'bg-[#f7f0df] ring-1 ring-[#9f9687]' : 'bg-[#263a33]'}`} />
+                {((mode === 'free') || (mode === 'complete' && trainingFocus === 'complete')) && (
+                  <div className="mb-3 flex items-center justify-end px-1">
+                    <div className="flex items-center gap-2 text-[11px] font-bold text-[#40564b]">
+                      <span>{(mode === 'complete' ? completeGame.turn : turn) === 'white' ? 'Turno: blancas' : 'Turno: negras'}</span>
+                      <span className={`size-3 rounded-full ${(mode === 'complete' ? completeGame.turn : turn) === 'white' ? 'bg-[#f7f0df] ring-1 ring-[#9f9687]' : 'bg-[#263a33]'}`} />
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {promotionPending && mode === 'complete' && (
                   <div className="mb-3 rounded-xl border border-[#c9b98f] bg-[#eee4cc] p-3">
@@ -994,6 +1017,8 @@ function Home() {
                         const isLastMove = lastMove?.includes(squareName({ row: rowIndex, col: colIndex })) ?? false;
                         const isHintFrom = mode === 'opening' && trainingStatus === 'incorrect' && hintLevel >= 2 && expectedMove?.from === squareName({ row: rowIndex, col: colIndex });
                         const isHintTo = mode === 'opening' && trainingStatus === 'incorrect' && hintLevel >= 3 && expectedMove?.to === squareName({ row: rowIndex, col: colIndex });
+                        const isPuzzleErrorFrom = (trainingFocus === 'middlegame' || trainingFocus === 'endgame') && puzzleErrorCount >= 1 && puzzleErrorMove?.[0] === squareName({ row: rowIndex, col: colIndex });
+                        const isPuzzleErrorTo = (trainingFocus === 'middlegame' || trainingFocus === 'endgame') && puzzleErrorCount >= 2 && puzzleErrorMove?.[1] === squareName({ row: rowIndex, col: colIndex });
                         const isLight = (rowIndex + colIndex) % 2 === 0;
                         return (
                           <button
@@ -1002,7 +1027,7 @@ function Home() {
                             onClick={() => handleSquareClick(rowIndex, colIndex)}
                             data-testid={`square-${squareName({ row: rowIndex, col: colIndex })}`}
                             aria-label={`${squareName({ row: rowIndex, col: colIndex })}${piece ? ` ${piece.color} ${piece.type}` : ''}`}
-                            className={`chess-square ${isLight ? 'board-light text-[#527062]' : 'board-dark text-[#e5ddc8]'} ${isSelected ? 'selected' : ''} ${isLegal ? (piece ? 'legal capture' : 'legal') : ''} ${isLastMove ? 'last-move' : ''} ${isHintFrom ? 'hint-from' : ''} ${isHintTo ? 'hint-to' : ''}`}
+                            className={`chess-square ${isLight ? 'board-light text-[#527062]' : 'board-dark text-[#e5ddc8]'} ${isSelected ? 'selected' : ''} ${isLegal ? (piece ? 'legal capture' : 'legal') : ''} ${isLastMove ? 'last-move' : ''} ${isHintFrom ? 'hint-from' : ''} ${isHintTo ? 'hint-to' : ''} ${isPuzzleErrorFrom ? 'puzzle-error-from' : ''} ${isPuzzleErrorTo ? 'puzzle-error-to' : ''}`}
                           >
                             {displayColIndex === 0 && <span className="board-coord board-rank">{8 - rowIndex}</span>}
                             {displayRowIndex === 7 && <span className="board-coord board-file">{files[colIndex]}</span>}
@@ -1067,6 +1092,10 @@ function Home() {
         </main>
       {showMainMenu && <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden bg-[#e9e3d5] p-5">
         <div className="w-full max-w-[560px]">
+          <div className="mb-6 flex items-center justify-center gap-3">
+            <div className="flex size-11 items-center justify-center rounded-2xl bg-[#1f5b49] text-[#f5efe3]"><Crown size={24}/></div>
+            <span className="text-2xl font-extrabold tracking-[-0.04em] text-[#20362e]">Chess Training Board</span>
+          </div>
           <div className="grid gap-3">
             <button type="button" onClick={()=>startOpeningTraining()} className="flex h-16 items-center gap-4 rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] px-5 text-left hover:border-[#1f5b49]"><BookOpen className="shrink-0 text-[#1f5b49]" size={25}/><span className="text-lg font-extrabold text-[#30473e]">Aperturas</span></button>
             <button type="button" onClick={openPuzzleChoice} className="flex h-16 items-center gap-4 rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] px-5 text-left hover:border-[#1f5b49]"><Lightbulb className="shrink-0 text-[#1f5b49]" size={25}/><span className="text-lg font-extrabold text-[#30473e]">Puzzles</span></button>
@@ -1077,11 +1106,11 @@ function Home() {
       </div>}
       {showPuzzleChoice && <div className="fixed inset-0 z-[110] flex items-center justify-center bg-[#20362e]/35 p-5">
         <div className="w-full max-w-[520px] rounded-3xl border border-[#c8c0b0] bg-[#f5efe3] p-6 shadow-2xl">
-          <div className="flex items-start justify-between gap-4"><div><p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#7b897f]">Puzzles</p><h2 className="mt-1 text-2xl font-extrabold text-[#20362e]">¿Qué quieres entrenar?</h2></div><button type="button" onClick={()=>setShowPuzzleChoice(false)} className="rounded-full p-2 text-[#6d7c73] hover:bg-[#e8dfcf]" aria-label="Cerrar"><XCircle size={20}/></button></div>
+          <div className="flex items-start justify-between gap-4"><div><p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#7b897f]">Puzzles</p><h2 className="mt-1 text-2xl font-extrabold text-[#20362e]">Tema</h2></div><button type="button" onClick={()=>setShowPuzzleChoice(false)} className="rounded-full p-2 text-[#6d7c73] hover:bg-[#e8dfcf]" aria-label="Cerrar"><XCircle size={20}/></button></div>
           <div className="mt-6 grid gap-3">
-            <button type="button" onClick={()=>choosePuzzleMode('random')} className="rounded-2xl bg-[#1f5b49] p-5 text-left text-white"><Lightbulb size={22}/><p className="mt-3 text-lg font-extrabold">Aleatorio</p></button>
-            <button type="button" onClick={()=>choosePuzzleMode('middlegame')} className="rounded-2xl border border-[#c8c0b0] bg-[#f6f0e4] p-5 text-left text-[#40564b]"><Target size={22}/><p className="mt-3 text-lg font-extrabold">Medio juego</p></button>
-            <button type="button" onClick={()=>choosePuzzleMode('endgame')} className="rounded-2xl border border-[#c8c0b0] bg-[#f6f0e4] p-5 text-left text-[#40564b]"><Crown size={22}/><p className="mt-3 text-lg font-extrabold">Finales</p></button>
+            <button type="button" onClick={()=>choosePuzzleMode('middlegame')} className="flex h-16 items-center gap-4 rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] px-5 text-left text-[#40564b] hover:border-[#1f5b49]"><Target size={25} className="shrink-0 text-[#1f5b49]"/><span className="text-lg font-extrabold">Medio juego</span></button>
+            <button type="button" onClick={()=>choosePuzzleMode('endgame')} className="flex h-16 items-center gap-4 rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] px-5 text-left text-[#40564b] hover:border-[#1f5b49]"><Crown size={25} className="shrink-0 text-[#1f5b49]"/><span className="text-lg font-extrabold">Finales</span></button>
+            <button type="button" onClick={()=>choosePuzzleMode('random')} className="flex h-16 items-center gap-4 rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] px-5 text-left text-[#40564b] hover:border-[#1f5b49]"><Lightbulb size={25} className="shrink-0 text-[#1f5b49]"/><span className="text-lg font-extrabold">Aleatorio</span></button>
           </div>
         </div>
       </div>}
@@ -1097,12 +1126,12 @@ function Home() {
       {showFreeChoice && <div className="fixed inset-0 z-[110] flex items-center justify-center bg-[#20362e]/35 p-5">
         <div className="w-full max-w-[520px] rounded-3xl border border-[#c8c0b0] bg-[#f5efe3] p-6 shadow-2xl">
           <div className="flex items-start justify-between gap-4">
-            <div><p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#7b897f]">Juego libre</p><h2 className="mt-1 text-2xl font-extrabold text-[#20362e]">¿Contra quién quieres jugar?</h2></div>
+            <div><p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#7b897f]">Juego libre</p><h2 className="mt-1 text-2xl font-extrabold text-[#20362e]">Rival</h2></div>
             <button type="button" onClick={()=>setShowFreeChoice(false)} className="rounded-full p-2 text-[#6d7c73] hover:bg-[#e8dfcf]" aria-label="Cerrar"><XCircle size={20}/></button>
           </div>
-          <div className="mt-6 grid gap-3 sm:grid-cols-2">
-            <button type="button" onClick={()=>startFreeGame('bot')} className="rounded-2xl bg-[#1f5b49] p-5 text-left text-white"><Target size={22}/><p className="mt-3 text-lg font-extrabold">Vs bot</p><p className="mt-1 text-xs text-white/75">Elige tu bando y la fuerza del rival.</p></button>
-            <button type="button" onClick={()=>startFreeGame('local')} className="rounded-2xl border border-[#c8c0b0] bg-[#f6f0e4] p-5 text-left text-[#40564b]"><Target size={22}/><p className="mt-3 text-lg font-extrabold">Jugador local</p><p className="mt-1 text-xs text-[#718078]">Sin dificultad: dos personas comparten el dispositivo.</p></button>
+          <div className="mt-6 grid gap-3">
+            <button type="button" onClick={()=>startFreeGame('bot')} className="flex h-16 items-center gap-4 rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] px-5 text-left text-[#40564b] hover:border-[#1f5b49]"><Target size={25} className="shrink-0 text-[#1f5b49]"/><span className="text-lg font-extrabold">Vs bot</span></button>
+            <button type="button" onClick={()=>startFreeGame('local')} className="flex h-16 items-center gap-4 rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] px-5 text-left text-[#40564b] hover:border-[#1f5b49]"><BookOpen size={25} className="shrink-0 text-[#1f5b49]"/><span className="text-lg font-extrabold">Jugador local</span></button>
           </div>
         </div>
       </div>}
