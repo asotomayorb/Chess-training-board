@@ -112,7 +112,7 @@ function makeTrainingBoard(kind: 'middlegame' | 'opposition' | 'rooks' | 'queen'
     put('e5', 'king', 'white'); put('e3', 'pawn', 'white'); put('e7', 'king', 'black');
   } else if (kind === 'rooks') {
     // Posición con una idea concreta disponible: activar la torre con jaque por la séptima.
-    put('e5', 'king', 'white'); put('a5', 'rook', 'white'); put('a6', 'pawn', 'white');
+    put('e5', 'king', 'white'); put('a5', 'rook', 'white'); put('b6', 'pawn', 'white');
     put('g7', 'king', 'black'); put('h7', 'rook', 'black'); put('h6', 'pawn', 'black');
   } else {
     // Posición de mate técnico: Qg7+ es una respuesta clara y protegida por el rey.
