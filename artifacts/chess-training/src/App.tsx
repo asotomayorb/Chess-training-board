@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { BookOpen, CheckCircle2, ChevronDown, CircleHelp, Clock3, Crown, Lightbulb, LogOut, RotateCcw, Target, Undo2, RefreshCw, XCircle } from 'lucide-react';
+import { BookOpen, Bot, CheckCircle2, ChevronDown, CircleHelp, Clock3, Crown, Gamepad2, Lightbulb, LogOut, Puzzle, RefreshCw, RotateCcw, Settings, Target, Undo2, Users, XCircle } from 'lucide-react';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -194,6 +194,7 @@ function Home() {
   const [showConfigChoice, setShowConfigChoice] = useState(false);
   const [puzzleErrorMove, setPuzzleErrorMove] = useState<[string, string] | null>(null);
   const [puzzleErrorCount, setPuzzleErrorCount] = useState(0);
+  const [puzzleExpectedMoveUci, setPuzzleExpectedMoveUci] = useState<string | null>(null);
   type UndoSnapshot = { board: Board; completeGame: ChessGameState; turn: Side; lastMove: [string,string] | null; moveHistory: string[]; openingNodeId: string | null };
   const [undoStack, setUndoStack] = useState<UndoSnapshot[]>([]);
   const [trainingSelection, setTrainingSelection] = useState<VariantSelection | null>(null);
@@ -368,6 +369,7 @@ function Home() {
     setLastMove(null);
     setPuzzleErrorMove(null);
     setPuzzleErrorCount(0);
+    setPuzzleExpectedMoveUci(null);
     setMoveHistory([]);
     setFocusCue('Antes de mover, identifica la tensión de la posición.');
     setCompleteFeedback('');
@@ -480,9 +482,23 @@ function Home() {
     setCompleteErrors(0);
     setMiddlegameErrors(0);
     setEndgameErrors(0);
+    setPuzzleErrorMove(null);
+    setPuzzleErrorCount(0);
+    setPuzzleExpectedMoveUci(null);
     const endgame = chooseEndgameTrainingPrompt(freshGame);
+    const middlegame = focus === 'middlegame' ? chooseMiddlegameTrainingPrompt(freshGame, { difficulty: trainingDifficulty }) : null;
     setEndgamePrompt(endgame);
-    setMiddlegamePrompt(focus === 'middlegame' ? chooseMiddlegameTrainingPrompt(freshGame, { difficulty: trainingDifficulty }) : null);
+    setMiddlegamePrompt(middlegame);
+    if (focus === 'middlegame' || focus === 'endgame') {
+      const engine = stockfishRef.current ?? new StockfishEngine();
+      stockfishRef.current = engine;
+      void engine.analyze(freshGame, { depth: 16 })
+        .then((analysis) => setPuzzleExpectedMoveUci(analysis.bestMove))
+        .catch(() => {
+          const fallback = (focus === 'endgame' ? endgame?.candidateMoves[0] : middlegame?.candidateMoves[0]);
+          setPuzzleExpectedMoveUci(fallback ? chessMoveToUci(fallback) : null);
+        });
+    }
     setTrainingSelection(null);
     setOpeningNodeId(null);
   };
@@ -853,14 +869,8 @@ function Home() {
         // En puzzles se permite exactamente una respuesta correcta por turno.
         // La capa pedagógica ya selecciona el candidato correcto para la posición.
         if (trainingFocus === 'middlegame' || trainingFocus === 'endgame') {
-          const expectedPuzzleMove = (trainingFocus === 'endgame'
-            ? endgamePrompt?.candidateMoves[0]
-            : middlegamePrompt?.candidateMoves[0]) ?? null;
-          if (!expectedPuzzleMove ||
-              expectedPuzzleMove.from.row !== selected.row ||
-              expectedPuzzleMove.from.col !== selected.col ||
-              expectedPuzzleMove.to.row !== row ||
-              expectedPuzzleMove.to.col !== col) {
+          const selectedPuzzleMoveUci = chessMoveToUci(moveCandidates[0]);
+          if (!puzzleExpectedMoveUci || selectedPuzzleMoveUci !== puzzleExpectedMoveUci) {
             setCompleteErrors((errors) => errors + 1);
             setPuzzleErrorCount((count) => count + 1);
             setPuzzleErrorMove([squareName(selected), squareName({ row, col })]);
@@ -953,6 +963,11 @@ function Home() {
                   <div className="min-w-0">
                     <p className="text-[17px] font-extrabold leading-tight text-[#1f5b49]" data-testid="text-puzzle-mode">{puzzleFocus === 'random' ? 'Aleatorio' : trainingFocus === 'middlegame' ? 'Medio juego' : 'Finales'}</p>
                     <p className="mt-0.5 text-[11px] font-medium text-[#718078]" data-testid="text-puzzle-type">{trainingFocus === 'endgame' ? (endgamePrompt?.type ?? 'Final') : (middlegamePrompt?.objective ?? 'Posición de medio juego')}</p>
+                    <p className="mt-1 text-[10px] font-bold text-[#486257]">Pieza a considerar: {(() => {
+                      const expected = getLegalChessMoves(completeGame).find((candidate) => chessMoveToUci(candidate) === puzzleExpectedMoveUci);
+                      const type = expected ? completeGame.board[expected.from.row][expected.from.col]?.type : null;
+                      return type === 'king' ? 'Rey' : type === 'queen' ? 'Dama' : type === 'rook' ? 'Torre' : type === 'bishop' ? 'Alfil' : type === 'knight' ? 'Caballo' : type === 'pawn' ? 'Peón' : 'calculando…';
+                    })()}</p>
                   </div>
                   <div className="flex shrink-0 items-center gap-2 text-[11px] font-bold text-[#40564b]">
                     <span>{trainingPlayerColor === 'white' ? 'Turno: blancas' : 'Turno: negras'}</span>
@@ -1100,9 +1115,9 @@ function Home() {
           </div>
           <div className="grid gap-3">
             <button type="button" onClick={()=>startOpeningTraining()} className="flex h-16 items-center gap-4 rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] px-5 text-left hover:border-[#1f5b49]"><BookOpen className="shrink-0 text-[#1f5b49]" size={25}/><span className="text-lg font-extrabold text-[#30473e]">Aperturas</span></button>
-            <button type="button" onClick={openPuzzleChoice} className="flex h-16 items-center gap-4 rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] px-5 text-left hover:border-[#1f5b49]"><Lightbulb className="shrink-0 text-[#1f5b49]" size={25}/><span className="text-lg font-extrabold text-[#30473e]">Puzzles</span></button>
-            <button type="button" onClick={()=>setShowFreeChoice(true)} className="flex h-16 items-center gap-4 rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] px-5 text-left hover:border-[#1f5b49]"><Target className="shrink-0 text-[#1f5b49]" size={25}/><span className="text-lg font-extrabold text-[#30473e]">Juego libre</span></button>
-            <button type="button" onClick={()=>setShowConfigChoice(true)} className="flex h-16 items-center gap-4 rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] px-5 text-left hover:border-[#1f5b49]"><CircleHelp className="shrink-0 text-[#1f5b49]" size={25}/><span className="text-lg font-extrabold text-[#30473e]">Configuraciones</span></button>
+            <button type="button" onClick={openPuzzleChoice} className="flex h-16 items-center gap-4 rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] px-5 text-left hover:border-[#1f5b49]"><Puzzle className="shrink-0 text-[#1f5b49]" size={25}/><span className="text-lg font-extrabold text-[#30473e]">Puzzles</span></button>
+            <button type="button" onClick={()=>setShowFreeChoice(true)} className="flex h-16 items-center gap-4 rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] px-5 text-left hover:border-[#1f5b49]"><Gamepad2 className="shrink-0 text-[#1f5b49]" size={25}/><span className="text-lg font-extrabold text-[#30473e]">Juego libre</span></button>
+            <button type="button" onClick={()=>setShowConfigChoice(true)} className="flex h-16 items-center gap-4 rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] px-5 text-left hover:border-[#1f5b49]"><Settings className="shrink-0 text-[#1f5b49]" size={25}/><span className="text-lg font-extrabold text-[#30473e]">Configuraciones</span></button>
           </div>
         </div>
       </div>}
@@ -1110,9 +1125,9 @@ function Home() {
         <div className="w-full max-w-[520px] rounded-3xl border border-[#c8c0b0] bg-[#f5efe3] p-6 shadow-2xl">
           <div className="flex items-start justify-between gap-4"><div><p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#7b897f]">Puzzles</p><h2 className="mt-1 text-2xl font-extrabold text-[#20362e]">Tema</h2></div><button type="button" onClick={()=>setShowPuzzleChoice(false)} className="rounded-full p-2 text-[#6d7c73] hover:bg-[#e8dfcf]" aria-label="Cerrar"><XCircle size={20}/></button></div>
           <div className="mt-6 grid gap-3">
-            <button type="button" onClick={()=>choosePuzzleMode('middlegame')} className="flex h-16 items-center gap-4 rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] px-5 text-left text-[#40564b] hover:border-[#1f5b49]"><Target size={25} className="shrink-0 text-[#1f5b49]"/><span className="text-lg font-extrabold">Medio juego</span></button>
+            <button type="button" onClick={()=>choosePuzzleMode('middlegame')} className="flex h-16 items-center gap-4 rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] px-5 text-left text-[#40564b] hover:border-[#1f5b49]"><Puzzle size={25} className="shrink-0 text-[#1f5b49]"/><span className="text-lg font-extrabold">Medio juego</span></button>
             <button type="button" onClick={()=>choosePuzzleMode('endgame')} className="flex h-16 items-center gap-4 rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] px-5 text-left text-[#40564b] hover:border-[#1f5b49]"><Crown size={25} className="shrink-0 text-[#1f5b49]"/><span className="text-lg font-extrabold">Finales</span></button>
-            <button type="button" onClick={()=>choosePuzzleMode('random')} className="flex h-16 items-center gap-4 rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] px-5 text-left text-[#40564b] hover:border-[#1f5b49]"><Lightbulb size={25} className="shrink-0 text-[#1f5b49]"/><span className="text-lg font-extrabold">Aleatorio</span></button>
+            <button type="button" onClick={()=>choosePuzzleMode('random')} className="flex h-16 items-center gap-4 rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] px-5 text-left text-[#40564b] hover:border-[#1f5b49]"><Puzzle size={25} className="shrink-0 text-[#1f5b49]"/><span className="text-lg font-extrabold">Aleatorio</span></button>
           </div>
         </div>
       </div>}
@@ -1132,8 +1147,8 @@ function Home() {
             <button type="button" onClick={()=>setShowFreeChoice(false)} className="rounded-full p-2 text-[#6d7c73] hover:bg-[#e8dfcf]" aria-label="Cerrar"><XCircle size={20}/></button>
           </div>
           <div className="mt-6 grid gap-3">
-            <button type="button" onClick={()=>startFreeGame('bot')} className="flex h-16 items-center gap-4 rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] px-5 text-left text-[#40564b] hover:border-[#1f5b49]"><Target size={25} className="shrink-0 text-[#1f5b49]"/><span className="text-lg font-extrabold">Vs bot</span></button>
-            <button type="button" onClick={()=>startFreeGame('local')} className="flex h-16 items-center gap-4 rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] px-5 text-left text-[#40564b] hover:border-[#1f5b49]"><BookOpen size={25} className="shrink-0 text-[#1f5b49]"/><span className="text-lg font-extrabold">Jugador local</span></button>
+            <button type="button" onClick={()=>startFreeGame('bot')} className="flex h-16 items-center gap-4 rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] px-5 text-left text-[#40564b] hover:border-[#1f5b49]"><Bot size={25} className="shrink-0 text-[#1f5b49]"/><span className="text-lg font-extrabold">Vs bot</span></button>
+            <button type="button" onClick={()=>startFreeGame('local')} className="flex h-16 items-center gap-4 rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] px-5 text-left text-[#40564b] hover:border-[#1f5b49]"><Users size={25} className="shrink-0 text-[#1f5b49]"/><span className="text-lg font-extrabold">Vs jugador</span></button>
           </div>
         </div>
       </div>}
@@ -1173,3 +1188,5 @@ function App() {
 }
 
 export default App;
+
+
