@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ArrowUpRight, BookOpen, CheckCircle2, ChevronDown, CircleHelp, Clock3, Crown, Lightbulb, LogOut, RotateCcw, Target, Undo2, RefreshCw, XCircle } from 'lucide-react';
+import { BookOpen, CheckCircle2, ChevronDown, CircleHelp, Clock3, Crown, Lightbulb, LogOut, RotateCcw, Target, Undo2, RefreshCw, XCircle } from 'lucide-react';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -177,6 +177,8 @@ function Home() {
   const [summaryDismissed, setSummaryDismissed] = useState(false);
   const [localOpponent, setLocalOpponent] = useState<'bot' | 'local'>('bot');
   const [showFreeChoice, setShowFreeChoice] = useState(false);
+  const [showPuzzleChoice, setShowPuzzleChoice] = useState(false);
+  const [showConfigChoice, setShowConfigChoice] = useState(false);
   type UndoSnapshot = { board: Board; completeGame: ChessGameState; turn: Side; lastMove: [string,string] | null; moveHistory: string[]; openingNodeId: string | null };
   const [undoStack, setUndoStack] = useState<UndoSnapshot[]>([]);
   const [trainingSelection, setTrainingSelection] = useState<VariantSelection | null>(null);
@@ -464,6 +466,13 @@ function Home() {
     setMiddlegamePrompt(focus === 'middlegame' ? chooseMiddlegameTrainingPrompt(freshGame, { difficulty: trainingDifficulty }) : null);
     setTrainingSelection(null);
     setOpeningNodeId(null);
+  };
+
+  const openPuzzleChoice = () => setShowPuzzleChoice(true);
+
+  const choosePuzzleMode = (selection: PuzzleFocus) => {
+    setShowPuzzleChoice(false);
+    startPuzzleTraining(selection, trainingSideChoice);
   };
 
   const startPuzzleTraining = (selection: PuzzleFocus = puzzleFocus, sideChoice: TrainingSideChoice = trainingSideChoice) => {
@@ -893,7 +902,7 @@ function Home() {
             </h1>
             <select value={mode === 'opening' ? 'opening' : mode === 'complete' && (trainingFocus === 'middlegame' || trainingFocus === 'endgame') ? 'puzzles' : 'free'} onChange={(event) => {
               if (event.target.value === 'opening') startOpeningTraining();
-              else if (event.target.value === 'puzzles') startPuzzleTraining();
+              else if (event.target.value === 'puzzles') openPuzzleChoice();
               else if (event.target.value === 'config') { setShowMainMenu(true); setSummaryDismissed(true); }
               else startFreeGame('bot');
             }} className="max-w-[170px] rounded-lg border border-[#c6bdac] bg-[#f1ebdf] px-3 py-2 text-[11px] font-bold text-[#40564b]">
@@ -902,42 +911,45 @@ function Home() {
           </header>
 
           <div className="training-shell mx-auto max-w-[1260px] px-5 pb-4 pt-4 sm:px-8 sm:pt-6 lg:px-12 lg:pt-6">
-            <div className="training-intro mb-4 fade-up">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  {mode === 'opening' && <p className="text-[18px] font-extrabold text-[#1f5b49]" data-testid="text-active-opening">{activeOpeningLabel ?? openingVariant?.name ?? 'Nueva variante'}</p>}
-                  {mode === 'complete' && trainingFocus === 'middlegame' && middlegamePrompt && <p className="text-[16px] font-bold text-[#30473e]">Objetivo: {middlegamePrompt.title}</p>}
-                  {mode === 'complete' && trainingFocus === 'endgame' && endgamePrompt && <p className="text-[16px] font-bold text-[#30473e]">Final: {endgamePrompt.title}</p>}
+            <div className="training-intro mb-3 fade-up">
+              {mode === 'opening' && (
+                <div className="flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-[17px] font-extrabold leading-tight text-[#1f5b49]" data-testid="text-active-opening">{openingVariant?.name ?? 'Nueva apertura'}</p>
+                    <p className="mt-0.5 text-[11px] font-medium text-[#718078]" data-testid="text-active-opening-variant">{activeOpeningLabel ?? openingVariant?.name ?? 'Variante'}</p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2 text-[11px] font-bold text-[#40564b]">
+                    <span>{trainingPlayerColor === 'white' ? 'Turno: blancas' : 'Turno: negras'}</span>
+                    <span className={`size-3 rounded-full ${trainingPlayerColor === 'white' ? 'bg-[#f7f0df] ring-1 ring-[#9f9687]' : 'bg-[#263a33]'}`} />
+                  </div>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {mode === 'opening' && <span className="rounded-full bg-[#e3e8dc] px-3 py-1.5 text-[10px] font-bold text-[#40564b]">{trainingPlayerColor === 'white' ? 'Juegas blancas' : 'Juegas negras'}</span>}
-                  {mode === 'complete' && trainingFocus === 'complete' && localOpponent === 'bot' && <select value={trainingDifficulty} onChange={(event) => setTrainingDifficulty(event.target.value as TrainingDifficulty)} className="rounded-full border border-[#c8c0b0] bg-[#eee8dc] px-3 py-1.5 text-[10px] font-bold text-[#5f7067]"><option value="fundamentos">Fundamentos · inicial</option><option value="intermedio">Intermedio · medio</option><option value="avanzado">Avanzado · fuerte</option></select>}
-                  {(trainingFocus === 'middlegame' || trainingFocus === 'endgame') && <select value={puzzleFocus} onChange={(event) => { const value = event.target.value as PuzzleFocus; setPuzzleFocus(value); startPuzzleTraining(value); }} className="rounded-full border border-[#c8c0b0] bg-[#eee8dc] px-3 py-1.5 text-[10px] font-bold text-[#5f7067]"><option value="random">Aleatorio</option><option value="middlegame">Medio juego</option><option value="endgame">Finales</option></select>}
+              )}
+              {(trainingFocus === 'middlegame' || trainingFocus === 'endgame') && (
+                <div className="flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-[17px] font-extrabold leading-tight text-[#1f5b49]" data-testid="text-puzzle-mode">{puzzleFocus === 'random' ? 'Aleatorio' : trainingFocus === 'middlegame' ? 'Medio juego' : 'Finales'}</p>
+                    <p className="mt-0.5 text-[11px] font-medium text-[#718078]" data-testid="text-puzzle-type">{trainingFocus === 'endgame' ? (endgamePrompt?.title ?? 'Final') : (middlegamePrompt?.title ?? 'Posición de medio juego')}</p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2 text-[11px] font-bold text-[#40564b]">
+                    <span>{trainingPlayerColor === 'white' ? 'Turno: blancas' : 'Turno: negras'}</span>
+                    <span className={`size-3 rounded-full ${trainingPlayerColor === 'white' ? 'bg-[#f7f0df] ring-1 ring-[#9f9687]' : 'bg-[#263a33]'}`} />
+                  </div>
                 </div>
-              </div>
-              {mode === 'opening' && trainingExplanation && <div className="mt-2 max-w-[760px] rounded-xl bg-[#e3e8dc] px-3 py-2.5 text-[11px] leading-relaxed text-[#486257]" data-testid="text-training-explanation-top">{trainingExplanation.split('\n').map((line,index)=><p key={index} className={index ? 'mt-1' : 'font-semibold text-[#30473e]'}>{line}</p>)}</div>}
-              {mode === 'opening' && trainingStatus === 'incorrect' && expectedMove && hintLevel > 0 && <div className="mt-2 max-w-[760px] rounded-xl bg-[#e8dfcf] px-3 py-2.5 text-[11px] font-semibold leading-relaxed text-[#5b6c62]" data-testid="text-training-hint-top">💡 Pista {Math.min(hintLevel,3)}: {expectedMove.hints[Math.min(hintLevel,3)-1]}</div>}
-              {mode !== 'opening' && <p className="mt-2 max-w-[760px] text-[11px] leading-relaxed text-[#5f7067]">{focusCue}</p>}
+              )}
+              {mode === 'opening' && trainingStatus === 'incorrect' && expectedMove && hintLevel > 0 && (
+                <div className="mt-2 max-w-[760px] rounded-xl bg-[#e8dfcf] px-3 py-2.5 text-[11px] font-semibold leading-relaxed text-[#5b6c62]" data-testid="text-training-hint-top">
+                  💡 Pista {Math.min(hintLevel,3)}: {expectedMove.hints[Math.min(hintLevel,3)-1]}
+                </div>
+              )}
             </div>
 
             <div className="grid items-start gap-8 xl:grid-cols-[minmax(560px,700px)_300px] xl:gap-14">
               <section className="training-board-column fade-up fade-up-delay-1">
-                <div className="mb-3 flex items-center justify-between px-1">
-                  <div className="flex items-center gap-2">
-                    <span className={`size-2 rounded-full ${mode === 'opening' || turn === 'white' ? 'bg-[#f7f0df] ring-1 ring-[#b7ad9b]' : 'bg-[#263a33]'}`} />
-                    <span className="text-[12px] font-bold text-[#40564b]">
-                      {mode === 'opening'
-                        ? (trainingComplete ? 'Variante completada' : `Tu turno · ${trainingPlayerColor === 'white' ? 'blancas' : 'negras'}`)
-                        : freeGameStatus === 'checkmate'
-                          ? `Jaque mate · ganan ${freeWinnerLabel}`
-                          : freeGameStatus === 'stalemate'
-                            ? 'Tablas por ahogado'
-                            : freeGameStatus === 'check'
-                              ? `Jaque · turn ${freeTurnoLabel}`
-                              : `Turno de ${freeTurnoLabel}`}
-                    </span>
+                <div className="mb-3 flex items-center justify-end px-1">
+                  <div className="flex items-center gap-2 text-[11px] font-bold text-[#40564b]">
+                    <span>{(mode === 'complete' ? completeGame.turn : turn) === 'white' ? 'Turno: blancas' : 'Turno: negras'}</span>
+                    <span className={`size-3 rounded-full ${(mode === 'complete' ? completeGame.turn : turn) === 'white' ? 'bg-[#f7f0df] ring-1 ring-[#9f9687]' : 'bg-[#263a33]'}`} />
                   </div>
-                  <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-[#879389]">{mode === 'opening' ? 'apertura' : (trainingFocus === 'middlegame' || trainingFocus === 'endgame') ? 'puzzles' : trainingFocus === 'complete' ? 'partida completa' : 'práctica libre'}</span>
                 </div>
 
                 {promotionPending && mode === 'complete' && (
@@ -1028,230 +1040,48 @@ function Home() {
                   </select></label>
                 </div>
 
-                <div className="mt-4 xl:hidden rounded-xl border border-[#d1c8b7] bg-[#f2ece0] p-3.5" data-testid="mobile-training-summary">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-[13px] font-extrabold text-[#30473e]">{mode === 'opening' ? (trainingStatus === 'incorrect' ? 'Movimiento incorrecto' : trainingStatus === 'complete' ? '✅ Variante completada' : trainingStatus === 'correct' ? 'Movimiento correcto' : `Tu turno · ${trainingPlayerColor === 'white' ? 'blancas' : 'negras'}`) : (trainingFocus === 'middlegame' || trainingFocus === 'endgame') ? '🧩 Puzzles' : trainingFocus === 'complete' ? '♟ Partida completa' : 'Práctica libre'}</p>
-                    <span className="font-mono text-[10px] font-bold text-[#7b897f]">{moveHistory.length} jug.</span>
-                  </div>
-                  {mode === 'opening' && trainingStatus === 'incorrect' && expectedMove && hintLevel > 0 && <p className="mt-2 rounded-lg bg-[#e8dfcf] px-3 py-2 text-[11px] font-semibold leading-relaxed text-[#5b6c62]">💡 Pista {Math.min(hintLevel, 3)}: {expectedMove.hints[Math.min(hintLevel, 3) - 1]}</p>}
-                  {mode === 'opening' && (trainingStatus === 'correct' || trainingStatus === 'complete') && trainingExplanation && <p className="mt-2 rounded-lg bg-[#e3e8dc] px-3 py-2 text-[11px] leading-relaxed text-[#486257]">{trainingExplanation.split('\n')[0]}</p>}
-                  {mode !== 'opening' && <p className="mt-2 text-[11px] leading-relaxed text-[#5f7067]">{focusCue}</p>}
-                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[9px] uppercase tracking-[0.08em] text-[#89948a]">
-                    {mode === 'opening' ? <><span>Errores {trainingErrors}</span><span>Aciertos {trainingCorrectMoves}</span><span>Precisión {trainingAccuracy}%</span><span>Pistas {trainingHintsUsed}</span></> : <span>Alertas: {completeErrors + middlegameErrors + endgameErrors}</span>}
-                  </div>
-                </div>
-
-                <div className="mt-4 flex items-center justify-between">
-                  <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#819087]">
-                    {openingOpponentPending ? 'el rival está respondiendo…' : selected ? `${squareName(selected)} seleccionada · elige una casilla` : 'selecciona una pieza para comenzar'}
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <span className="size-2 rounded-full bg-[#5f8073]" />
-                    <span className="text-[10px] text-[#819087]">jugada legal</span>
-                  </div>
-                </div>
               </section>
 
               <aside className="hidden fade-up fade-up-delay-2 xl:block xl:pt-7">
-                <div className="rounded-2xl border border-[#d1c8b7] bg-[#f2ece0] p-5 shadow-[0_12px_30px_rgba(65,70,58,.06)] sm:p-6">
-                  <div className="flex items-center justify-between">
-                     <p className="font-mono text-[9px] font-medium uppercase tracking-[0.2em] text-[#7b897f]">{mode === 'opening' ? 'Entrenador de aperturas' : trainingFocus === 'middlegame' ? 'Entrenador de puzzles' : trainingFocus === 'endgame' ? 'Entrenador de puzzles' : 'Estado de la partida'}</p>
-                     {mode === 'opening' ? <Lightbulb size={15} className="text-[#c38a3d]" /> : <BookOpen size={15} className="text-[#1f5b49]" />}
+                {mode === 'opening' && (
+                  <div className="rounded-2xl border border-[#d1c8b7] bg-[#f2ece0] p-5 shadow-[0_12px_30px_rgba(65,70,58,.06)] sm:p-6">
+                    <div className="flex items-center gap-2"><Lightbulb size={15} className="text-[#c38a3d]" /><p className="font-mono text-[9px] font-medium uppercase tracking-[0.2em] text-[#7b897f]">Tips</p></div>
+                    <p className="mt-4 text-[12px] leading-relaxed text-[#5f7067]">Observa la posición y busca la idea antes de calcular la variante.</p>
                   </div>
-                   {mode === 'opening' ? (
-                     <div className="mt-5">
-                       <div className="flex items-start gap-2">
-                         {trainingStatus === 'incorrect' ? <XCircle size={17} className="mt-0.5 shrink-0 text-[#aa493e]" /> : trainingStatus === 'correct' || trainingStatus === 'complete' ? <CheckCircle2 size={17} className="mt-0.5 shrink-0 text-[#1f5b49]" /> : <Target size={17} className="mt-0.5 shrink-0 text-[#1f5b49]" />}
-                         {activeOpeningLabel && (
-                         <p className="mb-2 text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#1f5b49]" data-testid="text-active-opening">
-                           Apertura activa: {activeOpeningLabel}
-                         </p>
-                       )}
-                       <p className={`text-[16px] font-bold leading-snug tracking-[-0.03em] ${trainingStatus === 'incorrect' ? 'text-[#9e4138]' : 'text-[#30473e]'}`} data-testid="text-training-status">
-                           {trainingStatus === 'incorrect' ? 'Movimiento incorrecto' : trainingStatus === 'complete' ? '✅ Variante completada' : trainingStatus === 'correct' ? 'Movimiento correcto' : trainingComplete ? '✅ Variante completada' : `Encuentra la siguiente jugada de ${trainingPlayerColor === 'white' ? 'blancas' : 'negras'}.`}
-                         </p>
-                       </div>
-                       {trainingStatus === 'incorrect' && expectedMove && hintLevel > 0 && (
-                         <p className="mt-4 rounded-lg bg-[#e8dfcf] px-3 py-2.5 text-[12px] font-semibold leading-relaxed text-[#5b6c62]" data-testid="text-training-hint">
-                           💡 Pista {Math.min(hintLevel, 3)}: {expectedMove.hints[Math.min(hintLevel, 3) - 1]}
-                         </p>
-                       )}
-                       {(trainingStatus === 'correct' || trainingStatus === 'complete') && trainingExplanation && (
-                         <div className="mt-4 rounded-lg bg-[#e3e8dc] px-3 py-2.5 text-[12px] leading-relaxed text-[#486257]" data-testid="text-training-explanation">
-                           {trainingExplanation.split('\n').map((line, index) => (
-                             <p key={index} className={index === 0 ? 'font-semibold text-[#30473e]' : index === trainingExplanation.split('\n').length - 1 ? 'mt-2' : 'mt-1'}>
-                               {line}
-                             </p>
-                           ))}
-                         </div>
-                       )}
-                       {trainingStatus === 'complete' && (
-                         <div className="mt-4 space-y-2 rounded-lg bg-[#e3e8dc] px-3 py-2.5 text-[12px] leading-relaxed text-[#486257]" data-testid="text-training-completion">
-                           <div className="border-t border-[#cbd8c8] pt-2">
-                             <p className="font-semibold text-[#30473e]" data-testid="text-completion-variant">
-                               Variante entrenada: {openingVariant?.name}
-                             </p>
-                             <p data-testid="text-completion-errors">Errores: {trainingErrors}</p>
-                             <p data-testid="text-completion-hints">Pistas utilizadas: {trainingHintsUsed}</p>
-                             <p data-testid="text-completion-accuracy">Porcentaje de aciertos: {trainingAccuracy}%</p>
-                             <p data-testid="text-completion-difficult-moves">
-                               Movimientos donde tuvo dificultades:{' '}
-                               {difficultMoves.length
-                                 ? difficultMoves.map((move) => `${move.notation} (${move.errors} errores, ${move.hintsUsed} pistas, ${move.category})`).join(', ')
-                                 : 'ninguno'}
-                             </p>
-                             <p className="mt-2" data-testid="text-completion-error-patterns">
-                               Patrón de errores:{' '}
-                               {errorCategorySummary.length
-                                 ? errorCategorySummary.map(([category, count]) => `${category}: ${count}`).join(' · ')
-                                 : 'sin errores'}
-                             </p>
-                           </div>
-                         </div>
-                       )}
-                     </div>
-                   ) : (
-                     <div className="mt-5 space-y-3">
-                       <p className="text-[16px] font-bold leading-snug tracking-[-0.03em] text-[#30473e]" data-testid="text-free-status">
-                         {freeGameStatus === 'checkmate'
-                           ? `Jaque mate. Ganan las ${freeWinnerLabel}.`
-                           : freeGameStatus === 'stalemate'
-                             ? 'Tablas por ahogado.'
-                             : freeGameStatus === 'draw-insufficient-material'
-                               ? 'Tablas por material insuficiente.'
-                               : freeGameStatus === 'draw-fifty-move'
-                                 ? 'Tablas por regla de las 50 jugadas.'
-                                 : freeGameStatus === 'draw-repetition'
-                                   ? 'Tablas por triple repetición.'
-                                   : freeGameStatus === 'check'
-                                     ? `Jaque. Turno de las ${freeTurnoLabel}.`
-                                     : `Turno de las ${freeTurnoLabel}.`}
-                       </p>
-                       <p className="text-[12px] leading-relaxed text-[#6d7c73]" data-testid="text-focus-cue">
-                         {freeGameOver ? 'La partida terminó. Reinicia para volver a mover.' : focusCue}
-                       </p>
-                       {mode === 'complete' && completeThreatMessage && !freeGameOver && (
-                         <p className="mt-3 rounded-lg bg-[#eee4cc] px-3 py-2.5 text-[11px] font-semibold leading-relaxed text-[#665b42]" data-testid="text-complete-threat">
-                           ⚠️ {completeThreatMessage}
-                         </p>
-                       )}
-                       {mode === 'complete' && endgamePrompt && !freeGameOver && (
-                       <div className="mt-3 rounded-lg bg-[#e8dfcf] px-3 py-2.5" data-testid="text-endgame-objective">
-                         <p className="text-[11px] font-extrabold text-[#30473e]">♔ Final: {endgamePrompt.title}</p>
-                         <p className="mt-1 text-[11px] leading-relaxed text-[#486257]">{endgamePrompt.instruction}</p>
-                         <p className="mt-1 text-[10px] leading-relaxed text-[#718078]">{endgamePrompt.rationale}</p>
-                       </div>
-                     )}
-                     {mode === 'complete' && middlegamePrompt && !freeGameOver && !endgamePrompt && (
-                       <div className="mt-3 rounded-lg bg-[#e3e8dc] px-3 py-2.5" data-testid="text-middlegame-objective">
-                         <p className="text-[11px] font-extrabold text-[#30473e]">🎯 Objetivo: {middlegamePrompt.title}</p>
-                         <p className="mt-1 text-[11px] leading-relaxed text-[#486257]">{middlegamePrompt.instruction}</p>
-                         <p className="mt-1 text-[10px] leading-relaxed text-[#718078]">{middlegamePrompt.rationale}</p>
-                         <button type="button" onClick={() => setMiddlegamePrompt(chooseMiddlegameTrainingPrompt(completeGame, { difficulty: trainingDifficulty }))} className="mt-2 rounded-full border border-[#c8c0b0] bg-[#f1ebdf] px-2.5 py-1 text-[9px] font-bold text-[#5f7067] hover:border-[#1f5b49] hover:text-[#1f5b49]">Nuevo objetivo</button>
-                       </div>
-                     )}
-                     {mode === 'complete' && completeFeedback && !freeGameOver && (
-                         <p className="mt-3 rounded-lg bg-[#e3e8dc] px-3 py-2.5 text-[11px] leading-relaxed text-[#486257]" data-testid="text-complete-feedback">
-                           {completeFeedback}
-                         </p>
-                       )}
-                       {mode === 'complete' && (
-                         <p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#89948a]" data-testid="text-complete-errors">
-                           Alertas tácticas detectadas: {completeErrors} · Objetivos de medio juego no cumplidos: {middlegameErrors} · Alertas de finales: {endgameErrors}
-                         </p>
-                       )}
-                     </div>
-                   )}
-                  <div className="my-5 h-px bg-[#d8cfbe]" />
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-mono text-[9px] uppercase tracking-[0.16em] text-[#89948a]">Jugadas realizadas</p>
-                      <p className="mt-1 font-mono text-[22px] tracking-[-0.08em] text-[#334940]" data-testid="text-move-count">{String(moveHistory.length).padStart(2, '0')}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-mono text-[9px] uppercase tracking-[0.16em] text-[#89948a]">Turno</p>
-                      <p className="mt-1 text-[13px] font-bold text-[#334940]">{(mode === 'complete' ? completeGame.turn : turn) === 'white' ? 'blancas' : 'negras'}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-5 rounded-2xl border border-[#d1c8b7] bg-[#e2dacb] p-5 sm:p-6">
-                  <div className="flex items-center justify-between">
-                    <p className="font-mono text-[9px] font-medium uppercase tracking-[0.2em] text-[#7b897f]">Registro de jugadas</p>
-                    <span className="font-mono text-[9px] text-[#9aa399]">{moveHistory.length ? `${moveHistory.length} / ∞` : 'vacío'}</span>
-                  </div>
-                  {moveHistory.length ? (
-                    <div className="mt-4 max-h-[164px] space-y-1 overflow-auto pr-1">
-                      {moveHistory.map((move, index) => (
-                        <div key={`${move}-${index}`} className="flex items-center justify-between border-b border-[#cec5b4] py-2 last:border-0">
-                          <span className="font-mono text-[10px] text-[#8a958c]">{String(index + 1).padStart(2, '0')}</span>
-                          <span className="font-mono text-[12px] font-medium text-[#3e564a]" data-testid={`move-record-${index}`}>{move}</span>
-                          <span className="text-[10px] text-[#8a958c]">{index % 2 === 0 ? 'B' : 'N'}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="mt-4 text-[11px] leading-relaxed text-[#7b897f]">Tus jugadas aparecerán aquí, una decisión a la vez.</p>
-                  )}
-                </div>
-
-                 {mode === 'opening' ? (
-                   <div className="mt-5 space-y-2">
-                     {trainingComplete && (
-                       <button
-                         type="button"
-                          onClick={() => startOpeningTraining(undefined, trainingPlayerColor)}
-                         data-testid="button-another-variant"
-                         className="group flex w-full items-center justify-center gap-2 rounded-xl bg-[#1f5b49] px-4 py-3.5 text-[11px] font-extrabold uppercase tracking-[0.13em] text-[#f5efdf] transition-all hover:-translate-y-0.5 hover:bg-[#174d3d] active:translate-y-0"
-                       >
-                         <RotateCcw size={14} className="transition-transform group-hover:-rotate-45" />
-                         Jugar otra variante
-                       </button>
-                     )}
-                     <button
-                       type="button"
-                       onClick={resetTraining}
-                       data-testid="button-reset-training"
-                       className={`${trainingComplete ? 'border border-[#c6bdac] bg-[#f1ebdf] text-[#40564b] hover:border-[#1f5b49] hover:text-[#1f5b49]' : 'bg-[#1f5b49] text-[#f5efdf] hover:bg-[#174d3d]'} group flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-[11px] font-extrabold uppercase tracking-[0.13em] transition-all hover:-translate-y-0.5 active:translate-y-0`}
-                     >
-                       <RotateCcw size={14} className="transition-transform group-hover:-rotate-45" />
-                       Reiniciar entrenamiento
-                     </button>
-                     <button
-                       type="button"
-                       onClick={exitTraining}
-                       data-testid="button-exit-training"
-                       className="flex w-full items-center justify-center gap-2 rounded-xl border border-transparent px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#718078] transition-colors hover:border-[#c6bdac] hover:text-[#1f5b49]"
-                     >
-                       <LogOut size={13} />
-                       Salir del entrenamiento
-                     </button>
-                   </div>
-                 ) : (
-                   <button
-                     type="button"
-                     onClick={resetGame}
-                     data-testid="button-reset-game"
-                     className="group mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#1f5b49] px-4 py-3.5 text-[11px] font-extrabold uppercase tracking-[0.13em] text-[#f5efdf] transition-all hover:-translate-y-0.5 hover:bg-[#174d3d] active:translate-y-0"
-                   >
-                     <RotateCcw size={14} className="transition-transform group-hover:-rotate-45" />
-                     Reiniciar posición
-                   </button>
-                 )}
-                 <div className="mt-5 flex items-center gap-2 px-1 text-[10px] leading-relaxed text-[#879389]">
-                   <ArrowUpRight size={13} className="shrink-0 text-[#c38a3d]" />
-                   <span>{mode === 'opening' ? 'Las jugadas del rival se realizan automáticamente.' : mode === 'complete' ? 'Modo completo: también reconoce enroque, captura al paso, promoción y tablas reglamentarias.' : 'Práctica libre: juega sin una variante obligatoria.'}</span>
-                 </div>
+                )}
               </aside>
             </div>
           </div>
         </main>
-      {showMainMenu && <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-[#e9e3d5] p-5 pt-[8vh] pb-12"><div className="w-full max-w-[720px]"><div className="mb-7 text-center"><div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-2xl bg-[#1f5b49] text-[#f4ecd9]"><Crown size={32}/></div><h1 className="text-[clamp(2.2rem,7vw,4.5rem)] font-extrabold tracking-[-0.07em] text-[#20362e]">The Quiet Board</h1><p className="mt-2 text-sm text-[#6d7c73]">Entrenamiento de ajedrez</p></div><div className="grid gap-3 sm:grid-cols-2">
-        <button type="button" onClick={()=>startOpeningTraining()} className="rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] p-4 sm:p-5 text-left hover:border-[#1f5b49]"><BookOpen className="text-[#1f5b49]"/><p className="mt-4 text-xl font-extrabold text-[#30473e]">Aperturas</p><p className="mt-1 text-xs text-[#718078]">Variantes, pistas y explicación estratégica.</p></button>
-        <button type="button" onClick={()=>startPuzzleTraining()} className="rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] p-4 sm:p-5 text-left hover:border-[#1f5b49]"><Lightbulb className="text-[#1f5b49]"/><p className="mt-4 text-xl font-extrabold text-[#30473e]">Puzzles</p><p className="mt-1 text-xs text-[#718078]">Medio juego, finales o aleatorio.</p></button>
-        <button type="button" onClick={()=>setShowFreeChoice(true)} className="rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] p-4 sm:p-5 text-left hover:border-[#1f5b49]"><Target className="text-[#1f5b49]"/><p className="mt-4 text-xl font-extrabold text-[#30473e]">Juego libre</p><p className="mt-1 text-xs text-[#718078]">Elige si juegas contra el bot o contra otro jugador local.</p></button>
-        <div className="rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] p-4 sm:p-5"><CircleHelp className="text-[#1f5b49]"/><p className="mt-4 text-xl font-extrabold text-[#30473e]">Configuraciones</p><p className="mt-1 text-xs text-[#718078]">Avance: {autoAdvance?'automático':'normal'}.</p><div className="mt-3 flex gap-2"><button type="button" onClick={()=>setAutoAdvance(false)} className={`rounded-lg px-3 py-2 text-xs font-bold ${!autoAdvance?'bg-[#1f5b49] text-white':'bg-[#e8dfcf] text-[#40564b]'}`}>Normal</button><button type="button" onClick={()=>setAutoAdvance(true)} className={`rounded-lg px-3 py-2 text-xs font-bold ${autoAdvance?'bg-[#1f5b49] text-white':'bg-[#e8dfcf] text-[#40564b]'}`}>Automático</button></div></div>
-      </div></div></div>}
+      {showMainMenu && <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden bg-[#e9e3d5] p-5">
+        <div className="w-full max-w-[560px]">
+          <div className="grid gap-3">
+            <button type="button" onClick={()=>startOpeningTraining()} className="flex h-16 items-center gap-4 rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] px-5 text-left hover:border-[#1f5b49]"><BookOpen className="shrink-0 text-[#1f5b49]" size={25}/><span className="text-lg font-extrabold text-[#30473e]">Aperturas</span></button>
+            <button type="button" onClick={openPuzzleChoice} className="flex h-16 items-center gap-4 rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] px-5 text-left hover:border-[#1f5b49]"><Lightbulb className="shrink-0 text-[#1f5b49]" size={25}/><span className="text-lg font-extrabold text-[#30473e]">Puzzles</span></button>
+            <button type="button" onClick={()=>setShowFreeChoice(true)} className="flex h-16 items-center gap-4 rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] px-5 text-left hover:border-[#1f5b49]"><Target className="shrink-0 text-[#1f5b49]" size={25}/><span className="text-lg font-extrabold text-[#30473e]">Juego libre</span></button>
+            <button type="button" onClick={()=>setShowConfigChoice(true)} className="flex h-16 items-center gap-4 rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] px-5 text-left hover:border-[#1f5b49]"><CircleHelp className="shrink-0 text-[#1f5b49]" size={25}/><span className="text-lg font-extrabold text-[#30473e]">Configuraciones</span></button>
+          </div>
+        </div>
+      </div>}
+      {showPuzzleChoice && <div className="fixed inset-0 z-[110] flex items-center justify-center bg-[#20362e]/35 p-5">
+        <div className="w-full max-w-[520px] rounded-3xl border border-[#c8c0b0] bg-[#f5efe3] p-6 shadow-2xl">
+          <div className="flex items-start justify-between gap-4"><div><p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#7b897f]">Puzzles</p><h2 className="mt-1 text-2xl font-extrabold text-[#20362e]">¿Qué quieres entrenar?</h2></div><button type="button" onClick={()=>setShowPuzzleChoice(false)} className="rounded-full p-2 text-[#6d7c73] hover:bg-[#e8dfcf]" aria-label="Cerrar"><XCircle size={20}/></button></div>
+          <div className="mt-6 grid gap-3">
+            <button type="button" onClick={()=>choosePuzzleMode('random')} className="rounded-2xl bg-[#1f5b49] p-5 text-left text-white"><Lightbulb size={22}/><p className="mt-3 text-lg font-extrabold">Aleatorio</p></button>
+            <button type="button" onClick={()=>choosePuzzleMode('middlegame')} className="rounded-2xl border border-[#c8c0b0] bg-[#f6f0e4] p-5 text-left text-[#40564b]"><Target size={22}/><p className="mt-3 text-lg font-extrabold">Medio juego</p></button>
+            <button type="button" onClick={()=>choosePuzzleMode('endgame')} className="rounded-2xl border border-[#c8c0b0] bg-[#f6f0e4] p-5 text-left text-[#40564b]"><Crown size={22}/><p className="mt-3 text-lg font-extrabold">Finales</p></button>
+          </div>
+        </div>
+      </div>}
+      {showConfigChoice && <div className="fixed inset-0 z-[110] flex items-center justify-center bg-[#20362e]/35 p-5">
+        <div className="w-full max-w-[420px] rounded-3xl border border-[#c8c0b0] bg-[#f5efe3] p-6 shadow-2xl">
+          <div className="flex items-start justify-between gap-4"><div><p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#7b897f]">Configuraciones</p><h2 className="mt-1 text-2xl font-extrabold text-[#20362e]">Avance</h2></div><button type="button" onClick={()=>setShowConfigChoice(false)} className="rounded-full p-2 text-[#6d7c73] hover:bg-[#e8dfcf]" aria-label="Cerrar"><XCircle size={20}/></button></div>
+          <div className="mt-6 grid grid-cols-2 gap-3">
+            <button type="button" onClick={()=>{setAutoAdvance(false);setShowConfigChoice(false)}} className={`rounded-xl px-4 py-3 text-sm font-bold ${!autoAdvance?'bg-[#1f5b49] text-white':'bg-[#e8dfcf] text-[#40564b]'}`}>Normal</button>
+            <button type="button" onClick={()=>{setAutoAdvance(true);setShowConfigChoice(false)}} className={`rounded-xl px-4 py-3 text-sm font-bold ${autoAdvance?'bg-[#1f5b49] text-white':'bg-[#e8dfcf] text-[#40564b]'}`}>Automático</button>
+          </div>
+        </div>
+      </div>}
       {showFreeChoice && <div className="fixed inset-0 z-[110] flex items-center justify-center bg-[#20362e]/35 p-5">
         <div className="w-full max-w-[520px] rounded-3xl border border-[#c8c0b0] bg-[#f5efe3] p-6 shadow-2xl">
           <div className="flex items-start justify-between gap-4">
