@@ -454,9 +454,6 @@ function Home() {
     const endgame = chooseEndgameTrainingPrompt(freshGame);
     setEndgamePrompt(endgame);
     setMiddlegamePrompt(focus === 'middlegame' ? chooseMiddlegameTrainingPrompt(freshGame, { difficulty: trainingDifficulty }) : null);
-    const playerColor: OpeningColor = sideChoice === 'random' ? (Math.random() < 0.5 ? 'white' : 'black') : sideChoice;
-    setTrainingPlayerColor(playerColor);
-    setTrainingSideChoice(sideChoice);
     setTrainingSelection(null);
     setOpeningNodeId(null);
   };
