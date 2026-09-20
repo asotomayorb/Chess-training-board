@@ -349,3 +349,13 @@ body {
     font-size: clamp(1.65rem, 9vw, 3rem);
   }
 }
+
+
+/* Evita que mensajes largos desborden tarjetas o controles en pantallas estrechas. */
+.training-shell p,
+.training-shell button,
+.training-shell aside,
+.training-intro {
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
