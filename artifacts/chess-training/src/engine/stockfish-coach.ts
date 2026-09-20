@@ -1,4 +1,4 @@
-import type { ChessGameMove, ChessGameState, PieceType, Side } from './chess-engine';
+import type { ChessGameMove, ChessGameState, PieceType } from './chess-engine';
 import { applyChessMove, getLegalChessMoves, isInCheck } from './chess-engine';
 import type { StockfishMoveQuality, StockfishScore } from './stockfish-engine';
 
@@ -68,6 +68,25 @@ function materialValue(type: PieceType): number {
   return ({ pawn: 1, knight: 3, bishop: 3, rook: 5, queen: 9, king: 0 } as Record<PieceType, number>)[type];
 }
 
+function describePiece(type: PieceType): string {
+  return ({ pawn: 'peón', knight: 'caballo', bishop: 'alfil', rook: 'torre', queen: 'dama', king: 'rey' } as Record<PieceType, string>)[type];
+}
+
+function findImmediateTacticalResponse(state: ChessGameState): string | null {
+  const moves = getLegalChessMoves(state);
+  for (const move of moves) {
+    const target = state.board[move.to.row][move.to.col];
+    const next = applyChessMove(state, move);
+    if (isInCheck(next.board, next.turn)) {
+      const piece = state.board[move.from.row][move.from.col];
+      return 'jaque con ' + describePiece(piece?.type ?? 'pawn') + ' en ' + squareName(move.to);
+    }
+    if (target && target.type !== 'king') {
+      return 'captura de ' + describePiece(target.type) + ' en ' + squareName(move.to);
+    }
+  }
+  return null;
+}
 function buildPositionInsight(
   state: ChessGameState | undefined,
   bestMoveUci: string,
@@ -100,9 +119,15 @@ function buildPositionInsight(
     return `La jugada principal mueve el rey hacia ${squareName(bestMove.to)}, buscando mejorar su actividad y la coordinación de la posición.`;
   }
   if (playedMove && playedGivesCheck && !bestGivesCheck) {
-    return 'Tu jugada es forzada para el rival, pero la línea principal prioriza una mejora concreta que el motor considera más urgente.';
+    return 'Tu jaque obliga al rival a responder, pero el motor prioriza otra necesidad de la posición.';
   }
-  return `La jugada principal coloca el ${bestPiece?.type ?? 'pieza'} en ${squareName(bestMove.to)}. La línea posterior muestra qué mejora concreta obtiene el motor.`;
+  if (playedMove) {
+    const opponentResponse = playedNext ? findImmediateTacticalResponse(playedNext) : null;
+    if (opponentResponse) {
+      return `La diferencia práctica aparece después de tu jugada: el rival dispone de ${opponentResponse}. La línea principal evita o reduce este recurso.`;
+    }
+  }
+  return `La jugada principal coloca el ${describePiece(bestPiece?.type ?? 'pawn')} en ${squareName(bestMove.to)}. La continuación del motor muestra qué mejora concreta obtiene.`;
 }
 
 export function classifyStockfishMove(quality: StockfishMoveQuality, context?: { objective?: string; scenario?: string; state?: ChessGameState }): StockfishCoachResult {
