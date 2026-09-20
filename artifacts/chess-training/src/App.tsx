@@ -280,7 +280,7 @@ function Home() {
   const freeWinnerLabel = turn === 'white' ? 'negras' : 'blancas';
 
   useEffect(() => {
-    if (mode !== 'complete' || completeGame.turn !== 'black' || completeGameOver || stockfishOpponentBusyRef.current || stockfishMoveLoading) return;
+    if (mode !== 'complete' || completeGame.turn === trainingPlayerColor || completeGameOver || stockfishOpponentBusyRef.current || stockfishMoveLoading) return;
     const timer = window.setTimeout(() => {
       if (stockfishOpponentBusyRef.current) return;
       stockfishOpponentBusyRef.current = true;
@@ -329,7 +329,7 @@ function Home() {
         .finally(() => { stockfishOpponentBusyRef.current = false; });
     }, 250);
     return () => window.clearTimeout(timer);
-  }, [mode, completeGame, completeGameOver, trainingDifficulty, stockfishMoveLoading]);
+  }, [mode, completeGame, completeGameOver, trainingDifficulty, stockfishMoveLoading, trainingPlayerColor]);
 
   const resetFreePractice = () => {
     setShowMainMenu(false);
@@ -454,6 +454,9 @@ function Home() {
     const endgame = chooseEndgameTrainingPrompt(freshGame);
     setEndgamePrompt(endgame);
     setMiddlegamePrompt(focus === 'middlegame' ? chooseMiddlegameTrainingPrompt(freshGame, { difficulty: trainingDifficulty }) : null);
+    const playerColor: OpeningColor = sideChoice === 'random' ? (Math.random() < 0.5 ? 'white' : 'black') : sideChoice;
+    setTrainingPlayerColor(playerColor);
+    setTrainingSideChoice(sideChoice);
     setTrainingSelection(null);
     setOpeningNodeId(null);
   };
@@ -466,7 +469,7 @@ function Home() {
     startFocusedTraining(focus);
   };
 
-  const startCompleteGame = () => {
+  const startCompleteGame = (sideChoice: TrainingSideChoice = trainingSideChoice) => {
     setShowMainMenu(false);
     setSummaryDismissed(false);
     setUndoStack([]);
@@ -505,10 +508,15 @@ function Home() {
   const exitTraining = () => {
     resetFreePractice();
   };
-  const startFreeGame = (opponent: 'bot' | 'local') => {
+  const startFreeGame = (opponent: 'bot' | 'local', sideChoice: TrainingSideChoice = trainingSideChoice) => {
     setLocalOpponent(opponent);
-    if (opponent === 'local') resetFreePractice();
-    else startCompleteGame();
+    setTrainingSideChoice(sideChoice);
+    if (opponent === 'local') {
+      resetFreePractice();
+      if (sideChoice !== 'random') setTrainingPlayerColor(sideChoice);
+    } else {
+      startCompleteGame(sideChoice);
+    }
   };
 
   const pushUndoSnapshot = () => {
@@ -540,6 +548,12 @@ function Home() {
     setSelected(null);
   };
 
+  useEffect(() => {
+    if (!autoAdvance || showMainMenu || summaryDismissed || !(trainingComplete || freeGameOver)) return;
+    const timer = window.setTimeout(() => continueSession(), 1200);
+    return () => window.clearTimeout(timer);
+  }, [autoAdvance, showMainMenu, summaryDismissed, trainingComplete, freeGameOver]);
+  
   const continueSession = () => {
     if (trainingFocus === 'opening') startOpeningTraining(undefined, trainingSideChoice);
     else if (trainingFocus === 'middlegame' || trainingFocus === 'endgame') startPuzzleTraining(puzzleFocus);
@@ -694,7 +708,7 @@ function Home() {
     );
     const periodicPosition = previousGame.positionHistory.length % 4 === 0;
     const focusedTraining = trainingFocus === 'middlegame' || trainingFocus === 'endgame';
-    const shouldAutoAnalyze = previousGame.turn === 'white';
+    const shouldAutoAnalyze = previousGame.turn === trainingPlayerColor;
 
     if (shouldAutoAnalyze && !stockfishMoveBusyRef.current) {
       const requestId = ++stockfishAnalysisRequestRef.current;
@@ -811,7 +825,7 @@ function Home() {
       return;
     }
 
-    if (mode === 'complete' && completeGame.turn === 'black') {
+    if (mode === 'complete' && completeGame.turn !== trainingPlayerColor) {
       setSelected(null);
       return;
     }
@@ -1029,7 +1043,7 @@ function Home() {
 
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#d1c8b7] bg-[#f2ece0] p-3">
                   <div className="flex gap-2"><button type="button" onClick={undoLastMove} disabled={!undoStack.length} className="rounded-lg border border-[#c8c0b0] bg-[#f6f0e4] px-3 py-2 text-[11px] font-bold text-[#40564b] disabled:opacity-40">Deshacer</button><button type="button" onClick={resetGame} className="rounded-lg border border-[#c8c0b0] bg-[#f6f0e4] px-3 py-2 text-[11px] font-bold text-[#40564b]">Reiniciar</button></div>
-                  <div className="flex gap-2">{([['white','Blancas'],['black','Negras'],['random','Aleatorio']] as const).map(([value,label])=><button key={value} type="button" onClick={()=>mode==='opening'?startOpeningTraining(trainingSelection??chooseVariant(),value):startFreeGame(localOpponent)} className={`rounded-lg border px-2.5 py-2 text-[10px] font-bold ${trainingSideChoice===value?'border-[#1f5b49] bg-[#1f5b49] text-[#f5efdf]':'border-[#c8c0b0] bg-[#f6f0e4] text-[#40564b]'}`}>{label}</button>)}</div>
+                  <div className="flex gap-2">{([['white','Blancas'],['black','Negras'],['random','Aleatorio']] as const).map(([value,label])=><button key={value} type="button" onClick={()=>mode==='opening'?startOpeningTraining(trainingSelection??chooseVariant(),value):startFreeGame(localOpponent, value)} className={`rounded-lg border px-2.5 py-2 text-[10px] font-bold ${trainingSideChoice===value?'border-[#1f5b49] bg-[#1f5b49] text-[#f5efdf]':'border-[#c8c0b0] bg-[#f6f0e4] text-[#40564b]'}`}>{label}</button>)}</div>
                 </div>
 
                 <div className="mt-4 xl:hidden rounded-xl border border-[#d1c8b7] bg-[#f2ece0] p-3.5" data-testid="mobile-training-summary">
