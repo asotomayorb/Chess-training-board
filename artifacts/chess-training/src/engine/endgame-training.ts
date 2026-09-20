@@ -69,23 +69,17 @@ function isQueenMate(state: ChessGameState): boolean {
 function isBasicMateMaterial(state: ChessGameState): boolean {
   const white = materialSignature(state, 'white');
   const black = materialSignature(state, 'black');
-  const matches = (a: typeof white, b: typeof white) =>
+  const hasBasicMateForce = (a: typeof white, b: typeof white) =>
     a.king === 1 && b.king === 1 &&
-    a.pawn === 0 && b.pawn === 0 &&
-    a.rook === 0 && b.rook === 0 &&
-    a.queen === 0 && b.queen === 0 &&
-    a.knight === 0 && a.bishop === 0 &&
-    b.knight === 0 && b.bishop === 0
-      ? false
-      : a.king === 1 && b.king === 1 &&
-        a.pawn === 0 && a.rook === 0 && a.queen === 0 &&
-        b.pawn === 0 && b.rook === 0 && b.queen === 0 &&
-        ((a.bishop === 2 && a.knight === 0 && b.bishop === 0 && b.knight === 0) ||
-         (a.bishop === 0 && a.knight === 2 && b.bishop === 0 && b.knight === 0) ||
-         (a.bishop === 1 && a.knight === 1 && b.bishop === 0 && b.knight === 0));
-  return matches(white, black) || matches(black, white);
+    a.pawn === 0 && a.rook === 0 && a.queen === 0 &&
+    b.pawn === 0 && b.rook === 0 && b.queen === 0 &&
+    (
+      (a.bishop === 2 && a.knight === 0 && b.bishop === 0 && b.knight === 0) ||
+      (a.bishop === 0 && a.knight === 2 && b.bishop === 0 && b.knight === 0) ||
+      (a.bishop === 1 && a.knight === 1 && b.bishop === 0 && b.knight === 0)
+    );
+  return hasBasicMateForce(white, black) || hasBasicMateForce(black, white);
 }
-
 function isRookMate(state: ChessGameState): boolean {
   const white = materialSignature(state, 'white');
   const black = materialSignature(state, 'black');
