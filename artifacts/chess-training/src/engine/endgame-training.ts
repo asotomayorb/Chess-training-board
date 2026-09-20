@@ -66,6 +66,26 @@ function isQueenMate(state: ChessGameState): boolean {
   return oneSide(white, black) || oneSide(black, white);
 }
 
+function isBasicMateMaterial(state: ChessGameState): boolean {
+  const white = materialSignature(state, 'white');
+  const black = materialSignature(state, 'black');
+  const matches = (a: typeof white, b: typeof white) =>
+    a.king === 1 && b.king === 1 &&
+    a.pawn === 0 && b.pawn === 0 &&
+    a.rook === 0 && b.rook === 0 &&
+    a.queen === 0 && b.queen === 0 &&
+    a.knight === 0 && a.bishop === 0 &&
+    b.knight === 0 && b.bishop === 0
+      ? false
+      : a.king === 1 && b.king === 1 &&
+        a.pawn === 0 && a.rook === 0 && a.queen === 0 &&
+        b.pawn === 0 && b.rook === 0 && b.queen === 0 &&
+        ((a.bishop === 2 && a.knight === 0 && b.bishop === 0 && b.knight === 0) ||
+         (a.bishop === 0 && a.knight === 2 && b.bishop === 0 && b.knight === 0) ||
+         (a.bishop === 1 && a.knight === 1 && b.bishop === 0 && b.knight === 0));
+  return matches(white, black) || matches(black, white);
+}
+
 function isRookMate(state: ChessGameState): boolean {
   const white = materialSignature(state, 'white');
   const black = materialSignature(state, 'black');
@@ -161,6 +181,7 @@ function activeRookMoves(state: ChessGameState, moves: ChessGameMove[]): ChessGa
 export function detectEndgameType(state: ChessGameState): EndgameType | null {
   if (isKingPawnVsKing(state)) return 'rey-y-peon';
   if (isQueenMate(state)) return 'dama-contra-rey';
+  if (isBasicMateMaterial(state)) return 'mate-básico';
   if (isRookMate(state)) return 'torre-contra-rey';
   if (isRookEndgame(state)) return 'torres';
   return null;
@@ -220,6 +241,17 @@ export function chooseEndgameTrainingPrompt(state: ChessGameState): EndgameTrain
 
   const checks = checkingMoves(state, moves);
   const kingMoves = kingMovesTowardEnemy(state, moves);
+  if (type === 'mate-básico') {
+    return {
+      type,
+      scenario: 'mate-con-torre',
+      title: 'Mate básico con piezas menores',
+      instruction: 'Restringe al rey rival y acerca tu rey. Busca un patrón de mate seguro; no sacrifiques una pieza menor sin necesidad.',
+      rationale: 'Los finales con piezas menores requieren coordinación entre rey y piezas para quitar casillas de escape antes del mate.',
+      candidateMoves: [...checks, ...kingMoves].slice(0, 8),
+    };
+  }
+
   const scenario = type === 'dama-contra-rey' ? 'mate-con-dama' : 'mate-con-torre';
   return {
     type,
