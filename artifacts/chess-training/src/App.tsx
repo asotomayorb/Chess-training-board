@@ -190,6 +190,7 @@ function Home() {
   const [summaryDismissed, setSummaryDismissed] = useState(false);
   const [localOpponent, setLocalOpponent] = useState<'bot' | 'local'>('bot');
   const [showFreeChoice, setShowFreeChoice] = useState(false);
+  const [showDifficultyChoice, setShowDifficultyChoice] = useState(false);
   const [showPuzzleChoice, setShowPuzzleChoice] = useState(false);
   const [showConfigChoice, setShowConfigChoice] = useState(false);
   const [puzzleErrorMove, setPuzzleErrorMove] = useState<[string, string] | null>(null);
@@ -309,10 +310,10 @@ function Home() {
       // Stockfish limita su escala UCI_Elo inferior a la de un principiante humano,
       // por lo que usamos Skill Level 0/8/14 y calibramos las etiquetas para que
       // representen progresión de juego, evitando afirmar una equivalencia exacta.
-      const skillByDifficulty: Record<TrainingDifficulty, { depth: number; skillLevel: number }> = {
-        fundamentos: { depth: 12, skillLevel: 12 },
-        intermedio: { depth: 15, skillLevel: 18 },
-        avanzado: { depth: 18, skillLevel: 20 },
+      const skillByDifficulty: Record<TrainingDifficulty, { depth: number; uciElo: number }> = {
+        fundamentos: { depth: 14, uciElo: 1500 },
+        intermedio: { depth: 17, uciElo: 2000 },
+        avanzado: { depth: 20, uciElo: 2500 },
       };
       const level = skillByDifficulty[trainingDifficulty];
       void engine.analyze(completeGame, level)
@@ -884,7 +885,10 @@ function Home() {
           if (!puzzleExpectedMoveUci || selectedPuzzleMoveUci !== puzzleExpectedMoveUci) {
             setCompleteErrors((errors) => errors + 1);
             setPuzzleErrorCount((count) => count + 1);
-            setPuzzleErrorMove([squareName(selected), squareName({ row, col })]);
+            const expectedTipMove = puzzleExpectedMoveUci
+              ? getLegalChessMoves(completeGame).find((candidate) => chessMoveToUci(candidate) === puzzleExpectedMoveUci)
+              : null;
+            setPuzzleErrorMove(expectedTipMove ? [squareName(expectedTipMove.from), squareName(expectedTipMove.to)] : [squareName(selected), squareName({ row, col })]);
             setCompleteFeedback('Movimiento incorrecto. Revisa la idea del ejercicio y vuelve a intentarlo.');
             setSelected(null);
             return;
@@ -979,7 +983,7 @@ function Home() {
                     <p className="mt-1 text-[10px] font-bold text-[#486257]">Pieza a considerar: {(() => {
                       const expected = getLegalChessMoves(completeGame).find((candidate) => chessMoveToUci(candidate) === puzzleExpectedMoveUci);
                       const type = expected ? completeGame.board[expected.from.row][expected.from.col]?.type : null;
-                      return type === 'king' ? 'Rey' : type === 'queen' ? 'Dama' : type === 'rook' ? 'Torre' : type === 'bishop' ? 'Alfil' : type === 'knight' ? 'Caballo' : type === 'pawn' ? 'Peón' : 'calculando…';
+                      return type === 'king' ? 'Rey' : type === 'queen' ? 'Dama' : type === 'rook' ? 'Torre' : type === 'bishop' ? 'Alfil' : type === 'knight' ? 'Caballo' : type === 'pawn' ? 'Peón' : puzzleExpectedMoveUci === null && completeFeedback.startsWith('Correcto:') ? 'Ejercicio resuelto' : 'calculando…';
                     })()}</p>
                   </div>
                   <div className="flex shrink-0 items-center gap-2 text-[11px] font-bold text-[#40564b]">
@@ -1153,6 +1157,22 @@ function Home() {
           </div>
         </div>
       </div>}
+      {showDifficultyChoice && <div className="fixed inset-0 z-[115] flex items-center justify-center bg-[#20362e]/35 p-5">
+        <div className="w-full max-w-[520px] rounded-3xl border border-[#c8c0b0] bg-[#f5efe3] p-6 shadow-2xl">
+          <div className="flex items-start justify-between gap-4">
+            <div><p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#7b897f]">Vs bot</p><h2 className="mt-1 text-2xl font-extrabold text-[#20362e]">Dificultad</h2></div>
+            <button type="button" onClick={()=>setShowDifficultyChoice(false)} className="rounded-full p-2 text-[#6d7c73] hover:bg-[#e8dfcf]" aria-label="Cerrar"><XCircle size={20}/></button>
+          </div>
+          <div className="mt-6 grid gap-3">
+            {(['fundamentos','intermedio','avanzado'] as TrainingDifficulty[]).map((level) => (
+              <button key={level} type="button" onClick={()=>{setTrainingDifficulty(level);setShowDifficultyChoice(false);startFreeGame('bot', trainingSideChoice)}} className="flex h-16 items-center gap-4 rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] px-5 text-left text-[#40564b] hover:border-[#1f5b49]">
+                <Bot size={25} className="shrink-0 text-[#1f5b49]"/>
+                <span className="text-lg font-extrabold capitalize">{level}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>}
       {showFreeChoice && <div className="fixed inset-0 z-[110] flex items-center justify-center bg-[#20362e]/35 p-5">
         <div className="w-full max-w-[520px] rounded-3xl border border-[#c8c0b0] bg-[#f5efe3] p-6 shadow-2xl">
           <div className="flex items-start justify-between gap-4">
@@ -1160,7 +1180,7 @@ function Home() {
             <button type="button" onClick={()=>setShowFreeChoice(false)} className="rounded-full p-2 text-[#6d7c73] hover:bg-[#e8dfcf]" aria-label="Cerrar"><XCircle size={20}/></button>
           </div>
           <div className="mt-6 grid gap-3">
-            <button type="button" onClick={()=>startFreeGame('bot')} className="flex h-16 items-center gap-4 rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] px-5 text-left text-[#40564b] hover:border-[#1f5b49]"><Bot size={25} className="shrink-0 text-[#1f5b49]"/><span className="text-lg font-extrabold">Vs bot</span></button>
+            <button type="button" onClick={()=>{setShowFreeChoice(false);setShowDifficultyChoice(true)}} className="flex h-16 items-center gap-4 rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] px-5 text-left text-[#40564b] hover:border-[#1f5b49]"><Bot size={25} className="shrink-0 text-[#1f5b49]"/><span className="text-lg font-extrabold">Vs bot</span></button>
             <button type="button" onClick={()=>startFreeGame('local')} className="flex h-16 items-center gap-4 rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] px-5 text-left text-[#40564b] hover:border-[#1f5b49]"><Users size={25} className="shrink-0 text-[#1f5b49]"/><span className="text-lg font-extrabold">Vs jugador</span></button>
           </div>
         </div>
@@ -1201,6 +1221,7 @@ function App() {
 }
 
 export default App;
+
 
 
 
