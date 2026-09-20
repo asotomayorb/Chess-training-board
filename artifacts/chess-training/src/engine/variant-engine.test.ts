@@ -110,7 +110,9 @@ test('Defensa Húngara mantiene decisiones posteriores a Ae7 y sus pistas corres
   );
   assert.equal(getActiveOpeningLabel(italianGameTrainingTree, 'italian-node-be7'), 'Defensa Húngara');
   assert.equal(getTrainingTurn(italianGameTrainingTree, hungarian, 'italian-node-be7', 'white').playerNode?.move?.notation, 'd4');
-  assert.equal(getTrainingTurn(italianGameTrainingTree, hungarian, 'italian-node-hungarian-d4', 'white').playerNode, null);
+  const afterD4 = getTrainingTurn(italianGameTrainingTree, hungarian, 'italian-node-hungarian-d4', 'white');
+  assert.equal(afterD4.playerNode?.move?.notation, 'Cxd4');
+  assert.deepEqual(afterD4.automaticNodes.map((node) => node.move?.notation), ['exd4']);
   const current = getVariantSequence(italianGameTrainingTree, hungarian).find((move) => move.id === 'italian-move-hungarian-d4');
   assert.ok(current);
   assert.match(current.hints[1], /d4/i);
