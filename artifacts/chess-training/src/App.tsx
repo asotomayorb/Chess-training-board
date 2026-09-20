@@ -497,6 +497,10 @@ function Home() {
     setEndgameErrors(0);
     setEndgamePrompt(chooseEndgameTrainingPrompt(freshCompleteGame));
     setMiddlegamePrompt(chooseMiddlegameTrainingPrompt(freshCompleteGame, { difficulty: trainingDifficulty }));
+    const playerColor: OpeningColor = sideChoice === 'random' ? (Math.random() < 0.5 ? 'white' : 'black') : sideChoice;
+    setTrainingPlayerColor(playerColor);
+    setTrainingSideChoice(sideChoice);
+    setTurn(playerColor);
     setTrainingSelection(null);
     setOpeningNodeId(null);
   };
@@ -557,7 +561,7 @@ function Home() {
   const continueSession = () => {
     if (trainingFocus === 'opening') startOpeningTraining(undefined, trainingSideChoice);
     else if (trainingFocus === 'middlegame' || trainingFocus === 'endgame') startPuzzleTraining(puzzleFocus);
-    else if (mode === 'complete') startCompleteGame();
+    else if (mode === 'complete') startCompleteGame(trainingSideChoice);
     else resetFreePractice();
   };
 
@@ -568,7 +572,7 @@ function Home() {
       return;
     }
     if (mode === 'complete') {
-      startCompleteGame();
+      startCompleteGame(trainingSideChoice);
       return;
     }
     resetFreePractice();
