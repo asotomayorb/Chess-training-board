@@ -682,6 +682,17 @@ function Home() {
       : evaluation.feedback;
 
     setCompleteFeedback(combinedFeedback);
+    // Recalcular el objetivo sobre la posición resultante evita entrenar con un
+    // ejercicio obsoleto después de cambiar material o fase de la partida.
+    if (trainingFocus === 'endgame') {
+      setEndgamePrompt(chooseEndgameTrainingPrompt(nextGame));
+    } else if (trainingFocus === 'middlegame') {
+      setMiddlegamePrompt(chooseMiddlegameTrainingPrompt(nextGame, { difficulty: 'intermedio' }));
+    } else {
+      setEndgamePrompt(chooseEndgameTrainingPrompt(nextGame));
+      setMiddlegamePrompt(chooseMiddlegameTrainingPrompt(nextGame, { difficulty: 'intermedio' }));
+    }
+
     const nextStatus = getChessGameStatus(nextGame);
     const tacticalPosition = Boolean(
       move.promotion ||
