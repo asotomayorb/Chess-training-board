@@ -101,6 +101,22 @@ test('advances through the selected branch one player move and response at a tim
   assert.equal(completeTurn.playerNode, null);
 });
 
+test('Defensa Húngara mantiene decisiones posteriores a Ae7 y sus pistas corresponden a cada jugada', () => {
+  const hungarian = italianGameTrainingTree.branches.find((branch) => branch.id === 'hungarian-defense');
+  assert.ok(hungarian);
+  assert.deepEqual(
+    getVariantSequence(italianGameTrainingTree, hungarian).map((move) => move.notation),
+    ['e4', 'e5', 'Cf3', 'Cc6', 'Ac4', 'Ae7', 'd4', 'exd4', 'Cxd4'],
+  );
+  assert.equal(getActiveOpeningLabel(italianGameTrainingTree, 'italian-node-be7'), 'Defensa Húngara');
+  assert.equal(getTrainingTurn(italianGameTrainingTree, hungarian, 'italian-node-be7', 'white').playerNode?.move?.notation, 'd4');
+  assert.equal(getTrainingTurn(italianGameTrainingTree, hungarian, 'italian-node-hungarian-d4', 'white').playerNode, null);
+  const current = getVariantSequence(italianGameTrainingTree, hungarian).find((move) => move.id === 'italian-move-hungarian-d4');
+  assert.ok(current);
+  assert.match(current.hints[1], /d4/i);
+  assert.match(current.hints[2], /d4/i);
+});
+
 test('black training starts with the first white move and does not skip black decision', () => {
   assert.ok(giuocoPiano);
   const rootTurn = getTrainingTurn(italianGameTrainingTree, giuocoPiano, giuocoPiano.startNodeId, 'black');
