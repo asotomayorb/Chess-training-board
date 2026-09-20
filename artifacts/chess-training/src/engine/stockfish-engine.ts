@@ -135,6 +135,16 @@ export class StockfishEngine {
       };
       this.worker.onmessage = (event: MessageEvent<string>) => {
         const line = String(event.data);
+        if (line.includes('CRITICAL ERROR')) {
+          const error = new Error('Stockfish rechazó la posición enviada. La posición no es válida para este motor.');
+          if (this.pendingReject) {
+            const rejectAnalysis = this.pendingReject;
+            this.pendingResolve = null;
+            this.pendingReject = null;
+            rejectAnalysis(error);
+          }
+          return;
+        }
         if (line === 'uciok') { this.worker?.postMessage('isready'); return; }
         if (line === 'readyok') { if (settled) return; settled = true; window.clearTimeout(timeout); resolve(); return; }
         const info = parseInfo(line);
