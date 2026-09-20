@@ -898,6 +898,7 @@ function Home() {
         setPuzzleErrorMove(null);
         setPuzzleErrorCount(0);
         applyCompleteMove(moveCandidates[0]);
+        setCompleteFeedback(`Correcto: ${squareName(selected)}–${squareName({ row, col })} es la jugada elegida para este ejercicio. Reinicia para practicar otro.`);
         setPuzzleExpectedMoveUci(null);
         return;
       }
@@ -1200,6 +1201,7 @@ function App() {
 }
 
 export default App;
+
 
 
 
