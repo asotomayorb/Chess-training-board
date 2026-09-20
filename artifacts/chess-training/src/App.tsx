@@ -48,6 +48,7 @@ type PracticeMode = 'free' | 'opening' | 'complete';
 type TrainingFocus = 'opening' | 'middlegame' | 'endgame' | 'complete';
 type PuzzleFocus = 'middlegame' | 'endgame' | 'random';
 type TrainingDifficulty = 'fundamentos' | 'intermedio' | 'avanzado';
+type Appearance = 'minimal-b' | 'premium-b';
 type TrainingSideChoice = OpeningColor | 'random';
 type DifficultMove = {
   nodeId: string;
@@ -193,6 +194,13 @@ function Home() {
   const [showDifficultyChoice, setShowDifficultyChoice] = useState(false);
   const [showPuzzleChoice, setShowPuzzleChoice] = useState(false);
   const [showConfigChoice, setShowConfigChoice] = useState(false);
+  const [appearance, setAppearance] = useState<Appearance>(() => {
+    if (typeof window === 'undefined') return 'minimal-b';
+    return window.localStorage.getItem('chess-training-appearance') === 'premium-b' ? 'premium-b' : 'minimal-b';
+  });
+  useEffect(() => {
+    window.localStorage.setItem('chess-training-appearance', appearance);
+  }, [appearance]);
   const [puzzleErrorMove, setPuzzleErrorMove] = useState<[string, string] | null>(null);
   const [puzzleErrorCount, setPuzzleErrorCount] = useState(0);
   const [puzzleExpectedMoveUci, setPuzzleExpectedMoveUci] = useState<string | null>(null);
@@ -940,14 +948,14 @@ function Home() {
     : board;
 
   return (
-    <div className="app-grain min-h-[100dvh] overflow-x-hidden bg-[#e9e3d5]">
+    <div className={`app-grain theme-${appearance} min-h-[100dvh] overflow-x-hidden bg-[var(--ui-bg)]`}>
       <div className="relative mx-auto flex min-h-[100dvh] max-w-[1600px]">
         
 
         <main className="min-w-0 flex-1">
-          <header className="flex min-h-[76px] items-center justify-between border-b border-[#d6cebd] px-5 py-4 sm:px-8 lg:px-12">
-            <button type="button" onClick={goHome} className="rounded-lg border border-[#c6bdac] bg-[#f1ebdf] px-3 py-2 text-[11px] font-bold text-[#40564b] hover:border-[#1f5b49]">← Atrás</button>
-            <h1 className="text-[clamp(1.45rem,3vw,2.2rem)] font-extrabold tracking-[-0.05em] text-[#20362e]">
+          <header className="flex min-h-[76px] items-center justify-between border-b border-[var(--ui-border-strong)] px-5 py-4 sm:px-8 lg:px-12">
+            <button type="button" onClick={goHome} className="rounded-lg border border-[var(--ui-border)] bg-[var(--ui-surface)] px-3 py-2 text-[11px] font-bold text-[var(--ui-text)] hover:border-[var(--ui-primary)]">← Atrás</button>
+            <h1 className="text-[clamp(1.45rem,3vw,2.2rem)] font-extrabold tracking-[-0.05em] text-[var(--ui-heading)]">
               {mode === 'opening' ? 'Aperturas' : mode === 'complete' && (trainingFocus === 'middlegame' || trainingFocus === 'endgame') ? 'Puzzles' : 'Juego libre'}
             </h1>
             <select value={mode === 'opening' ? 'opening' : mode === 'complete' && (trainingFocus === 'middlegame' || trainingFocus === 'endgame') ? 'puzzles' : 'free'} onChange={(event) => {
@@ -956,7 +964,7 @@ function Home() {
               else if (event.target.value === 'config') { setShowMainMenu(true); setSummaryDismissed(true); }
               else if (event.target.value === 'free') setShowFreeChoice(true);
               else { setShowMainMenu(true); setSummaryDismissed(true); }
-            }} className="max-w-[170px] rounded-lg border border-[#c6bdac] bg-[#f1ebdf] px-3 py-2 text-[11px] font-bold text-[#40564b]">
+            }} className="max-w-[170px] rounded-lg border border-[var(--ui-border)] bg-[var(--ui-surface)] px-3 py-2 text-[11px] font-bold text-[var(--ui-text)]">
               <option value="opening">Aperturas</option><option value="puzzles">Puzzles</option><option value="free">Juego libre</option><option value="config">Configuraciones</option>
             </select>
           </header>
@@ -966,34 +974,34 @@ function Home() {
               {mode === 'opening' && (
                 <div className="flex items-center justify-between gap-4">
                   <div className="min-w-0">
-                    <p className="text-[17px] font-extrabold leading-tight text-[#1f5b49]" data-testid="text-active-opening">{openingVariant?.opening ?? 'Nueva apertura'}</p>
-                    <p className="mt-0.5 text-[11px] font-medium text-[#718078]" data-testid="text-active-opening-variant">{openingVariant?.name ?? activeOpeningLabel ?? 'Variante'}</p>
+                    <p className="text-[17px] font-extrabold leading-tight text-[var(--ui-primary)]" data-testid="text-active-opening">{openingVariant?.opening ?? 'Nueva apertura'}</p>
+                    <p className="mt-0.5 text-[11px] font-medium text-[var(--ui-muted)]" data-testid="text-active-opening-variant">{openingVariant?.name ?? activeOpeningLabel ?? 'Variante'}</p>
                   </div>
-                  <div className="flex shrink-0 items-center gap-2 text-[11px] font-bold text-[#40564b]">
+                  <div className="flex shrink-0 items-center gap-2 text-[11px] font-bold text-[var(--ui-text)]">
                     <span>{trainingPlayerColor === 'white' ? 'Turno: blancas' : 'Turno: negras'}</span>
-                    <span className={`size-3 rounded-full ${trainingPlayerColor === 'white' ? 'bg-[#f7f0df] ring-1 ring-[#9f9687]' : 'bg-[#263a33]'}`} />
+                    <span className={`size-3 rounded-full ${trainingPlayerColor === 'white' ? 'bg-[var(--ui-piece-light)] ring-1 ring-[var(--ui-piece-ring)]' : 'bg-[var(--ui-piece-dark)]'}`} />
                   </div>
                 </div>
               )}
               {(trainingFocus === 'middlegame' || trainingFocus === 'endgame') && (
                 <div className="flex items-center justify-between gap-4">
                   <div className="min-w-0">
-                    <p className="text-[17px] font-extrabold leading-tight text-[#1f5b49]" data-testid="text-puzzle-mode">{puzzleFocus === 'random' ? 'Aleatorio' : trainingFocus === 'middlegame' ? 'Medio juego' : 'Finales'}</p>
-                    <p className="mt-0.5 text-[11px] font-medium text-[#718078]" data-testid="text-puzzle-type">{trainingFocus === 'endgame' ? (endgamePrompt?.type ?? 'Final') : (middlegamePrompt?.objective ?? 'Posición de medio juego')}</p>
-                    <p className="mt-1 text-[10px] font-bold text-[#486257]">Pieza a considerar: {(() => {
+                    <p className="text-[17px] font-extrabold leading-tight text-[var(--ui-primary)]" data-testid="text-puzzle-mode">{puzzleFocus === 'random' ? 'Aleatorio' : trainingFocus === 'middlegame' ? 'Medio juego' : 'Finales'}</p>
+                    <p className="mt-0.5 text-[11px] font-medium text-[var(--ui-muted)]" data-testid="text-puzzle-type">{trainingFocus === 'endgame' ? (endgamePrompt?.type ?? 'Final') : (middlegamePrompt?.objective ?? 'Posición de medio juego')}</p>
+                    <p className="mt-1 text-[10px] font-bold text-[var(--ui-text-secondary)]">Pieza a considerar: {(() => {
                       const expected = getLegalChessMoves(completeGame).find((candidate) => chessMoveToUci(candidate) === puzzleExpectedMoveUci);
                       const type = expected ? completeGame.board[expected.from.row][expected.from.col]?.type : null;
                       return type === 'king' ? 'Rey' : type === 'queen' ? 'Dama' : type === 'rook' ? 'Torre' : type === 'bishop' ? 'Alfil' : type === 'knight' ? 'Caballo' : type === 'pawn' ? 'Peón' : puzzleExpectedMoveUci === null && completeFeedback.startsWith('Correcto:') ? 'Ejercicio resuelto' : 'calculando…';
                     })()}</p>
                   </div>
-                  <div className="flex shrink-0 items-center gap-2 text-[11px] font-bold text-[#40564b]">
+                  <div className="flex shrink-0 items-center gap-2 text-[11px] font-bold text-[var(--ui-text)]">
                     <span>{trainingPlayerColor === 'white' ? 'Turno: blancas' : 'Turno: negras'}</span>
-                    <span className={`size-3 rounded-full ${trainingPlayerColor === 'white' ? 'bg-[#f7f0df] ring-1 ring-[#9f9687]' : 'bg-[#263a33]'}`} />
+                    <span className={`size-3 rounded-full ${trainingPlayerColor === 'white' ? 'bg-[var(--ui-piece-light)] ring-1 ring-[var(--ui-piece-ring)]' : 'bg-[var(--ui-piece-dark)]'}`} />
                   </div>
                 </div>
               )}
               {mode === 'opening' && trainingStatus === 'incorrect' && expectedMove && hintLevel > 0 && (
-                <div className="mt-2 max-w-[760px] rounded-xl bg-[#e8dfcf] px-3 py-2.5 text-[11px] font-semibold leading-relaxed text-[#5b6c62]" data-testid="text-training-hint-top">
+                <div className="mt-2 max-w-[760px] rounded-xl bg-[var(--ui-hover)] px-3 py-2.5 text-[11px] font-semibold leading-relaxed text-[var(--ui-text-tertiary)]" data-testid="text-training-hint-top">
                   💡 Pista {Math.min(hintLevel,3)}: {expectedMove.hints[Math.min(hintLevel,3)-1]}
                 </div>
               )}
@@ -1003,16 +1011,16 @@ function Home() {
               <section className="training-board-column fade-up fade-up-delay-1">
                 {((mode === 'free') || (mode === 'complete' && trainingFocus === 'complete')) && (
                   <div className="mb-3 flex items-center justify-end px-1">
-                    <div className="flex items-center gap-2 text-[11px] font-bold text-[#40564b]">
+                    <div className="flex items-center gap-2 text-[11px] font-bold text-[var(--ui-text)]">
                       <span>{(mode === 'complete' ? completeGame.turn : turn) === 'white' ? 'Turno: blancas' : 'Turno: negras'}</span>
-                      <span className={`size-3 rounded-full ${(mode === 'complete' ? completeGame.turn : turn) === 'white' ? 'bg-[#f7f0df] ring-1 ring-[#9f9687]' : 'bg-[#263a33]'}`} />
+                      <span className={`size-3 rounded-full ${(mode === 'complete' ? completeGame.turn : turn) === 'white' ? 'bg-[var(--ui-piece-light)] ring-1 ring-[var(--ui-piece-ring)]' : 'bg-[var(--ui-piece-dark)]'}`} />
                     </div>
                   </div>
                 )}
 
                 {promotionPending && mode === 'complete' && (
-                  <div className="mb-3 rounded-xl border border-[#c9b98f] bg-[#eee4cc] p-3">
-                    <p className="text-[11px] font-extrabold text-[#5f563f]">Elige la pieza de promoción</p>
+                  <div className="mb-3 rounded-xl border border-[var(--ui-accent-border)] bg-[var(--ui-accent-bg)] p-3">
+                    <p className="text-[11px] font-extrabold text-[var(--ui-accent-text)]">Elige la pieza de promoción</p>
                     <div className="mt-2 flex gap-2">
                       {(['queen', 'rook', 'bishop', 'knight'] as PromotionPiece[]).map((promotion) => (
                         <button
@@ -1029,7 +1037,7 @@ function Home() {
                             );
                             if (move) applyCompleteMove(move);
                           }}
-                          className="rounded-lg border border-[#c8c0b0] bg-[#f6f0e4] px-3 py-2 text-[11px] font-bold text-[#40564b] hover:border-[#1f5b49] hover:text-[#1f5b49]"
+                          className="rounded-lg border border-[var(--ui-control-border)] bg-[var(--ui-control-bg)] px-3 py-2 text-[11px] font-bold text-[var(--ui-text)] hover:border-[var(--ui-primary)] hover:text-[var(--ui-primary)]"
                         >
                           {promotion === 'queen' ? 'Dama' : promotion === 'rook' ? 'Torre' : promotion === 'bishop' ? 'Alfil' : 'Caballo'}
                         </button>
@@ -1039,7 +1047,7 @@ function Home() {
                 )}
 
                 <div className="training-board-wrap">
-                  <div className="board-frame overflow-hidden rounded-[5px] border-[10px] border-[#263f35] bg-[#263f35] sm:border-[14px]">
+                  <div className="board-frame overflow-hidden rounded-[5px] border-[10px] border-[var(--ui-board-frame)] bg-[var(--ui-board-frame)] sm:border-[14px]">
                   <div className="grid grid-cols-8 overflow-hidden rounded-[1px]" data-testid="chess-board">
                     {displayedBoard.map((row, displayRowIndex) =>
                       row.map((piece, displayColIndex) => {
@@ -1061,7 +1069,7 @@ function Home() {
                             onClick={() => handleSquareClick(rowIndex, colIndex)}
                             data-testid={`square-${squareName({ row: rowIndex, col: colIndex })}`}
                             aria-label={`${squareName({ row: rowIndex, col: colIndex })}${piece ? ` ${piece.color} ${piece.type}` : ''}`}
-                            className={`chess-square ${isLight ? 'board-light text-[#527062]' : 'board-dark text-[#e5ddc8]'} ${isSelected ? 'selected' : ''} ${isLegal ? (piece ? 'legal capture' : 'legal') : ''} ${isLastMove ? 'last-move' : ''} ${isHintFrom ? 'hint-from' : ''} ${isHintTo ? 'hint-to' : ''} ${isPuzzleErrorFrom ? 'puzzle-error-from' : ''} ${isPuzzleErrorTo ? 'puzzle-error-to' : ''}`}
+                            className={`chess-square ${isLight ? 'board-light text-[var(--ui-board-light-text)]' : 'board-dark text-[var(--ui-board-dark-text)]'} ${isSelected ? 'selected' : ''} ${isLegal ? (piece ? 'legal capture' : 'legal') : ''} ${isLastMove ? 'last-move' : ''} ${isHintFrom ? 'hint-from' : ''} ${isHintTo ? 'hint-to' : ''} ${isPuzzleErrorFrom ? 'puzzle-error-from' : ''} ${isPuzzleErrorTo ? 'puzzle-error-to' : ''}`}
                           >
                             {displayColIndex === 0 && <span className="board-coord board-rank">{8 - rowIndex}</span>}
                             {displayRowIndex === 7 && <span className="board-coord board-file">{files[colIndex]}</span>}
@@ -1078,34 +1086,34 @@ function Home() {
                 </div>
                 </div>
 
-                <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#d1c8b7] bg-[#f2ece0] p-3">
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--ui-card-border)] bg-[var(--ui-card-bg)] p-3">
                   <div className="flex gap-3">
-                    <button type="button" onClick={undoLastMove} disabled={!undoStack.length} className="flex min-w-[54px] flex-col items-center gap-0.5 rounded-lg border border-[#c8c0b0] bg-[#f6f0e4] px-2.5 py-1.5 text-[#40564b] disabled:opacity-40" aria-label="Deshacer">
+                    <button type="button" onClick={undoLastMove} disabled={!undoStack.length} className="flex min-w-[54px] flex-col items-center gap-0.5 rounded-lg border border-[var(--ui-control-border)] bg-[var(--ui-control-bg)] px-2.5 py-1.5 text-[var(--ui-text)] disabled:opacity-40" aria-label="Deshacer">
                       <Undo2 size={17}/>
                       <span className="text-[8px] font-bold uppercase tracking-[0.06em]">Deshacer</span>
                     </button>
-                    <button type="button" onClick={resetGame} className="flex min-w-[54px] flex-col items-center gap-0.5 rounded-lg border border-[#c8c0b0] bg-[#f6f0e4] px-2.5 py-1.5 text-[#40564b]" aria-label="Reiniciar">
+                    <button type="button" onClick={resetGame} className="flex min-w-[54px] flex-col items-center gap-0.5 rounded-lg border border-[var(--ui-control-border)] bg-[var(--ui-control-bg)] px-2.5 py-1.5 text-[var(--ui-text)]" aria-label="Reiniciar">
                       <RefreshCw size={17}/>
                       <span className="text-[8px] font-bold uppercase tracking-[0.06em]">Reiniciar</span>
                     </button>
                   </div>
-                  <label className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.08em] text-[#718078]">Bando<select value={trainingSideChoice} onChange={(event) => {
+                  <label className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--ui-muted)]">Bando<select value={trainingSideChoice} onChange={(event) => {
                     const value = event.target.value as TrainingSideChoice;
                     if (mode === 'opening') startOpeningTraining(trainingSelection ?? chooseVariant(), value);
                     else if (mode === 'complete' && (trainingFocus === 'middlegame' || trainingFocus === 'endgame')) startPuzzleTraining(puzzleFocus, value);
                     else if (mode === 'complete') startCompleteGame(value);
                     else startFreeGame(localOpponent, value);
-                  }} className="rounded-lg border border-[#c8c0b0] bg-[#f6f0e4] px-3 py-2 text-[10px] font-bold text-[#40564b]">
+                  }} className="rounded-lg border border-[var(--ui-control-border)] bg-[var(--ui-control-bg)] px-3 py-2 text-[10px] font-bold text-[var(--ui-text)]">
                     <option value="white">Blancas</option><option value="black">Negras</option><option value="random">Aleatorio</option>
                   </select></label>
                 </div>
 
                 {mode === 'opening' && trainingExplanation && (
-                  <details className="mt-4 rounded-xl border border-[#cbd8c8] bg-[#e3e8dc]" data-testid="details-opening-strategy">
-                    <summary className="cursor-pointer list-none px-3 py-2.5 text-[10px] font-extrabold uppercase tracking-[0.1em] text-[#40564b]">Información estratégica</summary>
-                    <div className="border-t border-[#cbd8c8] px-3 py-3 text-[11px] leading-relaxed text-[#486257]">
+                  <details className="mt-4 rounded-xl border border-[var(--ui-details-border)] bg-[var(--ui-details-bg)]" data-testid="details-opening-strategy">
+                    <summary className="cursor-pointer list-none px-3 py-2.5 text-[10px] font-extrabold uppercase tracking-[0.1em] text-[var(--ui-text)]">Información estratégica</summary>
+                    <div className="border-t border-[var(--ui-details-border)] px-3 py-3 text-[11px] leading-relaxed text-[var(--ui-text-secondary)]">
                       {trainingExplanation.split('\n').map((line, index) => (
-                        <p key={index} className={index === 0 ? 'font-semibold text-[#30473e]' : 'mt-1'}>{line}</p>
+                        <p key={index} className={index === 0 ? 'font-semibold text-[var(--ui-strong)]' : 'mt-1'}>{line}</p>
                       ))}
                     </div>
                   </details>
@@ -1115,77 +1123,92 @@ function Home() {
 
               <aside className="hidden fade-up fade-up-delay-2 xl:block xl:pt-7">
                 {mode === 'opening' && (
-                  <div className="rounded-2xl border border-[#d1c8b7] bg-[#f2ece0] p-5 shadow-[0_12px_30px_rgba(65,70,58,.06)] sm:p-6">
-                    <div className="flex items-center gap-2"><Lightbulb size={15} className="text-[#c38a3d]" /><p className="font-mono text-[9px] font-medium uppercase tracking-[0.2em] text-[#7b897f]">Tips</p></div>
-                    <p className="mt-4 text-[12px] leading-relaxed text-[#5f7067]">Observa la posición y busca la idea antes de calcular la variante.</p>
+                  <div className="rounded-2xl border border-[var(--ui-card-border)] bg-[var(--ui-card-bg)] p-5 shadow-[0_12px_30px_rgba(65,70,58,.06)] sm:p-6">
+                    <div className="flex items-center gap-2"><Lightbulb size={15} className="text-[var(--ui-accent)]" /><p className="font-mono text-[9px] font-medium uppercase tracking-[0.2em] text-[var(--ui-label)]">Tips</p></div>
+                    <p className="mt-4 text-[12px] leading-relaxed text-[var(--ui-body)]">Observa la posición y busca la idea antes de calcular la variante.</p>
                   </div>
                 )}
               </aside>
             </div>
           </div>
         </main>
-      {showMainMenu && <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden bg-[#e9e3d5] p-5">
+      {showMainMenu && <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden bg-[var(--ui-bg)] p-5">
         <div className="w-full max-w-[560px]">
           <div className="mb-6 flex items-center justify-center gap-3">
-            <div className="flex size-11 items-center justify-center rounded-2xl bg-[#1f5b49] text-[#f5efe3]"><Crown size={24}/></div>
-            <span className="text-2xl font-extrabold tracking-[-0.04em] text-[#20362e]">Chess Training Board</span>
+            <div className="flex size-11 items-center justify-center rounded-2xl bg-[var(--ui-primary)] text-[var(--ui-modal)]"><Crown size={24}/></div>
+            <span className="text-2xl font-extrabold tracking-[-0.04em] text-[var(--ui-heading)]">Chess Training Board</span>
           </div>
           <div className="grid gap-3">
-            <button type="button" onClick={()=>startOpeningTraining()} className="flex h-16 items-center gap-4 rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] px-5 text-left hover:border-[#1f5b49]"><BookOpen className="shrink-0 text-[#1f5b49]" size={25}/><span className="text-lg font-extrabold text-[#30473e]">Aperturas</span></button>
-            <button type="button" onClick={openPuzzleChoice} className="flex h-16 items-center gap-4 rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] px-5 text-left hover:border-[#1f5b49]"><Puzzle className="shrink-0 text-[#1f5b49]" size={25}/><span className="text-lg font-extrabold text-[#30473e]">Puzzles</span></button>
-            <button type="button" onClick={()=>setShowFreeChoice(true)} className="flex h-16 items-center gap-4 rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] px-5 text-left hover:border-[#1f5b49]"><Gamepad2 className="shrink-0 text-[#1f5b49]" size={25}/><span className="text-lg font-extrabold text-[#30473e]">Juego libre</span></button>
-            <button type="button" onClick={()=>setShowConfigChoice(true)} className="flex h-16 items-center gap-4 rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] px-5 text-left hover:border-[#1f5b49]"><Settings className="shrink-0 text-[#1f5b49]" size={25}/><span className="text-lg font-extrabold text-[#30473e]">Configuraciones</span></button>
+            <button type="button" onClick={()=>startOpeningTraining()} className="flex h-16 items-center gap-4 rounded-2xl border border-[var(--ui-control-border)] bg-[var(--ui-modal)] px-5 text-left hover:border-[var(--ui-primary)]"><BookOpen className="shrink-0 text-[var(--ui-primary)]" size={25}/><span className="text-lg font-extrabold text-[var(--ui-strong)]">Aperturas</span></button>
+            <button type="button" onClick={openPuzzleChoice} className="flex h-16 items-center gap-4 rounded-2xl border border-[var(--ui-control-border)] bg-[var(--ui-modal)] px-5 text-left hover:border-[var(--ui-primary)]"><Puzzle className="shrink-0 text-[var(--ui-primary)]" size={25}/><span className="text-lg font-extrabold text-[var(--ui-strong)]">Puzzles</span></button>
+            <button type="button" onClick={()=>setShowFreeChoice(true)} className="flex h-16 items-center gap-4 rounded-2xl border border-[var(--ui-control-border)] bg-[var(--ui-modal)] px-5 text-left hover:border-[var(--ui-primary)]"><Gamepad2 className="shrink-0 text-[var(--ui-primary)]" size={25}/><span className="text-lg font-extrabold text-[var(--ui-strong)]">Juego libre</span></button>
+            <button type="button" onClick={()=>setShowConfigChoice(true)} className="flex h-16 items-center gap-4 rounded-2xl border border-[var(--ui-control-border)] bg-[var(--ui-modal)] px-5 text-left hover:border-[var(--ui-primary)]"><Settings className="shrink-0 text-[var(--ui-primary)]" size={25}/><span className="text-lg font-extrabold text-[var(--ui-strong)]">Configuraciones</span></button>
           </div>
         </div>
       </div>}
-      {showPuzzleChoice && <div className="fixed inset-0 z-[110] flex items-center justify-center bg-[#20362e]/35 p-5">
-        <div className="w-full max-w-[520px] rounded-3xl border border-[#c8c0b0] bg-[#f5efe3] p-6 shadow-2xl">
-          <div className="flex items-start justify-between gap-4"><div><p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#7b897f]">Puzzles</p><h2 className="mt-1 text-2xl font-extrabold text-[#20362e]">Tema</h2></div><button type="button" onClick={()=>setShowPuzzleChoice(false)} className="rounded-full p-2 text-[#6d7c73] hover:bg-[#e8dfcf]" aria-label="Cerrar"><XCircle size={20}/></button></div>
+      {showPuzzleChoice && <div className="fixed inset-0 z-[110] flex items-center justify-center bg-[var(--ui-heading)]/35 p-5">
+        <div className="w-full max-w-[520px] rounded-3xl border border-[var(--ui-control-border)] bg-[var(--ui-modal)] p-6 shadow-2xl">
+          <div className="flex items-start justify-between gap-4"><div><p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--ui-label)]">Puzzles</p><h2 className="mt-1 text-2xl font-extrabold text-[var(--ui-heading)]">Tema</h2></div><button type="button" onClick={()=>setShowPuzzleChoice(false)} className="rounded-full p-2 text-[var(--ui-muted-2)] hover:bg-[var(--ui-hover)]" aria-label="Cerrar"><XCircle size={20}/></button></div>
           <div className="mt-6 grid gap-3">
-            <button type="button" onClick={()=>choosePuzzleMode('middlegame')} className="flex h-16 items-center gap-4 rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] px-5 text-left text-[#40564b] hover:border-[#1f5b49]"><Puzzle size={25} className="shrink-0 text-[#1f5b49]"/><span className="text-lg font-extrabold">Medio juego</span></button>
-            <button type="button" onClick={()=>choosePuzzleMode('endgame')} className="flex h-16 items-center gap-4 rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] px-5 text-left text-[#40564b] hover:border-[#1f5b49]"><Crown size={25} className="shrink-0 text-[#1f5b49]"/><span className="text-lg font-extrabold">Finales</span></button>
-            <button type="button" onClick={()=>choosePuzzleMode('random')} className="flex h-16 items-center gap-4 rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] px-5 text-left text-[#40564b] hover:border-[#1f5b49]"><Puzzle size={25} className="shrink-0 text-[#1f5b49]"/><span className="text-lg font-extrabold">Aleatorio</span></button>
+            <button type="button" onClick={()=>choosePuzzleMode('middlegame')} className="flex h-16 items-center gap-4 rounded-2xl border border-[var(--ui-control-border)] bg-[var(--ui-modal)] px-5 text-left text-[var(--ui-text)] hover:border-[var(--ui-primary)]"><Puzzle size={25} className="shrink-0 text-[var(--ui-primary)]"/><span className="text-lg font-extrabold">Medio juego</span></button>
+            <button type="button" onClick={()=>choosePuzzleMode('endgame')} className="flex h-16 items-center gap-4 rounded-2xl border border-[var(--ui-control-border)] bg-[var(--ui-modal)] px-5 text-left text-[var(--ui-text)] hover:border-[var(--ui-primary)]"><Crown size={25} className="shrink-0 text-[var(--ui-primary)]"/><span className="text-lg font-extrabold">Finales</span></button>
+            <button type="button" onClick={()=>choosePuzzleMode('random')} className="flex h-16 items-center gap-4 rounded-2xl border border-[var(--ui-control-border)] bg-[var(--ui-modal)] px-5 text-left text-[var(--ui-text)] hover:border-[var(--ui-primary)]"><Puzzle size={25} className="shrink-0 text-[var(--ui-primary)]"/><span className="text-lg font-extrabold">Aleatorio</span></button>
           </div>
         </div>
       </div>}
-      {showConfigChoice && <div className="fixed inset-0 z-[110] flex items-center justify-center bg-[#20362e]/35 p-5">
-        <div className="w-full max-w-[420px] rounded-3xl border border-[#c8c0b0] bg-[#f5efe3] p-6 shadow-2xl">
-          <div className="flex items-start justify-between gap-4"><div><p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#7b897f]">Configuraciones</p><h2 className="mt-1 text-2xl font-extrabold text-[#20362e]">Avance</h2></div><button type="button" onClick={()=>setShowConfigChoice(false)} className="rounded-full p-2 text-[#6d7c73] hover:bg-[#e8dfcf]" aria-label="Cerrar"><XCircle size={20}/></button></div>
-          <div className="mt-6 grid grid-cols-2 gap-3">
-            <button type="button" onClick={()=>{setAutoAdvance(false);setShowConfigChoice(false)}} className={`rounded-xl px-4 py-3 text-sm font-bold ${!autoAdvance?'bg-[#1f5b49] text-white':'bg-[#e8dfcf] text-[#40564b]'}`}>Normal</button>
-            <button type="button" onClick={()=>{setAutoAdvance(true);setShowConfigChoice(false)}} className={`rounded-xl px-4 py-3 text-sm font-bold ${autoAdvance?'bg-[#1f5b49] text-white':'bg-[#e8dfcf] text-[#40564b]'}`}>Automático</button>
+      {showConfigChoice && <div className="fixed inset-0 z-[110] flex items-center justify-center bg-[var(--ui-heading)]/35 p-5">
+        <div className="w-full max-w-[460px] rounded-3xl border border-[var(--ui-control-border)] bg-[var(--ui-modal)] p-6 shadow-2xl">
+          <div className="flex items-start justify-between gap-4"><div><p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--ui-label)]">Configuraciones</p><h2 className="mt-1 text-2xl font-extrabold text-[var(--ui-heading)]">Aspecto</h2></div><button type="button" onClick={()=>setShowConfigChoice(false)} className="rounded-full p-2 text-[var(--ui-muted-2)] hover:bg-[var(--ui-hover)]" aria-label="Cerrar"><XCircle size={20}/></button></div>
+          <div className="mt-6">
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[var(--ui-label)]">Tema visual</p>
+            <div className="mt-3 grid gap-3">
+              <button type="button" onClick={()=>setAppearance('minimal-b')} className={`flex items-center justify-between rounded-2xl border px-4 py-4 text-left ${appearance==='minimal-b'?'border-[var(--ui-primary)] bg-[var(--ui-hover)]':'border-[var(--ui-control-border)] bg-[var(--ui-control-bg)]'}`}>
+                <span><span className="block text-sm font-extrabold text-[var(--ui-heading)]">Minimalista B</span><span className="mt-0.5 block text-[10px] text-[var(--ui-muted)]">Claro, fresco y adaptable</span></span>
+                {appearance==='minimal-b' && <CheckCircle2 size={19} className="text-[var(--ui-primary)]"/>}
+              </button>
+              <button type="button" onClick={()=>setAppearance('premium-b')} className={`flex items-center justify-between rounded-2xl border px-4 py-4 text-left ${appearance==='premium-b'?'border-[var(--ui-primary)] bg-[var(--ui-hover)]':'border-[var(--ui-control-border)] bg-[var(--ui-control-bg)]'}`}>
+                <span><span className="block text-sm font-extrabold text-[var(--ui-heading)]">Premium B</span><span className="mt-0.5 block text-[10px] text-[var(--ui-muted)]">Oscuro, elegante y sofisticado</span></span>
+                {appearance==='premium-b' && <CheckCircle2 size={19} className="text-[var(--ui-primary)]"/>}
+              </button>
+            </div>
+          </div>
+          <div className="mt-6 border-t border-[var(--ui-control-border)] pt-5">
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[var(--ui-label)]">Avance</p>
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <button type="button" onClick={()=>setAutoAdvance(false)} className={`rounded-xl px-4 py-3 text-sm font-bold ${!autoAdvance?'bg-[var(--ui-primary)] text-white':'bg-[var(--ui-hover)] text-[var(--ui-text-secondary)]'}`}>Normal</button>
+              <button type="button" onClick={()=>setAutoAdvance(true)} className={`rounded-xl px-4 py-3 text-sm font-bold ${autoAdvance?'bg-[var(--ui-primary)] text-white':'bg-[var(--ui-hover)] text-[var(--ui-text-secondary)]'}`}>Automático</button>
+            </div>
           </div>
         </div>
-      </div>}
-      {showDifficultyChoice && <div className="fixed inset-0 z-[115] flex items-center justify-center bg-[#20362e]/35 p-5">
-        <div className="w-full max-w-[520px] rounded-3xl border border-[#c8c0b0] bg-[#f5efe3] p-6 shadow-2xl">
+      </div>}{showDifficultyChoice && <div className="fixed inset-0 z-[115] flex items-center justify-center bg-[var(--ui-heading)]/35 p-5">
+        <div className="w-full max-w-[520px] rounded-3xl border border-[var(--ui-control-border)] bg-[var(--ui-modal)] p-6 shadow-2xl">
           <div className="flex items-start justify-between gap-4">
-            <div><p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#7b897f]">Vs bot</p><h2 className="mt-1 text-2xl font-extrabold text-[#20362e]">Dificultad</h2></div>
-            <button type="button" onClick={()=>setShowDifficultyChoice(false)} className="rounded-full p-2 text-[#6d7c73] hover:bg-[#e8dfcf]" aria-label="Cerrar"><XCircle size={20}/></button>
+            <div><p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--ui-label)]">Vs bot</p><h2 className="mt-1 text-2xl font-extrabold text-[var(--ui-heading)]">Dificultad</h2></div>
+            <button type="button" onClick={()=>setShowDifficultyChoice(false)} className="rounded-full p-2 text-[var(--ui-muted-2)] hover:bg-[var(--ui-hover)]" aria-label="Cerrar"><XCircle size={20}/></button>
           </div>
           <div className="mt-6 grid gap-3">
             {(['fundamentos','intermedio','avanzado'] as TrainingDifficulty[]).map((level) => (
-              <button key={level} type="button" onClick={()=>{setTrainingDifficulty(level);setShowDifficultyChoice(false);startFreeGame('bot', trainingSideChoice)}} className="flex h-16 items-center gap-4 rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] px-5 text-left text-[#40564b] hover:border-[#1f5b49]">
-                <Bot size={25} className="shrink-0 text-[#1f5b49]"/>
+              <button key={level} type="button" onClick={()=>{setTrainingDifficulty(level);setShowDifficultyChoice(false);startFreeGame('bot', trainingSideChoice)}} className="flex h-16 items-center gap-4 rounded-2xl border border-[var(--ui-control-border)] bg-[var(--ui-modal)] px-5 text-left text-[var(--ui-text)] hover:border-[var(--ui-primary)]">
+                <Bot size={25} className="shrink-0 text-[var(--ui-primary)]"/>
                 <span className="text-lg font-extrabold capitalize">{level}</span>
               </button>
             ))}
           </div>
         </div>
       </div>}
-      {showFreeChoice && <div className="fixed inset-0 z-[110] flex items-center justify-center bg-[#20362e]/35 p-5">
-        <div className="w-full max-w-[520px] rounded-3xl border border-[#c8c0b0] bg-[#f5efe3] p-6 shadow-2xl">
+      {showFreeChoice && <div className="fixed inset-0 z-[110] flex items-center justify-center bg-[var(--ui-heading)]/35 p-5">
+        <div className="w-full max-w-[520px] rounded-3xl border border-[var(--ui-control-border)] bg-[var(--ui-modal)] p-6 shadow-2xl">
           <div className="flex items-start justify-between gap-4">
-            <div><p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#7b897f]">Juego libre</p><h2 className="mt-1 text-2xl font-extrabold text-[#20362e]">Rival</h2></div>
-            <button type="button" onClick={()=>setShowFreeChoice(false)} className="rounded-full p-2 text-[#6d7c73] hover:bg-[#e8dfcf]" aria-label="Cerrar"><XCircle size={20}/></button>
+            <div><p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--ui-label)]">Juego libre</p><h2 className="mt-1 text-2xl font-extrabold text-[var(--ui-heading)]">Rival</h2></div>
+            <button type="button" onClick={()=>setShowFreeChoice(false)} className="rounded-full p-2 text-[var(--ui-muted-2)] hover:bg-[var(--ui-hover)]" aria-label="Cerrar"><XCircle size={20}/></button>
           </div>
           <div className="mt-6 grid gap-3">
-            <button type="button" onClick={()=>{setShowFreeChoice(false);setShowDifficultyChoice(true)}} className="flex h-16 items-center gap-4 rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] px-5 text-left text-[#40564b] hover:border-[#1f5b49]"><Bot size={25} className="shrink-0 text-[#1f5b49]"/><span className="text-lg font-extrabold">Vs bot</span></button>
-            <button type="button" onClick={()=>startFreeGame('local')} className="flex h-16 items-center gap-4 rounded-2xl border border-[#c8c0b0] bg-[#f5efe3] px-5 text-left text-[#40564b] hover:border-[#1f5b49]"><Users size={25} className="shrink-0 text-[#1f5b49]"/><span className="text-lg font-extrabold">Vs jugador</span></button>
+            <button type="button" onClick={()=>{setShowFreeChoice(false);setShowDifficultyChoice(true)}} className="flex h-16 items-center gap-4 rounded-2xl border border-[var(--ui-control-border)] bg-[var(--ui-modal)] px-5 text-left text-[var(--ui-text)] hover:border-[var(--ui-primary)]"><Bot size={25} className="shrink-0 text-[var(--ui-primary)]"/><span className="text-lg font-extrabold">Vs bot</span></button>
+            <button type="button" onClick={()=>startFreeGame('local')} className="flex h-16 items-center gap-4 rounded-2xl border border-[var(--ui-control-border)] bg-[var(--ui-modal)] px-5 text-left text-[var(--ui-text)] hover:border-[var(--ui-primary)]"><Users size={25} className="shrink-0 text-[var(--ui-primary)]"/><span className="text-lg font-extrabold">Vs jugador</span></button>
           </div>
         </div>
       </div>}
-      {((trainingComplete || freeGameOver) && !summaryDismissed && !showMainMenu) && <div className="fixed inset-0 z-[90] flex items-center justify-center bg-[#20362e]/35 p-5"><div className="relative w-full max-w-[620px] rounded-3xl border border-[#c8c0b0] bg-[#f5efe3] p-7 shadow-2xl"><button type="button" onClick={()=>setSummaryDismissed(true)} className="absolute right-4 top-4 rounded-full p-2 text-[#6d7c73] hover:bg-[#e8dfcf]" aria-label="Cerrar resumen"><XCircle size={20}/></button><p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#7b897f]">Sesión finalizada</p><h2 className="mt-2 text-3xl font-extrabold text-[#20362e]">Resumen</h2>{mode==='opening'?<div className="mt-5 grid gap-2 text-sm text-[#486257]"><p>Variante: <b>{openingVariant?.name}</b></p><p>Errores: <b>{trainingErrors}</b></p><p>Aciertos: <b>{trainingCorrectMoves}</b></p><p>Precisión: <b>{trainingAccuracy}%</b></p><p>Pistas: <b>{trainingHintsUsed}</b></p></div>:<div className="mt-5 grid gap-2 text-sm text-[#486257]"><p>Jugadas: <b>{moveHistory.length}</b></p><p>Alertas tácticas: <b>{completeErrors}</b></p><p>Alertas medio juego: <b>{middlegameErrors}</b></p><p>Alertas finales: <b>{endgameErrors}</b></p></div>}<div className="mt-7 flex justify-end gap-2"><button type="button" onClick={goHome} className="rounded-lg border border-[#c8c0b0] px-4 py-2 text-xs font-bold text-[#40564b]">Inicio</button><button type="button" onClick={continueSession} className="rounded-lg bg-[#1f5b49] px-4 py-2 text-xs font-bold text-white">Continuar</button></div></div></div>}
+      {((trainingComplete || freeGameOver) && !summaryDismissed && !showMainMenu) && <div className="fixed inset-0 z-[90] flex items-center justify-center bg-[var(--ui-heading)]/35 p-5"><div className="relative w-full max-w-[620px] rounded-3xl border border-[var(--ui-control-border)] bg-[var(--ui-modal)] p-7 shadow-2xl"><button type="button" onClick={()=>setSummaryDismissed(true)} className="absolute right-4 top-4 rounded-full p-2 text-[var(--ui-muted-2)] hover:bg-[var(--ui-hover)]" aria-label="Cerrar resumen"><XCircle size={20}/></button><p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--ui-label)]">Sesión finalizada</p><h2 className="mt-2 text-3xl font-extrabold text-[var(--ui-heading)]">Resumen</h2>{mode==='opening'?<div className="mt-5 grid gap-2 text-sm text-[var(--ui-text-secondary)]"><p>Variante: <b>{openingVariant?.name}</b></p><p>Errores: <b>{trainingErrors}</b></p><p>Aciertos: <b>{trainingCorrectMoves}</b></p><p>Precisión: <b>{trainingAccuracy}%</b></p><p>Pistas: <b>{trainingHintsUsed}</b></p></div>:<div className="mt-5 grid gap-2 text-sm text-[var(--ui-text-secondary)]"><p>Jugadas: <b>{moveHistory.length}</b></p><p>Alertas tácticas: <b>{completeErrors}</b></p><p>Alertas medio juego: <b>{middlegameErrors}</b></p><p>Alertas finales: <b>{endgameErrors}</b></p></div>}<div className="mt-7 flex justify-end gap-2"><button type="button" onClick={goHome} className="rounded-lg border border-[var(--ui-control-border)] px-4 py-2 text-xs font-bold text-[var(--ui-text)]">Inicio</button><button type="button" onClick={continueSession} className="rounded-lg bg-[var(--ui-primary)] px-4 py-2 text-xs font-bold text-white">Continuar</button></div></div></div>}
       </div>
     </div>
   );
