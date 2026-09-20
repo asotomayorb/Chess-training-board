@@ -66,3 +66,20 @@ test('evalúa el patrón básico de mate con dama', () => {
   const result = evaluateEndgameMove(state, next, candidate, prompt);
   assert.equal(result.fulfilled, true);
 });
+
+
+test('evalúa una jugada de mate básico con piezas menores', () => {
+  const state = emptyPosition();
+  state.board[7][4] = { color: 'white', type: 'king' };
+  state.board[6][2] = { color: 'white', type: 'bishop' };
+  state.board[5][4] = { color: 'white', type: 'knight' };
+  state.board[0][4] = { color: 'black', type: 'king' };
+  state.turn = 'white';
+  const prompt = chooseEndgameTrainingPrompt(state);
+  assert.ok(prompt);
+  const candidate = move(state, 'e1', 'e2');
+  const next = applyChessMove(state, candidate);
+  const result = evaluateEndgameMove(state, next, candidate, prompt);
+  assert.equal(result.technique, 'mate-básico');
+  assert.equal(result.fulfilled, true);
+});
