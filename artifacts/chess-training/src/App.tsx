@@ -48,7 +48,7 @@ type PracticeMode = 'free' | 'opening' | 'complete';
 type TrainingFocus = 'opening' | 'middlegame' | 'endgame' | 'complete';
 type PuzzleFocus = 'middlegame' | 'endgame' | 'random';
 type TrainingDifficulty = 'fundamentos' | 'intermedio' | 'avanzado';
-type Appearance = 'minimal-b' | 'premium-b';
+type Appearance = 'standard' | 'classic';
 type TrainingSideChoice = OpeningColor | 'random';
 type DifficultMove = {
   nodeId: string;
@@ -196,7 +196,8 @@ function Home() {
   const [showConfigChoice, setShowConfigChoice] = useState(false);
   const [appearance, setAppearance] = useState<Appearance>(() => {
     if (typeof window === 'undefined') return 'minimal-b';
-    return window.localStorage.getItem('chess-training-appearance') === 'premium-b' ? 'premium-b' : 'minimal-b';
+    const saved = window.localStorage.getItem('chess-training-appearance');
+    return saved === 'premium-b' || saved === 'classic' ? 'classic' : 'standard';
   });
   useEffect(() => {
     window.localStorage.setItem('chess-training-appearance', appearance);
@@ -1158,14 +1159,14 @@ function Home() {
           <div className="mt-6">
             <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[var(--ui-label)]">Tema visual</p>
             <div className="mt-3 grid gap-3">
-              <button type="button" onClick={()=>setAppearance('minimal-b')} className={`appearance-choice ${appearance==='minimal-b'?'appearance-choice-selected':''}`}>
-                <span className="appearance-preview appearance-preview-minimal"><span className="appearance-preview-top"/><span className="appearance-preview-board">{Array.from({length:16}).map((_,i)=><i key={i}/>)}</span></span>
-                <span className="min-w-0"><span className="block text-sm font-extrabold text-[var(--ui-heading)]">Minimalista B</span><span className="mt-0.5 block text-[10px] text-[var(--ui-muted)]">Claro, limpio, azul y violeta</span></span>
+              <button type="button" onClick={()=>setAppearance('standard')} className={`appearance-choice ${appearance==='standard'?'appearance-choice-selected':''}`}>
+                <span className="appearance-preview appearance-preview-standard"><span className="appearance-preview-top"/><span className="appearance-preview-board">{Array.from({length:16}).map((_,i)=><i key={i}/>)}</span></span>
+                <span className="min-w-0"><span className="block text-sm font-extrabold text-[var(--ui-heading)]">Estándar</span><span className="mt-0.5 block text-[10px] text-[var(--ui-muted)]">Claro, limpio, azul y violeta, con fondo ilustrado</span></span>
                 {appearance==='minimal-b' && <CheckCircle2 size={19} className="ml-auto shrink-0 text-[var(--ui-primary)]"/>}
               </button>
-              <button type="button" onClick={()=>setAppearance('premium-b')} className={`appearance-choice ${appearance==='premium-b'?'appearance-choice-selected':''}`}>
-                <span className="appearance-preview appearance-preview-premium"><span className="appearance-preview-top"/><span className="appearance-preview-board">{Array.from({length:16}).map((_,i)=><i key={i}/>)}</span></span>
-                <span className="min-w-0"><span className="block text-sm font-extrabold text-[var(--ui-heading)]">Premium B</span><span className="mt-0.5 block text-[10px] text-[var(--ui-muted)]">Verde profundo, crema y dorado</span></span>
+              <button type="button" onClick={()=>setAppearance('classic')} className={`appearance-choice ${appearance==='classic'?'appearance-choice-selected':''}`}>
+                <span className="appearance-preview appearance-preview-classic"><span className="appearance-preview-top"/><span className="appearance-preview-board">{Array.from({length:16}).map((_,i)=><i key={i}/>)}</span></span>
+                <span className="min-w-0"><span className="block text-sm font-extrabold text-[var(--ui-heading)]">Clásico</span><span className="mt-0.5 block text-[10px] text-[var(--ui-muted)]">Verde profundo, crema y dorado, con fondo ilustrado</span></span>
                 {appearance==='premium-b' && <CheckCircle2 size={19} className="ml-auto shrink-0 text-[var(--ui-primary)]"/>}
               </button>
             </div>
