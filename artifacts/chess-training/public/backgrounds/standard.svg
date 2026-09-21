@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000">
+<defs>
+ <radialGradient id="g" cx="50%" cy="0%" r="90%"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#dce9f7"/></radialGradient>
+ <pattern id="p" width="160" height="160" patternUnits="userSpaceOnUse"><path d="M0 0h80v80H0zM80 80h80v80H80z" fill="#d7e5f5" opacity=".34"/><path d="M80 0h80v80H80zM0 80h80v80H0z" fill="#7c5ce3" opacity=".06"/></pattern>
+ <filter id="s"><feGaussianBlur stdDeviation="18"/></filter>
+</defs>
+<rect width="1600" height="1000" fill="url(#g)"/>
+<rect width="1600" height="1000" fill="url(#p)"/>
+<g opacity=".16" filter="url(#s)" fill="#2563eb"><circle cx="170" cy="170" r="120"/><circle cx="1440" cy="240" r="170"/><circle cx="800" cy="920" r="220"/></g>
+<g fill="none" stroke="#7c5ce3" opacity=".10" stroke-width="5"><path d="M90 760C330 540 470 900 720 650s420-40 790-300"/><path d="M40 220c260 170 430-80 690 120s460 100 820-40"/></g>
+</svg>
