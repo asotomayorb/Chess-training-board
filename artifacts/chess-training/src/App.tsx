@@ -317,7 +317,7 @@ function Home() {
       stockfishRef.current = engine;
       // La dificultad se expresa como comportamiento del bot, no como un Elo FIDE exacto.
       // Stockfish limita su escala UCI_Elo inferior a la de un principiante humano,
-      // por lo que usamos Skill Level 0/8/14 y calibramos las etiquetas para que
+      // por lo que usamos niveles UCI internos y calibramos las etiquetas para que
       // representen progresión de juego, evitando afirmar una equivalencia exacta.
       const skillByDifficulty: Record<TrainingDifficulty, { depth: number; skillLevel: number }> = {
         fundamentos: { depth: 14, skillLevel: 5 },
@@ -1162,12 +1162,12 @@ function Home() {
               <button type="button" onClick={()=>setAppearance('standard')} className={`appearance-choice ${appearance==='standard'?'appearance-choice-selected':''}`}>
                 <span className="appearance-preview appearance-preview-standard"><span className="appearance-preview-top"/><span className="appearance-preview-board">{Array.from({length:16}).map((_,i)=><i key={i}/>)}</span></span>
                 <span className="min-w-0"><span className="block text-sm font-extrabold text-[var(--ui-heading)]">Estándar</span><span className="mt-0.5 block text-[10px] text-[var(--ui-muted)]">Claro, limpio, azul y violeta, con fondo ilustrado</span></span>
-                {appearance==='minimal-b' && <CheckCircle2 size={19} className="ml-auto shrink-0 text-[var(--ui-primary)]"/>}
+                {appearance==='standard' && <CheckCircle2 size={19} className="ml-auto shrink-0 text-[var(--ui-primary)]"/>}
               </button>
               <button type="button" onClick={()=>setAppearance('classic')} className={`appearance-choice ${appearance==='classic'?'appearance-choice-selected':''}`}>
                 <span className="appearance-preview appearance-preview-classic"><span className="appearance-preview-top"/><span className="appearance-preview-board">{Array.from({length:16}).map((_,i)=><i key={i}/>)}</span></span>
                 <span className="min-w-0"><span className="block text-sm font-extrabold text-[var(--ui-heading)]">Clásico</span><span className="mt-0.5 block text-[10px] text-[var(--ui-muted)]">Verde profundo, crema y dorado, con fondo ilustrado</span></span>
-                {appearance==='premium-b' && <CheckCircle2 size={19} className="ml-auto shrink-0 text-[var(--ui-primary)]"/>}
+                {appearance==='classic' && <CheckCircle2 size={19} className="ml-auto shrink-0 text-[var(--ui-primary)]"/>}
               </button>
             </div>
           </div>
