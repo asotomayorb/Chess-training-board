@@ -308,7 +308,7 @@ function Home() {
   const freeWinnerLabel = turn === 'white' ? 'negras' : 'blancas';
 
   useEffect(() => {
-    if (mode !== 'complete' || completeGame.turn === trainingPlayerColor || completeGameOver || stockfishOpponentBusyRef.current || stockfishMoveLoading) return;
+    if (mode !== 'complete' || trainingFocus === 'middlegame' || trainingFocus === 'endgame' || completeGame.turn === trainingPlayerColor || completeGameOver || stockfishOpponentBusyRef.current || stockfishMoveLoading) return;
     const timer = window.setTimeout(() => {
       if (stockfishOpponentBusyRef.current) return;
       stockfishOpponentBusyRef.current = true;
@@ -318,18 +318,19 @@ function Home() {
       // Stockfish limita su escala UCI_Elo inferior a la de un principiante humano,
       // por lo que usamos Skill Level 0/8/14 y calibramos las etiquetas para que
       // representen progresión de juego, evitando afirmar una equivalencia exacta.
-      const skillByDifficulty: Record<TrainingDifficulty, { depth: number; uciElo: number }> = {
-        fundamentos: { depth: 14, uciElo: 1500 },
-        intermedio: { depth: 17, uciElo: 2000 },
-        avanzado: { depth: 20, uciElo: 2500 },
+      const skillByDifficulty: Record<TrainingDifficulty, { depth: number; skillLevel: number }> = {
+        fundamentos: { depth: 14, skillLevel: 5 },
+        intermedio: { depth: 18, skillLevel: 12 },
+        avanzado: { depth: 22, skillLevel: 20 },
       };
       const level = skillByDifficulty[trainingDifficulty];
       void engine.analyze(completeGame, level)
         .then((analysis) => {
           const candidate = getLegalChessMoves(completeGame).find((move) => chessMoveToUci(move) === analysis.bestMove);
-          const fallback = getLegalChessMoves(completeGame)[0];
-          const move = candidate ?? fallback;
-          if (!move) return;
+          const move = candidate;
+          if (!move) {
+            throw new Error(`Stockfish devolvió una jugada no legal para la posición: ${analysis.bestMove}`);
+          }
           const nextGame = applyChessMove(completeGame, move);
           setCompleteGame(nextGame);
           setBoard(nextGame.board);
@@ -346,25 +347,8 @@ function Home() {
         .catch((error) => {
           setStockfishReady(false);
           setStockfishError(error instanceof Error ? error.message : 'Stockfish no pudo elegir la jugada rival.');
-          const candidates = getLegalChessMoves(completeGame);
-          if (candidates.length) {
-            const captures = candidates.filter((candidate) => Boolean(completeGame.board[candidate.to.row][candidate.to.col]) || candidate.special === 'en-passant');
-            const checks = candidates.filter((candidate) => {
-              const next = applyChessMove(completeGame, candidate);
-              const status = getChessGameStatus(next);
-              return status === 'check' || status === 'checkmate';
-            });
-            const move = checks[0] ?? captures[0] ?? candidates[0];
-            const nextGame = applyChessMove(completeGame, move);
-            setCompleteGame(nextGame);
-            setBoard(nextGame.board);
-            setLastMove([squareName(move.from), squareName(move.to)]);
-            setMoveHistory((history) => [...history, "Rival: " + squareName(move.from) + "–" + squareName(move.to)]);
-            setTurn(nextGame.turn);
-            setSelected(null);
-          }
-        })
-        .finally(() => { stockfishOpponentBusyRef.current = false; });
+          setCompleteFeedback('Stockfish no está disponible. La partida queda pausada para evitar una jugada de respaldo aleatoria.');
+        })        .finally(() => { stockfishOpponentBusyRef.current = false; });
     }, 250);
     return () => window.clearTimeout(timer);
   }, [mode, completeGame, completeGameOver, trainingDifficulty, stockfishMoveLoading, trainingPlayerColor]);
@@ -507,7 +491,10 @@ function Home() {
     if (focus === 'middlegame' || focus === 'endgame') {
       // Siempre dejamos una respuesta válida disponible desde el inicio para
       // evitar que el puzzle quede bloqueado en "calculando…".
-      const fallback = (focus === 'endgame' ? endgame?.candidateMoves[0] : middlegame?.candidateMoves[0]);
+      const pedagogicalCandidates = focus === 'endgame'
+        ? (endgame?.candidateMoves ?? [])
+        : (middlegame?.candidateMoves ?? []);
+      const fallback = pedagogicalCandidates[0] ?? getLegalChessMoves(freshGame)[0];
       const fallbackUci = fallback ? chessMoveToUci(fallback) : null;
       setPuzzleExpectedMoveUci(fallbackUci);
 
@@ -515,13 +502,12 @@ function Home() {
       stockfishRef.current = engine;
       void engine.analyze(freshGame, { depth: 16 })
         .then((analysis) => {
-          const legalMove = getLegalChessMoves(freshGame).find(
-            (move) => chessMoveToUci(move) === analysis.bestMove,
-          );
-          if (legalMove) setPuzzleExpectedMoveUci(analysis.bestMove);
+          if (pedagogicalCandidates.some((move) => chessMoveToUci(move) === analysis.bestMove)) {
+            setPuzzleExpectedMoveUci(analysis.bestMove);
+          }
         })
         .catch(() => {
-          // El candidato pedagógico ya quedó configurado como respaldo.
+          // El candidato pedagógico queda como respaldo.
         });
     }
     setTrainingSelection(null);
@@ -1172,13 +1158,15 @@ function Home() {
           <div className="mt-6">
             <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[var(--ui-label)]">Tema visual</p>
             <div className="mt-3 grid gap-3">
-              <button type="button" onClick={()=>setAppearance('minimal-b')} className={`flex items-center justify-between rounded-2xl border px-4 py-4 text-left ${appearance==='minimal-b'?'border-[var(--ui-primary)] bg-[var(--ui-hover)]':'border-[var(--ui-control-border)] bg-[var(--ui-control-bg)]'}`}>
-                <span><span className="block text-sm font-extrabold text-[var(--ui-heading)]">Minimalista B</span><span className="mt-0.5 block text-[10px] text-[var(--ui-muted)]">Claro, fresco y adaptable</span></span>
-                {appearance==='minimal-b' && <CheckCircle2 size={19} className="text-[var(--ui-primary)]"/>}
+              <button type="button" onClick={()=>setAppearance('minimal-b')} className={`appearance-choice ${appearance==='minimal-b'?'appearance-choice-selected':''}`}>
+                <span className="appearance-preview appearance-preview-minimal"><span className="appearance-preview-top"/><span className="appearance-preview-board">{Array.from({length:16}).map((_,i)=><i key={i}/>)}</span></span>
+                <span className="min-w-0"><span className="block text-sm font-extrabold text-[var(--ui-heading)]">Minimalista B</span><span className="mt-0.5 block text-[10px] text-[var(--ui-muted)]">Claro, limpio, azul y violeta</span></span>
+                {appearance==='minimal-b' && <CheckCircle2 size={19} className="ml-auto shrink-0 text-[var(--ui-primary)]"/>}
               </button>
-              <button type="button" onClick={()=>setAppearance('premium-b')} className={`flex items-center justify-between rounded-2xl border px-4 py-4 text-left ${appearance==='premium-b'?'border-[var(--ui-primary)] bg-[var(--ui-hover)]':'border-[var(--ui-control-border)] bg-[var(--ui-control-bg)]'}`}>
-                <span><span className="block text-sm font-extrabold text-[var(--ui-heading)]">Premium B</span><span className="mt-0.5 block text-[10px] text-[var(--ui-muted)]">Oscuro, elegante y sofisticado</span></span>
-                {appearance==='premium-b' && <CheckCircle2 size={19} className="text-[var(--ui-primary)]"/>}
+              <button type="button" onClick={()=>setAppearance('premium-b')} className={`appearance-choice ${appearance==='premium-b'?'appearance-choice-selected':''}`}>
+                <span className="appearance-preview appearance-preview-premium"><span className="appearance-preview-top"/><span className="appearance-preview-board">{Array.from({length:16}).map((_,i)=><i key={i}/>)}</span></span>
+                <span className="min-w-0"><span className="block text-sm font-extrabold text-[var(--ui-heading)]">Premium B</span><span className="mt-0.5 block text-[10px] text-[var(--ui-muted)]">Verde profundo, crema y dorado</span></span>
+                {appearance==='premium-b' && <CheckCircle2 size={19} className="ml-auto shrink-0 text-[var(--ui-primary)]"/>}
               </button>
             </div>
           </div>
