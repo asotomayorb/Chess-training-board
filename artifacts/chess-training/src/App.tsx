@@ -317,8 +317,8 @@ function Home() {
       stockfishRef.current = engine;
       // La dificultad se expresa como comportamiento del bot, no como un Elo FIDE exacto.
       // Stockfish limita su escala UCI_Elo inferior a la de un principiante humano,
-      // por lo que usamos niveles UCI internos y calibramos las etiquetas para que
-      // representen progresión de juego, evitando afirmar una equivalencia exacta.
+      // Usamos profundidad y Skill Level crecientes para representar progresión de juego,
+      // sin afirmar una equivalencia exacta con un nivel humano.
       const skillByDifficulty: Record<TrainingDifficulty, { depth: number; skillLevel: number }> = {
         fundamentos: { depth: 14, skillLevel: 5 },
         intermedio: { depth: 18, skillLevel: 12 },
