@@ -195,7 +195,7 @@ function Home() {
   const [showPuzzleChoice, setShowPuzzleChoice] = useState(false);
   const [showConfigChoice, setShowConfigChoice] = useState(false);
   const [appearance, setAppearance] = useState<Appearance>(() => {
-    if (typeof window === 'undefined') return 'minimal-b';
+    if (typeof window === 'undefined') return 'standard';
     const saved = window.localStorage.getItem('chess-training-appearance');
     return saved === 'premium-b' || saved === 'classic' ? 'classic' : 'standard';
   });
