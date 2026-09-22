@@ -138,37 +138,6 @@ function getOpponentSide(playerColor: OpeningColor): Side {
   return playerColor === 'white' ? 'black' : 'white';
 }
 
-function choosePuzzleReply(state: ChessGameState): ChessGameMove | null {
-  const moves = getLegalChessMoves(state);
-  if (!moves.length) return null;
-  const checks = moves.filter((move) => {
-    const next = applyChessMove(state, move);
-    const status = getChessGameStatus(next);
-    return status === 'check' || status === 'checkmate';
-  });
-  if (checks.length) return checks[0];
-  const captures = moves.filter((move) => Boolean(state.board[move.to.row][move.to.col]) || move.special === 'en-passant');
-  if (captures.length) return captures[0];
-  return moves[Math.min(2, moves.length - 1)];
-}
-function buildPuzzleSequence(initial: ChessGameState, firstMove: ChessGameMove, focus: 'middlegame' | 'endgame', difficulty: TrainingDifficulty): ChessGameMove[] {
-  const sequence: ChessGameMove[] = [firstMove];
-  let state = applyChessMove(initial, firstMove);
-  for (let pair = 0; pair < 2; pair += 1) {
-    const reply = choosePuzzleReply(state);
-    if (!reply) break;
-    sequence.push(reply);
-    state = applyChessMove(state, reply);
-    const prompt = focus === 'endgame' ? chooseEndgameTrainingPrompt(state) : chooseMiddlegameTrainingPrompt(state, { difficulty });
-    const candidates = prompt?.candidateMoves ?? [];
-    const nextPlayerMove = candidates[0] ?? getLegalChessMoves(state)[0];
-    if (!nextPlayerMove) break;
-    sequence.push(nextPlayerMove);
-    state = applyChessMove(state, nextPlayerMove);
-  }
-  return sequence;
-}
-
 function getCompleteThreatMessage(state: ChessGameState): string | null {
   if (state.turn !== 'white') return null;
   const opponentState = { ...state, turn: 'black' as Side };
