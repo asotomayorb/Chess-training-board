@@ -1034,7 +1034,12 @@ function Home() {
 
   return (
     <div className={`app-grain theme-${appearance} min-h-[100dvh] overflow-x-hidden bg-[var(--ui-bg)]`}>
-      <div className="relative mx-auto flex min-h-[100dvh] max-w-[1600px]">
+      <div
+        aria-hidden="true"
+        className="theme-art-background"
+        style={{ backgroundImage: `url(${import.meta.env.BASE_URL}backgrounds/${appearance === 'classic' ? 'classic' : 'standard'}.svg)` }}
+      />
+      <div className="relative z-[1] mx-auto flex min-h-[100dvh] max-w-[1600px]">
         
 
         <main className="min-w-0 flex-1">
