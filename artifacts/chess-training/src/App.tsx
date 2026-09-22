@@ -159,7 +159,7 @@ function buildPuzzleSequence(initial: ChessGameState, firstMove: ChessGameMove, 
     sequence.push(reply);
     state = applyChessMove(state, reply);
     const prompt = focus === 'endgame' ? chooseEndgameTrainingPrompt(state) : chooseMiddlegameTrainingPrompt(state, { difficulty });
-    const candidates = prompt?.candidateMoves.filter((move) => move.color === state.turn) ?? [];
+    const candidates = prompt?.candidateMoves ?? [];
     const nextPlayerMove = candidates[0] ?? getLegalChessMoves(state)[0];
     if (!nextPlayerMove) break;
     sequence.push(nextPlayerMove);
