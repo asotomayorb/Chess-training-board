@@ -583,6 +583,7 @@ function Home() {
   const startCompleteGame = (sideChoice: TrainingSideChoice = trainingSideChoice, opponent: 'bot' | 'local' = 'bot') => {
     setShowMainMenu(false);
     setSummaryDismissed(false);
+    setLocalOpponent(opponent);
     setUndoStack([]);
     const freshCompleteGame = createChessGameState();
     setCompleteGame(freshCompleteGame);
