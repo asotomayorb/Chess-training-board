@@ -25,6 +25,7 @@ import { evaluateCompleteMove } from '@/engine/complete-training';
 import { StockfishEngine, chessMoveToUci, type StockfishAnalysis, type StockfishMoveQuality } from '@/engine/stockfish-engine';
 import { classifyStockfishMove, type StockfishCoachResult } from '@/engine/stockfish-coach';
 import { getOpeningTrainingColor } from '@/engine/training-flow';
+import { curatedPuzzleMoveUci } from '@/engine/puzzle-training';
 import {
   applyBoardMove,
   applyChessMove,
