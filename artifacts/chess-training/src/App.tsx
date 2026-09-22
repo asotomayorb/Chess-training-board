@@ -546,7 +546,7 @@ function Home() {
     setSummaryDismissed(false);
     setUndoStack([]);
     const playerColor: OpeningColor = sideChoice === 'random' ? (Math.random() < 0.5 ? 'white' : 'black') : sideChoice;
-    const freshCompleteGame = { ...createChessGameState(), turn: playerColor as Side };
+    const freshCompleteGame = createChessGameState();
     setCompleteGame(freshCompleteGame);
     setPromotionPending(null);
     setBoard(freshCompleteGame.board);
@@ -1309,7 +1309,6 @@ function App() {
 }
 
 export default App;
-
 
 
 
