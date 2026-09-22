@@ -494,3 +494,63 @@ body {
 }
 .theme-standard .appearance-preview-standard .appearance-preview-top { background:#2563eb; }
 .theme-classic .appearance-preview-classic .appearance-preview-top { background:#d7a84b; }
+
+
+/* Visual finish: backgrounds remain visible and the UI uses the promised
+   light/frosted Standard and deep green/gold Classic design language. */
+.theme-standard .app-grain {
+  background:
+    radial-gradient(circle at 8% 8%, rgba(124,92,227,.16), transparent 27%),
+    radial-gradient(circle at 92% 14%, rgba(37,99,235,.13), transparent 30%),
+    linear-gradient(135deg, rgba(255,255,255,.72), rgba(238,246,255,.76)),
+    url('/backgrounds/standard.svg') center/cover fixed !important;
+}
+.theme-classic .app-grain {
+  background:
+    radial-gradient(circle at 12% 10%, rgba(215,168,75,.11), transparent 24%),
+    radial-gradient(circle at 88% 18%, rgba(47,143,114,.16), transparent 30%),
+    linear-gradient(135deg, rgba(7,27,24,.74), rgba(4,17,15,.86)),
+    url('/backgrounds/classic.svg') center/cover fixed !important;
+}
+.theme-standard .training-shell { background: rgba(255,255,255,.34); border-radius: 28px; }
+.theme-classic .training-shell { background: rgba(4,17,15,.22); border-radius: 28px; }
+.theme-standard .training-intro,
+.theme-standard .training-board-column > div,
+.theme-standard aside > div,
+.theme-classic .training-intro,
+.theme-classic .training-board-column > div,
+.theme-classic aside > div { backdrop-filter: blur(14px); }
+.theme-standard .training-intro {
+  padding: 12px 16px; border: 1px solid rgba(37,99,235,.10); border-radius: 18px;
+  background: rgba(255,255,255,.66); box-shadow: 0 12px 34px rgba(54,88,132,.08);
+}
+.theme-classic .training-intro {
+  padding: 12px 16px; border: 1px solid rgba(215,168,75,.16); border-radius: 18px;
+  background: rgba(12,36,32,.68); box-shadow: 0 16px 42px rgba(0,0,0,.22);
+}
+.theme-standard .board-frame {
+  border: 8px solid rgba(255,255,255,.92) !important;
+  box-shadow: 0 28px 70px rgba(30,68,115,.22), 0 0 0 1px rgba(37,99,235,.12) !important;
+}
+.theme-classic .board-frame {
+  border: 9px solid rgba(215,168,75,.55) !important;
+  box-shadow: 0 30px 75px rgba(0,0,0,.48), 0 0 0 1px rgba(215,168,75,.24) !important;
+}
+.theme-standard .board-light { background: #edf4ff !important; }
+.theme-standard .board-dark { background: #6f8fbd !important; }
+.theme-classic .board-light { background: #d9cfaa !important; }
+.theme-classic .board-dark { background: #31584d !important; }
+.theme-standard .app-grain::before,
+.theme-classic .app-grain::before {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: .32;
+}
+.theme-standard .app-grain::before {
+  background: radial-gradient(ellipse at 20% 85%, rgba(124,92,227,.12), transparent 28%),
+              radial-gradient(ellipse at 80% 70%, rgba(37,99,235,.10), transparent 30%);
+}
+.theme-classic .app-grain::before {
+  background: radial-gradient(ellipse at 18% 82%, rgba(215,168,75,.09), transparent 27%),
+              radial-gradient(ellipse at 82% 72%, rgba(47,143,114,.10), transparent 30%);
+}
+.theme-standard .app-grain > div,
+.theme-classic .app-grain > div { position: relative; z-index: 1; }
