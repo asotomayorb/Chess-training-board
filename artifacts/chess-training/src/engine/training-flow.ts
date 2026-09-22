@@ -7,8 +7,6 @@ import type { OpeningColor, OpeningVariant } from '@/data/openings';
  */
 export function getOpeningTrainingColor(variant: OpeningVariant): OpeningColor {
   const name = variant.name.toLocaleLowerCase('es');
-  const defense = variant.defense.toLocaleLowerCase('es');
-  void defense;
   return name.includes('defensa') ? 'black' : 'white';
 }
 
