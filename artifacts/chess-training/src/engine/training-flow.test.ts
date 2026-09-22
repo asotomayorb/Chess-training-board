@@ -11,6 +11,6 @@ test('opening roles keep attacks/openings with White', () => {
 });
 
 test('named defenses keep the exercise with Black', () => {
-  assert.equal(getOpeningTrainingColor(variant('Dos Caballos', 'Defensa de los Dos Caballos')), 'black');
+  assert.equal(getOpeningTrainingColor(variant('Defensa de los Dos Caballos', 'Dos Caballos')), 'black');
   assert.equal(getOpeningTrainingColor(variant('Defensa Húngara', '3...Ae7')), 'black');
 });
