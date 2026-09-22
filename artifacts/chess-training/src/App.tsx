@@ -490,26 +490,14 @@ function Home() {
     setEndgamePrompt(endgame);
     setMiddlegamePrompt(middlegame);
     if (focus === 'middlegame' || focus === 'endgame') {
-      // Siempre dejamos una respuesta válida disponible desde el inicio para
-      // evitar que el puzzle quede bloqueado en "calculando…".
+      // El puzzle debe estar listo inmediatamente y no competir por el worker
+      // con el modo Vs bot. La solución pedagógica es la autoridad del ejercicio;
+      // Stockfish se usa como entrenador/análisis, no como bloqueo de la partida.
       const pedagogicalCandidates = focus === 'endgame'
         ? (endgame?.candidateMoves ?? [])
         : (middlegame?.candidateMoves ?? []);
       const fallback = pedagogicalCandidates[0] ?? getLegalChessMoves(freshGame)[0];
-      const fallbackUci = fallback ? chessMoveToUci(fallback) : null;
-      setPuzzleExpectedMoveUci(fallbackUci);
-
-      const engine = stockfishRef.current ?? new StockfishEngine();
-      stockfishRef.current = engine;
-      void engine.analyze(freshGame, { depth: 16 })
-        .then((analysis) => {
-          if (pedagogicalCandidates.some((move) => chessMoveToUci(move) === analysis.bestMove)) {
-            setPuzzleExpectedMoveUci(analysis.bestMove);
-          }
-        })
-        .catch(() => {
-          // El candidato pedagógico queda como respaldo.
-        });
+      setPuzzleExpectedMoveUci(fallback ? chessMoveToUci(fallback) : null);
     }
     setTrainingSelection(null);
     setOpeningNodeId(null);
@@ -907,8 +895,13 @@ function Home() {
         setPuzzleErrorMove(null);
         setPuzzleErrorCount(0);
         applyCompleteMove(moveCandidates[0]);
-        setCompleteFeedback(`Correcto: ${squareName(selected)}–${squareName({ row, col })} es la jugada elegida para este ejercicio. Reinicia para practicar otro.`);
+        setCompleteFeedback(`Correcto: ${squareName(selected)}–${squareName({ row, col })}. Preparando el siguiente ejercicio…`);
         setPuzzleExpectedMoveUci(null);
+        // Los puzzles forman una sesión continua: resolver uno no deja el tablero
+        // en un estado terminal que obligue al usuario a pulsar Reiniciar.
+        window.setTimeout(() => {
+          startPuzzleTraining(puzzleFocus, trainingSideChoice);
+        }, 450);
         return;
       }
 
@@ -988,7 +981,7 @@ function Home() {
                     <p className="mt-1 text-[10px] font-bold text-[var(--ui-text-secondary)]">Pieza a considerar: {(() => {
                       const expected = getLegalChessMoves(completeGame).find((candidate) => chessMoveToUci(candidate) === puzzleExpectedMoveUci);
                       const type = expected ? completeGame.board[expected.from.row][expected.from.col]?.type : null;
-                      return type === 'king' ? 'Rey' : type === 'queen' ? 'Dama' : type === 'rook' ? 'Torre' : type === 'bishop' ? 'Alfil' : type === 'knight' ? 'Caballo' : type === 'pawn' ? 'Peón' : puzzleExpectedMoveUci === null && completeFeedback.startsWith('Correcto:') ? 'Ejercicio resuelto' : 'calculando…';
+                      return type === 'king' ? 'Rey' : type === 'queen' ? 'Dama' : type === 'rook' ? 'Torre' : type === 'bishop' ? 'Alfil' : type === 'knight' ? 'Caballo' : type === 'pawn' ? 'Peón' : 'listo';
                     })()}</p>
                   </div>
                   <div className="flex shrink-0 items-center gap-2 text-[11px] font-bold text-[var(--ui-text)]">
