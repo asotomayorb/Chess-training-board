@@ -102,25 +102,12 @@ function makeTrainingBoard(kind: 'middlegame' | 'opposition' | 'rooks' | 'queen'
     board[square.row][square.col] = { type, color };
   };
   if (kind === 'middlegame') {
-    // Tres estructuras distintas para que los ejercicios de medio juego no repitan
-    // el mismo tablero con una consigna diferente.
-    const variant = Math.floor(Math.random() * 3);
     put('e1', 'king', 'white'); put('d1', 'queen', 'white'); put('a1', 'rook', 'white'); put('h1', 'rook', 'white');
     put('c1', 'bishop', 'white'); put('f1', 'bishop', 'white'); put('b1', 'knight', 'white'); put('g1', 'knight', 'white');
-    const whitePawns = [
-      ['a2','b2','c3','d4','e4','f2','g2','h3'],
-      ['a3','b2','c4','d3','e4','f3','g2','h2'],
-      ['a2','b3','c2','d4','e3','f2','g3','h2'],
-    ][variant];
-    whitePawns.forEach((square) => put(square, 'pawn', 'white'));
+    ['a2','b2','c3','d4','e4','f2','g2','h3'].forEach((s) => put(s, 'pawn', 'white'));
     put('e8', 'king', 'black'); put('d8', 'queen', 'black'); put('a8', 'rook', 'black'); put('h8', 'rook', 'black');
     put('c8', 'bishop', 'black'); put('f8', 'bishop', 'black'); put('b8', 'knight', 'black'); put('g8', 'knight', 'black');
-    const blackPawns = [
-      ['a7','b6','c5','d6','e5','f7','g7','h6'],
-      ['a6','b7','c5','d6','e5','f7','g6','h7'],
-      ['a7','b6','c7','d5','e6','f7','g7','h6'],
-    ][variant];
-    blackPawns.forEach((square) => put(square, 'pawn', 'black'));
+    ['a7','b6','c5','d6','e5','f7','g7','h6'].forEach((s) => put(s, 'pawn', 'black'));
   } else if (kind === 'opposition') {
     // Posición didáctica: oposición con un tiempo de reserva en el peón.
     put('e5', 'king', 'white'); put('e3', 'pawn', 'white'); put('e7', 'king', 'black');
@@ -218,9 +205,6 @@ function Home() {
   const [puzzleErrorMove, setPuzzleErrorMove] = useState<[string, string] | null>(null);
   const [puzzleErrorCount, setPuzzleErrorCount] = useState(0);
   const [puzzleExpectedMoveUci, setPuzzleExpectedMoveUci] = useState<string | null>(null);
-  const [puzzleSequenceStep, setPuzzleSequenceStep] = useState(0);
-  const [puzzleSequenceMaxSteps, setPuzzleSequenceMaxSteps] = useState(3);
-  const [puzzleOpponentPending, setPuzzleOpponentPending] = useState(false);
   type UndoSnapshot = { board: Board; completeGame: ChessGameState; turn: Side; lastMove: [string,string] | null; moveHistory: string[]; openingNodeId: string | null };
   const [undoStack, setUndoStack] = useState<UndoSnapshot[]>([]);
   const [trainingSelection, setTrainingSelection] = useState<VariantSelection | null>(null);
@@ -325,7 +309,7 @@ function Home() {
   const freeWinnerLabel = turn === 'white' ? 'negras' : 'blancas';
 
   useEffect(() => {
-    if (mode !== 'complete' || trainingFocus !== 'complete' || localOpponent !== 'bot' || completeGame.turn === trainingPlayerColor || completeGameOver || stockfishOpponentBusyRef.current || stockfishMoveLoading) return;
+    if (mode !== 'complete' || trainingFocus === 'middlegame' || trainingFocus === 'endgame' || completeGame.turn === trainingPlayerColor || completeGameOver || stockfishOpponentBusyRef.current || stockfishMoveLoading) return;
     const timer = window.setTimeout(() => {
       if (stockfishOpponentBusyRef.current) return;
       stockfishOpponentBusyRef.current = true;
@@ -368,13 +352,12 @@ function Home() {
         })        .finally(() => { stockfishOpponentBusyRef.current = false; });
     }, 250);
     return () => window.clearTimeout(timer);
-  }, [mode, completeGame, completeGameOver, trainingDifficulty, stockfishMoveLoading, trainingPlayerColor, localOpponent]);
+  }, [mode, completeGame, completeGameOver, trainingDifficulty, stockfishMoveLoading, trainingPlayerColor]);
 
   const resetFreePractice = () => {
     setShowMainMenu(false);
     setSummaryDismissed(false);
     setUndoStack([]);
-    const playerColor: OpeningColor = sideChoice === 'random' ? (Math.random() < 0.5 ? 'white' : 'black') : sideChoice;
     const freshCompleteGame = createChessGameState();
     setCompleteGame(freshCompleteGame);
     setPromotionPending(null);
@@ -387,9 +370,6 @@ function Home() {
     setPuzzleErrorMove(null);
     setPuzzleErrorCount(0);
     setPuzzleExpectedMoveUci(null);
-    setPuzzleSequenceStep(0);
-    setPuzzleSequenceMaxSteps(3);
-    setPuzzleOpponentPending(false);
     setMoveHistory([]);
     setFocusCue('Antes de mover, identifica la tensión de la posición.');
     setCompleteFeedback('');
@@ -505,9 +485,6 @@ function Home() {
     setPuzzleErrorMove(null);
     setPuzzleErrorCount(0);
     setPuzzleExpectedMoveUci(null);
-    setPuzzleSequenceStep(0);
-    setPuzzleSequenceMaxSteps(3);
-    setPuzzleOpponentPending(false);
     const endgame = chooseEndgameTrainingPrompt(freshGame);
     const middlegame = focus === 'middlegame' ? chooseMiddlegameTrainingPrompt(freshGame, { difficulty: trainingDifficulty }) : null;
     setEndgamePrompt(endgame);
@@ -545,7 +522,6 @@ function Home() {
     setShowMainMenu(false);
     setSummaryDismissed(false);
     setUndoStack([]);
-    const playerColor: OpeningColor = sideChoice === 'random' ? (Math.random() < 0.5 ? 'white' : 'black') : sideChoice;
     const freshCompleteGame = createChessGameState();
     setCompleteGame(freshCompleteGame);
     setPromotionPending(null);
@@ -570,12 +546,10 @@ function Home() {
     setEndgameErrors(0);
     setEndgamePrompt(chooseEndgameTrainingPrompt(freshCompleteGame));
     setMiddlegamePrompt(chooseMiddlegameTrainingPrompt(freshCompleteGame, { difficulty: trainingDifficulty }));
+    const playerColor: OpeningColor = sideChoice === 'random' ? (Math.random() < 0.5 ? 'white' : 'black') : sideChoice;
     setTrainingPlayerColor(playerColor);
     setTrainingSideChoice(sideChoice);
-    setTurn(freshCompleteGame.turn);
-    setLocalOpponent('bot');
-    setPuzzleSequenceStep(0);
-    setPuzzleOpponentPending(false);
+    setTurn(playerColor);
     setTrainingSelection(null);
     setOpeningNodeId(null);
   };
@@ -880,7 +854,7 @@ function Home() {
       return;
     }
 
-    if (mode === 'complete' && (trainingFocus === 'middlegame' || trainingFocus === 'endgame') && (puzzleOpponentPending || !puzzleExpectedMoveUci)) {
+    if (mode === 'complete' && (trainingFocus === 'middlegame' || trainingFocus === 'endgame') && !puzzleExpectedMoveUci) {
       setSelected(null);
       return;
     }
@@ -923,58 +897,14 @@ function Home() {
         }
         setPuzzleErrorMove(null);
         setPuzzleErrorCount(0);
-        const correctMove = moveCandidates[0];
-        applyCompleteMove(correctMove);
-        setPuzzleErrorMove(null);
-        setPuzzleErrorCount(0);
-
-        const nextStep = puzzleSequenceStep + 1;
-        setPuzzleSequenceStep(nextStep);
-
-        // Un puzzle real puede tener varias jugadas del jugador. Tras cada acierto,
-        // el rival juega su mejor defensa y el jugador debe encontrar la continuación.
-        if (nextStep < puzzleSequenceMaxSteps) {
-          setPuzzleOpponentPending(true);
-          setPuzzleExpectedMoveUci(null);
-          setCompleteFeedback(`Correcto: ${squareName(selected)}–${squareName({ row, col })}. El rival responde y continúa la secuencia…`);
-
-          window.setTimeout(async () => {
-            try {
-              const engine = stockfishRef.current ?? new StockfishEngine();
-              stockfishRef.current = engine;
-              const currentAfterPlayer = applyChessMove(completeGame, correctMove);
-              const opponentAnalysis = await engine.analyze(currentAfterPlayer, { depth: 16, skillLevel: 18 });
-              const opponentMove = getLegalChessMoves(currentAfterPlayer).find((candidate) => chessMoveToUci(candidate) === opponentAnalysis.bestMove);
-              if (!opponentMove) throw new Error('Stockfish devolvió una respuesta rival no legal.');
-              const afterOpponent = applyChessMove(currentAfterPlayer, opponentMove);
-
-              setCompleteGame(afterOpponent);
-              setBoard(afterOpponent.board);
-              setTurn(afterOpponent.turn);
-              setLastMove([squareName(opponentMove.from), squareName(opponentMove.to)]);
-              setMoveHistory((history) => [...history, `Rival: ${squareName(opponentMove.from)}–${squareName(opponentMove.to)}`]);
-              setSelected(null);
-
-              const playerAnalysis = await engine.analyze(afterOpponent, { depth: 16, skillLevel: 20 });
-              const nextExpected = getLegalChessMoves(afterOpponent).find((candidate) => chessMoveToUci(candidate) === playerAnalysis.bestMove);
-              if (!nextExpected) throw new Error('Stockfish no encontró una siguiente jugada legal para el puzzle.');
-              setPuzzleExpectedMoveUci(chessMoveToUci(nextExpected));
-              setPuzzleOpponentPending(false);
-              setPuzzleErrorMove(null);
-              setPuzzleErrorCount(0);
-              setCompleteFeedback(`El rival respondió ${squareName(opponentMove.from)}–${squareName(opponentMove.to)}. Encuentra la siguiente jugada de la secuencia.`);
-            } catch (error) {
-              setPuzzleOpponentPending(false);
-              setStockfishError(error instanceof Error ? error.message : 'No se pudo continuar la secuencia del puzzle.');
-              setCompleteFeedback('No se pudo calcular la continuación del puzzle. Reinicia para cargar otro ejercicio.');
-            }
-          }, 300);
-        } else {
-          setPuzzleExpectedMoveUci(null);
-          setPuzzleOpponentPending(false);
-          setCompleteFeedback(`Correcto: ${squareName(selected)}–${squareName({ row, col })}. Puzzle resuelto. Preparando otro…`);
-          window.setTimeout(() => startPuzzleTraining(puzzleFocus, trainingSideChoice), 900);
-        }
+        applyCompleteMove(moveCandidates[0]);
+        setCompleteFeedback(`Correcto: ${squareName(selected)}–${squareName({ row, col })}. Preparando el siguiente ejercicio…`);
+        setPuzzleExpectedMoveUci(null);
+        // Los puzzles forman una sesión continua: resolver uno no deja el tablero
+        // en un estado terminal que obligue al usuario a pulsar Reiniciar.
+        window.setTimeout(() => {
+          startPuzzleTraining(puzzleFocus, trainingSideChoice);
+        }, 450);
         return;
       }
 
@@ -1309,6 +1239,11 @@ function App() {
 }
 
 export default App;
+
+
+
+
+
 
 
 
