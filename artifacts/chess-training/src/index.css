@@ -570,3 +570,6 @@ body {
 }
 .theme-standard .app-grain > div,
 .theme-classic .app-grain > div { position: relative; z-index: 1; }
+.theme-art-background { position: fixed; inset: 0; z-index: 0; pointer-events: none; background-position: center; background-size: cover; background-repeat: no-repeat; opacity: .48; }
+.theme-standard .theme-art-background { opacity: .52; }
+.theme-classic .theme-art-background { opacity: .64; }
