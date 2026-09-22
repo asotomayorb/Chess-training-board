@@ -211,7 +211,6 @@ function Home() {
   const [puzzleSequence, setPuzzleSequence] = useState<ChessGameMove[]>([]);
   const [puzzleSequenceStep, setPuzzleSequenceStep] = useState(0);
   const [puzzleEngineLoading, setPuzzleEngineLoading] = useState(false);
-  const [botThinking, setBotThinking] = useState(false);
   const botRequestRef = useRef(0);
   type UndoSnapshot = { board: Board; completeGame: ChessGameState; turn: Side; lastMove: [string,string] | null; moveHistory: string[]; openingNodeId: string | null };
   const [undoStack, setUndoStack] = useState<UndoSnapshot[]>([]);
@@ -326,7 +325,6 @@ function Home() {
       stockfishOpponentBusyRef.current = true;
       const requestId = ++botRequestRef.current;
       const gameAtRequest = completeGame;
-      setBotThinking(true);
       const engine = stockfishRef.current ?? new StockfishEngine();
       stockfishRef.current = engine;
       const skillByDifficulty: Record<TrainingDifficulty, { depth: number; skillLevel: number }> = {
@@ -360,8 +358,7 @@ function Home() {
         .finally(() => {
           if (requestId === botRequestRef.current) {
             stockfishOpponentBusyRef.current = false;
-            setBotThinking(false);
-          }
+                  }
         });
     }, 150);
     return () => window.clearTimeout(timer);
