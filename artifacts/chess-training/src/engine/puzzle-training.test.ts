@@ -10,7 +10,7 @@ test('curated puzzles expose deterministic first moves', () => {
 });
 
 test('black exercises mirror the exact pedagogical position', () => {
-  assert.equal(curatedPuzzleMoveUci('middlegame', 'black'), 'f1h4');
+  assert.equal(curatedPuzzleMoveUci('middlegame', 'black'), 'f8b4');
   assert.equal(curatedPuzzleMoveUci('opposition', 'black'), 'd6d5');
   assert.equal(curatedPuzzleMoveUci('rooks', 'black'), 'h4h2');
   assert.equal(curatedPuzzleMoveUci('queen', 'black'), 'b3b2');
