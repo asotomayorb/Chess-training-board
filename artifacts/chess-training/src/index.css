@@ -474,26 +474,38 @@ body {
    Son SVG locales para que el aspecto no dependa de una URL externa. */
 .theme-standard .app-grain {
   background:
-    linear-gradient(rgba(246,249,253,.90), rgba(246,249,253,.90)),
+    linear-gradient(rgba(246,249,253,.82), rgba(246,249,253,.88)),
     url('/backgrounds/standard.svg') center/cover fixed !important;
 }
 .theme-classic .app-grain {
   background:
-    linear-gradient(rgba(7,27,24,.78), rgba(7,27,24,.88)),
+    linear-gradient(rgba(7,27,24,.72), rgba(7,27,24,.84)),
     url('/backgrounds/classic.svg') center/cover fixed !important;
 }
-.theme-standard .appearance-preview-standard {
+
+/* Las miniaturas son autónomas: ambas conservan sus colores aunque se esté
+   previsualizando la otra. */
+.appearance-preview-standard {
   background:
-    linear-gradient(rgba(246,249,253,.78), rgba(246,249,253,.78)),
-    url('/backgrounds/standard.svg') center/cover;
+    linear-gradient(135deg, rgba(255,255,255,.74), rgba(238,246,255,.68)),
+    url('/backgrounds/standard.svg') center/cover !important;
+  border: 1px solid #b9cbe7 !important;
 }
-.theme-classic .appearance-preview-classic {
+.appearance-preview-standard .appearance-preview-top { background:#2563eb !important; }
+.appearance-preview-standard .appearance-preview-board i { background:#7c5ce3 !important; }
+.appearance-preview-standard .appearance-preview-board i:nth-child(4n+1),
+.appearance-preview-standard .appearance-preview-board i:nth-child(4n+4) { background:#dce9fb !important; opacity:1; }
+
+.appearance-preview-classic {
   background:
-    linear-gradient(rgba(7,27,24,.72), rgba(7,27,24,.82)),
-    url('/backgrounds/classic.svg') center/cover;
+    linear-gradient(135deg, rgba(7,27,24,.66), rgba(12,36,32,.72)),
+    url('/backgrounds/classic.svg') center/cover !important;
+  border: 1px solid #665535 !important;
 }
-.theme-standard .appearance-preview-standard .appearance-preview-top { background:#2563eb; }
-.theme-classic .appearance-preview-classic .appearance-preview-top { background:#d7a84b; }
+.appearance-preview-classic .appearance-preview-top { background:#d7a84b !important; }
+.appearance-preview-classic .appearance-preview-board i { background:#31584d !important; }
+.appearance-preview-classic .appearance-preview-board i:nth-child(4n+1),
+.appearance-preview-classic .appearance-preview-board i:nth-child(4n+4) { background:#c7b88a !important; opacity:1; }
 
 
 /* Visual finish: backgrounds remain visible and the UI uses the promised
