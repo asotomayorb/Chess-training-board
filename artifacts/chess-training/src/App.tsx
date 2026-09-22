@@ -604,7 +604,7 @@ function Home() {
     setMiddlegamePrompt(chooseMiddlegameTrainingPrompt(freshCompleteGame, { difficulty: trainingDifficulty }));
     const playerColor: OpeningColor = sideChoice === 'random' ? (Math.random() < 0.5 ? 'white' : 'black') : sideChoice;
     setTrainingPlayerColor(playerColor);
-    setTrainingSideChoice(sideChoice);
+    setTrainingSideChoice(playerColor);
     setTurn(freshCompleteGame.turn);
     setTrainingSelection(null);
     setOpeningNodeId(null);
