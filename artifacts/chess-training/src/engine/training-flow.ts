@@ -8,7 +8,8 @@ import type { OpeningColor, OpeningVariant } from '@/data/openings';
 export function getOpeningTrainingColor(variant: OpeningVariant): OpeningColor {
   const name = variant.name.toLocaleLowerCase('es');
   const defense = variant.defense.toLocaleLowerCase('es');
-  return name.includes('defensa') || defense.startsWith('defensa') ? 'black' : 'white';
+  void defense;
+  return name.includes('defensa') ? 'black' : 'white';
 }
 
 export function openingRoleLabel(variant: OpeningVariant): string {
