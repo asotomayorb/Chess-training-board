@@ -431,6 +431,9 @@ function Home() {
     stockfishOpponentBusyRef.current = false;
     botRequestRef.current += 1;
     setBotThinking(false);
+    stockfishOpponentBusyRef.current = false;
+    botRequestRef.current += 1;
+    setBotThinking(false);
     setCompleteErrors(0);
     setMiddlegameErrors(0);
     setEndgameErrors(0);
