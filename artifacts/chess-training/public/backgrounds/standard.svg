@@ -8,4 +8,5 @@
 <rect width="1600" height="1000" fill="url(#p)"/>
 <g opacity=".16" filter="url(#s)" fill="#2563eb"><circle cx="170" cy="170" r="120"/><circle cx="1440" cy="240" r="170"/><circle cx="800" cy="920" r="220"/></g>
 <g fill="none" stroke="#7c5ce3" opacity=".10" stroke-width="5"><path d="M90 760C330 540 470 900 720 650s420-40 790-300"/><path d="M40 220c260 170 430-80 690 120s460 100 820-40"/></g>
+<g fill="#2563eb" opacity=".07" font-family="Georgia,serif" font-size="310"><text x="70" y="900">♞</text><text x="1230" y="390">♜</text></g><g fill="none" stroke="#7c5ce3" opacity=".09" stroke-width="3"><circle cx="270" cy="820" r="105"/><circle cx="1370" cy="760" r="150"/></g>
 </svg>
