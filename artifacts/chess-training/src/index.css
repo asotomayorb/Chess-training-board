@@ -557,12 +557,16 @@ body {
   content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: .32;
 }
 .theme-standard .app-grain::before {
-  background: radial-gradient(ellipse at 20% 85%, rgba(124,92,227,.12), transparent 28%),
-              radial-gradient(ellipse at 80% 70%, rgba(37,99,235,.10), transparent 30%);
+  background:
+    linear-gradient(rgba(255,255,255,.20), rgba(255,255,255,.20)),
+    url('/backgrounds/standard.svg') center/cover no-repeat;
+  opacity: .72;
 }
 .theme-classic .app-grain::before {
-  background: radial-gradient(ellipse at 18% 82%, rgba(215,168,75,.09), transparent 27%),
-              radial-gradient(ellipse at 82% 72%, rgba(47,143,114,.10), transparent 30%);
+  background:
+    linear-gradient(rgba(4,17,15,.16), rgba(4,17,15,.16)),
+    url('/backgrounds/classic.svg') center/cover no-repeat;
+  opacity: .78;
 }
 .theme-standard .app-grain > div,
 .theme-classic .app-grain > div { position: relative; z-index: 1; }
