@@ -415,7 +415,6 @@ function Home() {
   const resetFreePractice = () => {
     setShowMainMenu(false);
     setSummaryDismissed(false);
-    setLocalOpponent(opponent);
     setUndoStack([]);
     const freshCompleteGame = createChessGameState();
     setCompleteGame(freshCompleteGame);
@@ -583,6 +582,7 @@ function Home() {
   const startCompleteGame = (sideChoice: TrainingSideChoice = trainingSideChoice, opponent: 'bot' | 'local' = 'bot') => {
     setShowMainMenu(false);
     setSummaryDismissed(false);
+    setLocalOpponent(opponent);
     setLocalOpponent(opponent);
     setUndoStack([]);
     const freshCompleteGame = createChessGameState();
