@@ -1,12 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000">
 <defs>
- <radialGradient id="g" cx="50%" cy="0%" r="90%"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#dce9f7"/></radialGradient>
- <pattern id="p" width="160" height="160" patternUnits="userSpaceOnUse"><path d="M0 0h80v80H0zM80 80h80v80H80z" fill="#d7e5f5" opacity=".34"/><path d="M80 0h80v80H80zM0 80h80v80H0z" fill="#7c5ce3" opacity=".06"/></pattern>
- <filter id="s"><feGaussianBlur stdDeviation="18"/></filter>
+ <radialGradient id="bg" cx="50%" cy="0%" r="100%"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#dbe9f8"/></radialGradient>
+ <pattern id="grid" width="160" height="160" patternUnits="userSpaceOnUse"><path d="M0 0h80v80H0zM80 80h80v80H80z" fill="#7c5ce3" opacity=".08"/></pattern>
+ <pattern id="mini" width="320" height="320" patternUnits="userSpaceOnUse"><path d="M160 18l38 82 90 8-69 58 22 88-81-46-81 46 22-88-69-58 90-8z" fill="none" stroke="#2563eb" stroke-width="3" opacity=".16"/></pattern>
+ <filter id="blur"><feGaussianBlur stdDeviation="28"/></filter>
 </defs>
-<rect width="1600" height="1000" fill="url(#g)"/>
-<rect width="1600" height="1000" fill="url(#p)"/>
-<g opacity=".16" filter="url(#s)" fill="#2563eb"><circle cx="170" cy="170" r="120"/><circle cx="1440" cy="240" r="170"/><circle cx="800" cy="920" r="220"/></g>
-<g fill="none" stroke="#7c5ce3" opacity=".10" stroke-width="5"><path d="M90 760C330 540 470 900 720 650s420-40 790-300"/><path d="M40 220c260 170 430-80 690 120s460 100 820-40"/></g>
-<g fill="#2563eb" opacity=".07" font-family="Georgia,serif" font-size="310"><text x="70" y="900">♞</text><text x="1230" y="390">♜</text></g><g fill="none" stroke="#7c5ce3" opacity=".09" stroke-width="3"><circle cx="270" cy="820" r="105"/><circle cx="1370" cy="760" r="150"/></g>
+<rect width="1600" height="1000" fill="url(#bg)"/><rect width="1600" height="1000" fill="url(#grid)"/><rect width="1600" height="1000" fill="url(#mini)"/>
+<g fill="#2563eb" opacity=".13" filter="url(#blur)"><circle cx="150" cy="160" r="150"/><circle cx="1450" cy="250" r="190"/><circle cx="820" cy="930" r="250"/></g>
+<g fill="#2563eb" opacity=".17" font-family="Georgia,serif" font-size="360"><text x="35" y="910">♞</text><text x="1240" y="420">♜</text></g>
+<g fill="none" stroke="#7c5ce3" stroke-width="7" opacity=".14"><path d="M40 760C280 500 500 910 760 640s430-40 800-300"/><path d="M30 210c280 190 470-100 720 120s480 100 830-60"/></g>
+<g fill="none" stroke="#2563eb" stroke-width="4" opacity=".16"><circle cx="245" cy="810" r="115"/><circle cx="1380" cy="760" r="150"/></g>
 </svg>
