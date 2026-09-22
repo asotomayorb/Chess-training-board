@@ -104,12 +104,13 @@ function makeTrainingBoard(kind: 'middlegame' | 'opposition' | 'rooks' | 'queen'
     board[square.row][square.col] = { type, color };
   };
   if (kind === 'middlegame') {
+    // Tema concreto: Bg5 ataca la dama en f6 y obliga a responder a una amenaza inmediata.
     put('e1', 'king', 'white'); put('d1', 'queen', 'white'); put('a1', 'rook', 'white'); put('h1', 'rook', 'white');
-    put('c1', 'bishop', 'white'); put('f1', 'bishop', 'white'); put('b1', 'knight', 'white'); put('g1', 'knight', 'white');
-    ['a2','b2','c3','d4','e4','f2','g2','h3'].forEach((s) => put(s, 'pawn', 'white'));
-    put('e8', 'king', 'black'); put('d8', 'queen', 'black'); put('a8', 'rook', 'black'); put('h8', 'rook', 'black');
-    put('c8', 'bishop', 'black'); put('f8', 'bishop', 'black'); put('b8', 'knight', 'black'); put('g8', 'knight', 'black');
-    ['a7','b6','c5','d6','e5','f7','g7','h6'].forEach((s) => put(s, 'pawn', 'black'));
+    put('c1', 'bishop', 'white'); put('f1', 'bishop', 'white'); put('b1', 'knight', 'white'); put('f3', 'knight', 'white');
+    ['a2','b2','c2','d4','e4','f2','g2','h2'].forEach((s) => put(s, 'pawn', 'white'));
+    put('e8', 'king', 'black'); put('f6', 'queen', 'black'); put('a8', 'rook', 'black'); put('h8', 'rook', 'black');
+    put('c8', 'bishop', 'black'); put('g4', 'bishop', 'black'); put('b8', 'knight', 'black'); put('g8', 'knight', 'black');
+    ['a7','b7','c7','d6','e5','f7','g7','h7'].forEach((s) => put(s, 'pawn', 'black'));
   } else if (kind === 'opposition') {
     // Posición didáctica: oposición con un tiempo de reserva en el peón.
     put('e5', 'king', 'white'); put('e3', 'pawn', 'white'); put('e7', 'king', 'black');
