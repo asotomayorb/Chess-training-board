@@ -549,7 +549,7 @@ function Home() {
     const playerColor: OpeningColor = sideChoice === 'random' ? (Math.random() < 0.5 ? 'white' : 'black') : sideChoice;
     setTrainingPlayerColor(playerColor);
     setTrainingSideChoice(sideChoice);
-    setTurn(playerColor);
+    setTurn(freshCompleteGame.turn);
     setTrainingSelection(null);
     setOpeningNodeId(null);
   };
