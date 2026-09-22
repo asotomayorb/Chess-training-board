@@ -102,12 +102,25 @@ function makeTrainingBoard(kind: 'middlegame' | 'opposition' | 'rooks' | 'queen'
     board[square.row][square.col] = { type, color };
   };
   if (kind === 'middlegame') {
+    // Tres estructuras distintas para que los ejercicios de medio juego no repitan
+    // el mismo tablero con una consigna diferente.
+    const variant = Math.floor(Math.random() * 3);
     put('e1', 'king', 'white'); put('d1', 'queen', 'white'); put('a1', 'rook', 'white'); put('h1', 'rook', 'white');
     put('c1', 'bishop', 'white'); put('f1', 'bishop', 'white'); put('b1', 'knight', 'white'); put('g1', 'knight', 'white');
-    ['a2','b2','c3','d4','e4','f2','g2','h3'].forEach((s) => put(s, 'pawn', 'white'));
+    const whitePawns = [
+      ['a2','b2','c3','d4','e4','f2','g2','h3'],
+      ['a3','b2','c4','d3','e4','f3','g2','h2'],
+      ['a2','b3','c2','d4','e3','f2','g3','h2'],
+    ][variant];
+    whitePawns.forEach((square) => put(square, 'pawn', 'white'));
     put('e8', 'king', 'black'); put('d8', 'queen', 'black'); put('a8', 'rook', 'black'); put('h8', 'rook', 'black');
     put('c8', 'bishop', 'black'); put('f8', 'bishop', 'black'); put('b8', 'knight', 'black'); put('g8', 'knight', 'black');
-    ['a7','b6','c5','d6','e5','f7','g7','h6'].forEach((s) => put(s, 'pawn', 'black'));
+    const blackPawns = [
+      ['a7','b6','c5','d6','e5','f7','g7','h6'],
+      ['a6','b7','c5','d6','e5','f7','g6','h7'],
+      ['a7','b6','c7','d5','e6','f7','g7','h6'],
+    ][variant];
+    blackPawns.forEach((square) => put(square, 'pawn', 'black'));
   } else if (kind === 'opposition') {
     // Posición didáctica: oposición con un tiempo de reserva en el peón.
     put('e5', 'king', 'white'); put('e3', 'pawn', 'white'); put('e7', 'king', 'black');
@@ -1296,7 +1309,6 @@ function App() {
 }
 
 export default App;
-
 
 
 
