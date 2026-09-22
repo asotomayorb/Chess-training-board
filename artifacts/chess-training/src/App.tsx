@@ -532,7 +532,8 @@ function Home() {
     setShowMainMenu(false);
     setSummaryDismissed(false);
     setUndoStack([]);
-    const freshCompleteGame = createChessGameState();
+    const playerColor: OpeningColor = sideChoice === 'random' ? (Math.random() < 0.5 ? 'white' : 'black') : sideChoice;
+    const freshCompleteGame = { ...createChessGameState(), turn: playerColor as Side };
     setCompleteGame(freshCompleteGame);
     setPromotionPending(null);
     setBoard(freshCompleteGame.board);
@@ -556,7 +557,6 @@ function Home() {
     setEndgameErrors(0);
     setEndgamePrompt(chooseEndgameTrainingPrompt(freshCompleteGame));
     setMiddlegamePrompt(chooseMiddlegameTrainingPrompt(freshCompleteGame, { difficulty: trainingDifficulty }));
-    const playerColor: OpeningColor = sideChoice === 'random' ? (Math.random() < 0.5 ? 'white' : 'black') : sideChoice;
     setTrainingPlayerColor(playerColor);
     setTrainingSideChoice(sideChoice);
     setTurn(playerColor);
@@ -1296,7 +1296,6 @@ function App() {
 }
 
 export default App;
-
 
 
 
