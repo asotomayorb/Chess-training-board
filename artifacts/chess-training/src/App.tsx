@@ -137,6 +137,37 @@ function getOpponentSide(playerColor: OpeningColor): Side {
   return playerColor === 'white' ? 'black' : 'white';
 }
 
+function choosePuzzleReply(state: ChessGameState): ChessGameMove | null {
+  const moves = getLegalChessMoves(state);
+  if (!moves.length) return null;
+  const checks = moves.filter((move) => {
+    const next = applyChessMove(state, move);
+    const status = getChessGameStatus(next);
+    return status === 'check' || status === 'checkmate';
+  });
+  if (checks.length) return checks[0];
+  const captures = moves.filter((move) => Boolean(state.board[move.to.row][move.to.col]) || move.special === 'en-passant');
+  if (captures.length) return captures[0];
+  return moves[Math.min(2, moves.length - 1)];
+}
+function buildPuzzleSequence(initial: ChessGameState, firstMove: ChessGameMove, focus: 'middlegame' | 'endgame', difficulty: TrainingDifficulty): ChessGameMove[] {
+  const sequence: ChessGameMove[] = [firstMove];
+  let state = applyChessMove(initial, firstMove);
+  for (let pair = 0; pair < 2; pair += 1) {
+    const reply = choosePuzzleReply(state);
+    if (!reply) break;
+    sequence.push(reply);
+    state = applyChessMove(state, reply);
+    const prompt = focus === 'endgame' ? chooseEndgameTrainingPrompt(state) : chooseMiddlegameTrainingPrompt(state, { difficulty });
+    const candidates = prompt?.candidateMoves.filter((move) => move.color === state.turn) ?? [];
+    const nextPlayerMove = candidates[0] ?? getLegalChessMoves(state)[0];
+    if (!nextPlayerMove) break;
+    sequence.push(nextPlayerMove);
+    state = applyChessMove(state, nextPlayerMove);
+  }
+  return sequence;
+}
+
 function getCompleteThreatMessage(state: ChessGameState): string | null {
   if (state.turn !== 'white') return null;
   const opponentState = { ...state, turn: 'black' as Side };
@@ -205,6 +236,8 @@ function Home() {
   const [puzzleErrorMove, setPuzzleErrorMove] = useState<[string, string] | null>(null);
   const [puzzleErrorCount, setPuzzleErrorCount] = useState(0);
   const [puzzleExpectedMoveUci, setPuzzleExpectedMoveUci] = useState<string | null>(null);
+  const [puzzleSequence, setPuzzleSequence] = useState<ChessGameMove[]>([]);
+  const [puzzleSequenceStep, setPuzzleSequenceStep] = useState(0);
   type UndoSnapshot = { board: Board; completeGame: ChessGameState; turn: Side; lastMove: [string,string] | null; moveHistory: string[]; openingNodeId: string | null };
   const [undoStack, setUndoStack] = useState<UndoSnapshot[]>([]);
   const [trainingSelection, setTrainingSelection] = useState<VariantSelection | null>(null);
@@ -370,6 +403,8 @@ function Home() {
     setPuzzleErrorMove(null);
     setPuzzleErrorCount(0);
     setPuzzleExpectedMoveUci(null);
+    setPuzzleSequence([]);
+    setPuzzleSequenceStep(0);
     setMoveHistory([]);
     setFocusCue('Antes de mover, identifica la tensión de la posición.');
     setCompleteFeedback('');
@@ -485,19 +520,19 @@ function Home() {
     setPuzzleErrorMove(null);
     setPuzzleErrorCount(0);
     setPuzzleExpectedMoveUci(null);
+    setPuzzleSequence([]);
+    setPuzzleSequenceStep(0);
     const endgame = chooseEndgameTrainingPrompt(freshGame);
     const middlegame = focus === 'middlegame' ? chooseMiddlegameTrainingPrompt(freshGame, { difficulty: trainingDifficulty }) : null;
     setEndgamePrompt(endgame);
     setMiddlegamePrompt(middlegame);
     if (focus === 'middlegame' || focus === 'endgame') {
-      // El puzzle debe estar listo inmediatamente y no competir por el worker
-      // con el modo Vs bot. La solución pedagógica es la autoridad del ejercicio;
-      // Stockfish se usa como entrenador/análisis, no como bloqueo de la partida.
-      const pedagogicalCandidates = focus === 'endgame'
-        ? (endgame?.candidateMoves ?? [])
-        : (middlegame?.candidateMoves ?? []);
-      const fallback = pedagogicalCandidates[0] ?? getLegalChessMoves(freshGame)[0];
-      setPuzzleExpectedMoveUci(fallback ? chessMoveToUci(fallback) : null);
+      const pedagogicalCandidates = focus === 'endgame' ? (endgame?.candidateMoves ?? []) : (middlegame?.candidateMoves ?? []);
+      const firstMove = pedagogicalCandidates[0] ?? getLegalChessMoves(freshGame)[0];
+      const sequence = firstMove ? buildPuzzleSequence(freshGame, firstMove, focus, trainingDifficulty) : [];
+      setPuzzleSequence(sequence);
+      setPuzzleSequenceStep(0);
+      setPuzzleExpectedMoveUci(sequence[0] ? chessMoveToUci(sequence[0]) : null);
     }
     setTrainingSelection(null);
     setOpeningNodeId(null);
@@ -897,14 +932,35 @@ function Home() {
         }
         setPuzzleErrorMove(null);
         setPuzzleErrorCount(0);
-        applyCompleteMove(moveCandidates[0]);
-        setCompleteFeedback(`Correcto: ${squareName(selected)}–${squareName({ row, col })}. Preparando el siguiente ejercicio…`);
-        setPuzzleExpectedMoveUci(null);
-        // Los puzzles forman una sesión continua: resolver uno no deja el tablero
-        // en un estado terminal que obligue al usuario a pulsar Reiniciar.
+        const playerMove = moveCandidates[0];
+        applyCompleteMove(playerMove);
+        const nextStep = puzzleSequenceStep + 1;
+        const opponentReply = puzzleSequence[nextStep];
+        if (!opponentReply) {
+          setPuzzleSequenceStep(nextStep);
+          setPuzzleExpectedMoveUci(null);
+          setCompleteFeedback('Correcto: ' + squareName(selected) + '–' + squareName({ row, col }) + '. Línea resuelta.');
+          return;
+        }
+        const replyGame = applyChessMove(completeGame, playerMove);
+        const followingPlayerMove = puzzleSequence[nextStep + 1];
+        setPuzzleSequenceStep(nextStep + 1);
+        setPuzzleExpectedMoveUci(followingPlayerMove ? chessMoveToUci(followingPlayerMove) : null);
         window.setTimeout(() => {
-          startPuzzleTraining(puzzleFocus, trainingSideChoice);
-        }, 450);
+          const legalReply = getLegalChessMoves(replyGame).find((candidate) => chessMoveToUci(candidate) === chessMoveToUci(opponentReply));
+          if (!legalReply) {
+            setCompleteFeedback('La línea didáctica no pudo continuar desde la posición actual. Reinicia el ejercicio.');
+            return;
+          }
+          const afterReply = applyChessMove(replyGame, legalReply);
+          setCompleteGame(afterReply);
+          setBoard(afterReply.board);
+          setTurn(afterReply.turn);
+          setLastMove([squareName(legalReply.from), squareName(legalReply.to)]);
+          setMoveHistory((history) => [...history, 'Rival: ' + squareName(legalReply.from) + '–' + squareName(legalReply.to)]);
+          setSelected(null);
+          setCompleteFeedback(followingPlayerMove ? 'Respuesta rival. Busca ahora la siguiente jugada de la línea.' : 'Línea resuelta.');
+        }, 500);
         return;
       }
 
