@@ -598,6 +598,9 @@ function Home() {
     setStockfishMoveQuality(null);
     setStockfishCoachResult(null);
     setStockfishMoveLoading(false);
+    setBotThinking(false);
+    stockfishOpponentBusyRef.current = false;
+    botRequestRef.current += 1;
     stockfishAnalysisRequestRef.current += 1;
     stockfishMoveBusyRef.current = false;
     setCompleteErrors(0);
