@@ -769,7 +769,10 @@ function Home() {
     );
     const periodicPosition = previousGame.positionHistory.length % 4 === 0;
     const focusedTraining = trainingFocus === 'middlegame' || trainingFocus === 'endgame';
-    const shouldAutoAnalyze = previousGame.turn === trainingPlayerColor;
+    // En Vs bot, el motor debe reservarse para responder al jugador:
+    // el análisis de calidad de la jugada anterior usa dos búsquedas Stockfish
+    // y podía bloquear la respuesta rival durante demasiado tiempo.
+    const shouldAutoAnalyze = previousGame.turn === trainingPlayerColor && localOpponent !== 'bot';
 
     if (shouldAutoAnalyze && !stockfishMoveBusyRef.current) {
       const requestId = ++stockfishAnalysisRequestRef.current;
