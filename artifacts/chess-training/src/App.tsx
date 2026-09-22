@@ -232,6 +232,8 @@ function Home() {
   useEffect(() => () => {
     stockfishAnalysisRequestRef.current += 1;
     stockfishMoveBusyRef.current = false;
+    stockfishOpponentBusyRef.current = false;
+    botRequestRef.current += 1;
     stockfishRef.current?.dispose();
     stockfishRef.current = null;
   }, []);
@@ -524,6 +526,7 @@ function Home() {
     setStockfishCoachResult(null);
     setStockfishMoveLoading(false);
     setBotThinking(false);
+    stockfishOpponentBusyRef.current = false;
     botRequestRef.current += 1;
     stockfishAnalysisRequestRef.current += 1;
     stockfishMoveBusyRef.current = false;
