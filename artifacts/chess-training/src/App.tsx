@@ -24,6 +24,7 @@ import { evaluateEndgameMove } from '@/engine/endgame-evaluation';
 import { evaluateCompleteMove } from '@/engine/complete-training';
 import { StockfishEngine, chessMoveToUci, type StockfishAnalysis, type StockfishMoveQuality } from '@/engine/stockfish-engine';
 import { classifyStockfishMove, type StockfishCoachResult } from '@/engine/stockfish-coach';
+import { getOpeningTrainingColor } from '@/engine/training-flow';
 import {
   applyBoardMove,
   applyChessMove,
@@ -240,11 +241,14 @@ function Home() {
   const [puzzleSequence, setPuzzleSequence] = useState<ChessGameMove[]>([]);
   const [puzzleSequenceStep, setPuzzleSequenceStep] = useState(0);
   const [puzzleEngineLoading, setPuzzleEngineLoading] = useState(false);
+  const [botThinking, setBotThinking] = useState(false);
+  const botRequestRef = useRef(0);
   type UndoSnapshot = { board: Board; completeGame: ChessGameState; turn: Side; lastMove: [string,string] | null; moveHistory: string[]; openingNodeId: string | null };
   const [undoStack, setUndoStack] = useState<UndoSnapshot[]>([]);
   const [trainingSelection, setTrainingSelection] = useState<VariantSelection | null>(null);
   const [trainingPlayerColor, setTrainingPlayerColor] = useState<OpeningColor>('white');
   const [trainingSideChoice, setTrainingSideChoice] = useState<TrainingSideChoice>('random');
+  const [puzzleKind, setPuzzleKind] = useState<'middlegame' | 'opposition' | 'rooks' | 'queen' | null>(null);
   const [openingNodeId, setOpeningNodeId] = useState<string | null>(null);
   const [trainingErrors, setTrainingErrors] = useState(0);
   const [moveErrors, setMoveErrors] = useState(0);
@@ -344,60 +348,70 @@ function Home() {
   const freeWinnerLabel = turn === 'white' ? 'negras' : 'blancas';
 
   useEffect(() => {
-    if (mode !== 'complete' || localOpponent !== 'bot' || trainingFocus === 'middlegame' || trainingFocus === 'endgame' || completeGame.turn === trainingPlayerColor || completeGameOver || stockfishOpponentBusyRef.current || stockfishMoveLoading) return;
+    if (mode !== 'complete' || localOpponent !== 'bot' || trainingFocus !== 'complete' || completeGame.turn === trainingPlayerColor || completeGameOver || stockfishOpponentBusyRef.current) return;
     const timer = window.setTimeout(() => {
       if (stockfishOpponentBusyRef.current) return;
       stockfishOpponentBusyRef.current = true;
+      const requestId = ++botRequestRef.current;
+      const gameAtRequest = completeGame;
+      setBotThinking(true);
       const engine = stockfishRef.current ?? new StockfishEngine();
       stockfishRef.current = engine;
-      // La dificultad se expresa como comportamiento del bot, no como un Elo FIDE exacto.
-      // Stockfish limita su escala UCI_Elo inferior a la de un principiante humano,
-      // Usamos profundidad y Skill Level crecientes para representar progresión de juego,
-      // sin afirmar una equivalencia exacta con un nivel humano.
       const skillByDifficulty: Record<TrainingDifficulty, { depth: number; skillLevel: number }> = {
         fundamentos: { depth: 14, skillLevel: 5 },
         intermedio: { depth: 18, skillLevel: 12 },
         avanzado: { depth: 22, skillLevel: 20 },
       };
-      const level = skillByDifficulty[trainingDifficulty];
-      void engine.analyze(completeGame, level)
+      void engine.analyze(gameAtRequest, skillByDifficulty[trainingDifficulty])
         .then((analysis) => {
-          const candidate = getLegalChessMoves(completeGame).find((move) => chessMoveToUci(move) === analysis.bestMove);
-          const move = candidate;
-          if (!move) {
-            throw new Error(`Stockfish devolvió una jugada no legal para la posición: ${analysis.bestMove}`);
-          }
-          const nextGame = applyChessMove(completeGame, move);
+          if (requestId !== botRequestRef.current) return;
+          const move = getLegalChessMoves(gameAtRequest).find((candidate) => chessMoveToUci(candidate) === analysis.bestMove);
+          if (!move) throw new Error(`Stockfish devolvió una jugada no legal para la posición: ${analysis.bestMove}`);
+          const nextGame = applyChessMove(gameAtRequest, move);
           setCompleteGame(nextGame);
           setBoard(nextGame.board);
-          const nextEndgamePrompt = chooseEndgameTrainingPrompt(nextGame);
-          setEndgamePrompt(nextEndgamePrompt);
-          setMiddlegamePrompt(nextEndgamePrompt ? null : chooseMiddlegameTrainingPrompt(nextGame, { difficulty: trainingDifficulty }));
+          setEndgamePrompt(chooseEndgameTrainingPrompt(nextGame));
+          setMiddlegamePrompt(chooseMiddlegameTrainingPrompt(nextGame, { difficulty: trainingDifficulty }));
           setLastMove([squareName(move.from), squareName(move.to)]);
-          setMoveHistory((history) => [...history, "Rival: " + squareName(move.from) + "–" + squareName(move.to)]);
+          setMoveHistory((history) => [...history, 'Rival: ' + squareName(move.from) + '–' + squareName(move.to)]);
           setTurn(nextGame.turn);
           setSelected(null);
           setPromotionPending(null);
-                      setFocusCue('El rival respondió con Stockfish. Vuelve a evaluar amenazas, capturas y el objetivo del ejercicio.');
+          setFocusCue('El rival respondió con Stockfish. Vuelve a evaluar amenazas, capturas y el objetivo del ejercicio.');
         })
         .catch((error) => {
+          if (requestId !== botRequestRef.current) return;
           setStockfishReady(false);
           setStockfishError(error instanceof Error ? error.message : 'Stockfish no pudo elegir la jugada rival.');
-          setCompleteFeedback('Stockfish no está disponible. La partida queda pausada para evitar una jugada de respaldo aleatoria.');
-        })        .finally(() => { stockfishOpponentBusyRef.current = false; });
-    }, 250);
+          setCompleteFeedback('El rival no pudo responder. La partida queda pausada; pulsa Reiniciar para intentarlo de nuevo.');
+        })
+        .finally(() => {
+          if (requestId === botRequestRef.current) {
+            stockfishOpponentBusyRef.current = false;
+            setBotThinking(false);
+          }
+        });
+    }, 150);
     return () => window.clearTimeout(timer);
-  }, [mode, localOpponent, completeGame, completeGameOver, trainingDifficulty, stockfishMoveLoading, trainingPlayerColor]);
+  }, [mode, localOpponent, trainingFocus, completeGame, completeGameOver, trainingDifficulty, trainingPlayerColor]);
 
   useEffect(() => {
-    if (mode !== 'complete' || (trainingFocus !== 'middlegame' && trainingFocus !== 'endgame') || puzzleExpectedMoveUci || puzzleEngineBusyRef.current || completeGame.turn !== trainingPlayerColor || freeGameOver) return;
+    if (mode !== 'complete' || (trainingFocus !== 'middlegame' && trainingFocus !== 'endgame') || puzzleExpectedMoveUci || puzzleEngineBusyRef.current || completeGame.turn !== trainingPlayerColor || freeGameOver || !puzzleKind) return;
+    const curatedUci = curatedPuzzleMoveUci(puzzleKind, trainingPlayerColor);
+    const curatedMove = getLegalChessMoves(completeGame).find((move) => chessMoveToUci(move) === curatedUci);
+    if (curatedMove) {
+      setPuzzleExpectedMoveUci(curatedUci);
+      setCompleteFeedback('Encuentra la jugada clave de esta posición.');
+      return;
+    }
     puzzleEngineBusyRef.current = true;
     setPuzzleEngineLoading(true);
     const engine = stockfishRef.current ?? new StockfishEngine();
     stockfishRef.current = engine;
-    void engine.analyze(completeGame, { depth: 18 })
+    const gameAtRequest = completeGame;
+    void engine.analyze(gameAtRequest, { depth: 18 })
       .then((analysis) => {
-        const legal = getLegalChessMoves(completeGame).find((move) => chessMoveToUci(move) === analysis.bestMove);
+        const legal = getLegalChessMoves(gameAtRequest).find((move) => chessMoveToUci(move) === analysis.bestMove);
         if (!legal) throw new Error('Stockfish no devolvió una jugada legal para el puzzle.');
         setPuzzleExpectedMoveUci(chessMoveToUci(legal));
         setCompleteFeedback('Encuentra la mejor continuación de esta posición.');
@@ -410,7 +424,7 @@ function Home() {
         puzzleEngineBusyRef.current = false;
         setPuzzleEngineLoading(false);
       });
-  }, [mode, trainingFocus, completeGame, puzzleExpectedMoveUci, trainingPlayerColor, freeGameOver]);
+  }, [mode, trainingFocus, completeGame, puzzleExpectedMoveUci, trainingPlayerColor, freeGameOver, puzzleKind]);
 
   const resetFreePractice = () => {
     setShowMainMenu(false);
@@ -450,6 +464,7 @@ function Home() {
     setTrainingSelection(null);
     setTrainingPlayerColor('white');
     setTrainingSideChoice('random');
+    setPuzzleKind(null);
     setOpeningNodeId(null);
     setTrainingErrors(0);
     setMoveErrors(0);
@@ -470,9 +485,9 @@ function Home() {
     setShowMainMenu(false);
     setSummaryDismissed(false);
     setUndoStack([]);
-    const playerColor: OpeningColor = sideChoice === 'random'
-      ? (Math.random() < 0.5 ? 'white' : 'black')
-      : sideChoice;
+    // El color es parte del rol pedagógico de la variante: las defensas se entrenan con negras;
+    // las aperturas, ataques y gambitos se entrenan con blancas.
+    const playerColor: OpeningColor = getOpeningTrainingColor(selection.variant);
     const initialBoard = makeInitialBoard();
     const initialTurn = getTrainingTurn(selection.tree, selection.variant, selection.variant.startNodeId, playerColor);
     const initialAutomaticMoves = initialTurn.automaticNodes.flatMap((node) => (node.move ? [node.move] : []));
@@ -490,7 +505,7 @@ function Home() {
     setMoveHistory(initialAutomaticMoves.map((move) => move.notation));
     setTrainingSelection(selection);
     setTrainingPlayerColor(playerColor);
-    setTrainingSideChoice(sideChoice);
+    setTrainingSideChoice(playerColor);
     setOpeningNodeId(
       initialAutomaticMoves.length
         ? initialTurn.automaticNodes[initialTurn.automaticNodes.length - 1].id
@@ -539,6 +554,8 @@ function Home() {
     setStockfishMoveQuality(null);
     setStockfishCoachResult(null);
     setStockfishMoveLoading(false);
+    setBotThinking(false);
+    botRequestRef.current += 1;
     stockfishAnalysisRequestRef.current += 1;
     stockfishMoveBusyRef.current = false;
     setCompleteErrors(0);
@@ -549,6 +566,7 @@ function Home() {
     setPuzzleExpectedMoveUci(null);
     setPuzzleSequence([]);
     setPuzzleSequenceStep(0);
+    setPuzzleKind(kind);
     const endgame = chooseEndgameTrainingPrompt(freshGame);
     const middlegame = focus === 'middlegame' ? chooseMiddlegameTrainingPrompt(freshGame, { difficulty: trainingDifficulty }) : null;
     setEndgamePrompt(endgame);
@@ -582,7 +600,6 @@ function Home() {
   const startCompleteGame = (sideChoice: TrainingSideChoice = trainingSideChoice, opponent: 'bot' | 'local' = 'bot') => {
     setShowMainMenu(false);
     setSummaryDismissed(false);
-    setLocalOpponent(opponent);
     setLocalOpponent(opponent);
     setUndoStack([]);
     const freshCompleteGame = createChessGameState();
